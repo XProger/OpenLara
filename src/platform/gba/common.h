@@ -136,6 +136,7 @@ typedef int16              Index;
 
 // system
 int32 osGetSystemTimeMS();
+void osJoyVibrate(int32 index, int32 L, int32 R);
 
 #ifdef PROFILING
     #define PROFILE_FRAME\

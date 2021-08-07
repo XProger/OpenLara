@@ -59,6 +59,44 @@ int32 fpsCounter = 0;
     {
         return 0; // TODO
     }
+
+    #define GPIO_RUMBLE_DATA      (*(vu16*)0x80000C4)
+    #define GPIO_RUMBLE_DIRECTION (*(vu16*)0x80000C6)
+    #define GPIO_RUMBLE_CONTROL   (*(vu16*)0x80000C8)
+    #define GPIO_RUMBLE_MASK      (1 << 3)
+
+    #define CART_RUMBLE_TICKS     3
+
+    int32 cartRumbleTick = 0;
+
+    void rumbleInit()
+    {
+        GPIO_RUMBLE_DIRECTION = GPIO_RUMBLE_MASK;
+        GPIO_RUMBLE_CONTROL = 1;
+    }
+
+    void rumbleSet(bool enable)
+    {
+        if (enable) {
+            GPIO_RUMBLE_DATA |= GPIO_RUMBLE_MASK;
+            cartRumbleTick = CART_RUMBLE_TICKS;
+        } else {
+            GPIO_RUMBLE_DATA &= ~GPIO_RUMBLE_MASK;
+            cartRumbleTick = 0;
+        }
+    }
+
+    void rumbleUpdate()
+    {
+        if (!cartRumbleTick || --cartRumbleTick)
+            return;
+        rumbleSet(false);
+    }
+
+    void osJoyVibrate(int32 index, int32 L, int32 R)
+    {
+        rumbleSet(X_MAX(L, R) > 0);
+    }
 #elif defined(__TNS__)
     unsigned int osTime;
     volatile unsigned int *timerBUS;
@@ -552,6 +590,7 @@ int main(void) {
         }
     }
 
+    rumbleInit();
     soundInit();
 
     game.init();
@@ -564,7 +603,10 @@ int main(void) {
 
     int32 lastFrameIndex = -1;
 
-    while (1) {
+    while (1)
+    {
+        rumbleUpdate();
+
         { // input
             keys = 0;
             key_poll();

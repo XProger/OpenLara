@@ -1479,7 +1479,7 @@ struct Lara : Item
     {
         if ((state == STATE_FAST_DIVE || state == STATE_ROLL_AIR) && vSpeed > 133)
         {
-            health = 0;
+            hit(LARA_MAX_HEALTH, pos, 0);
             return true;
         }
 
@@ -1495,9 +1495,9 @@ struct Lara : Item
             return false;
 
         if (vSpeed > 154) {
-            health = 0;
+            hit(LARA_MAX_HEALTH, pos, 0);
         } else {
-            health -= (X_SQR(vSpeed - 140) * LARA_MAX_HEALTH) / 196;
+            hit((X_SQR(vSpeed - 140) * LARA_MAX_HEALTH) / 196, pos, 0);
         }
 
         return health <= 0;
@@ -1799,6 +1799,7 @@ struct Lara : Item
                 vSpeed = 1;
             }
         } else if (!slide && ((cinfo.type == CT_FRONT) || (cinfo.type == CT_FRONT_CEILING))) {
+            osJoyVibrate(0, 0xFF, 0xFF);
             animSet(ANIM_SMASH_JUMP, true, 1);
             extraL->moveAngle += ANGLE_180;
             hSpeed >>= 2;
@@ -3720,6 +3721,15 @@ struct Lara : Item
         }
     }
 
+    virtual void hit(int32 damage, const vec3i &point, int32 soundId)
+    {
+        if (health <= 0 || damage <= 0)
+            return;
+
+        osJoyVibrate(0, 0xFF, 0xFF);
+        health -= damage;
+    }
+
     virtual void update()
     {
         gCamera = extraL->camera;
@@ -3738,7 +3748,7 @@ struct Lara : Item
                 if (oxygen > 0) {
                     oxygen--;
                 } else {
-                    health -= 5;
+                    hit(5, pos, 0);
                 }
             } else {
                 oxygen = X_MIN(oxygen + 10, LARA_MAX_OXYGEN);
