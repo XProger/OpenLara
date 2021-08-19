@@ -1838,7 +1838,7 @@ void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces
 void flush();
 
 void readLevel(const uint8 *data);
-bool trace(const Location &from, Location &to);
+bool trace(const Location &from, Location &to, bool accurate);
 
 Lara* getLara(const vec3i &pos);
 

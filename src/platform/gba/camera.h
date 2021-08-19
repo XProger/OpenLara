@@ -150,7 +150,7 @@ struct Camera
 
         Location best = getLocationForAngle(targetAngleY, distH, distV);
 
-        if (trace(target, best))
+        if (trace(target, best, true))
             return best;
 
         if (clip && best.pos != target.pos)
@@ -168,7 +168,7 @@ struct Camera
             Location tmpDest = getLocationForAngle(i * ANGLE_90, distH, distV);
             Location tmpView = view;
 
-            if (!trace(target, tmpDest) || !trace(tmpDest, tmpView))
+            if (!trace(target, tmpDest, true) || !trace(tmpDest, tmpView, false))
                 continue;
 
             distQ = X_SQR(view.pos.x - tmpDest.pos.x) + X_SQR(view.pos.z - tmpDest.pos.z);

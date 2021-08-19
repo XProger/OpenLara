@@ -124,15 +124,24 @@ void readLevel(const uint8* data)
 #define TRACE_CHECK(r, x, y, z) \
 { \
     const Sector* sector = r->getSector(x, z); \
-    if (y > sector->getFloor(x, y, z) || y < sector->getCeiling(x, y, z)) \
-    { \
-        to.pos = p; \
-        to.room = room; \
-        return false; \
+    if (accurate) { \
+        if (y > sector->getFloor(x, y, z) || y < sector->getCeiling(x, y, z)) \
+        { \
+            to.pos = p; \
+            to.room = room; \
+            return false; \
+        } \
+    } else { \
+        if (y > (sector->floor << 8) || y < (sector->ceiling << 8)) \
+        { \
+            to.pos = p; \
+            to.room = room; \
+            return false; \
+        } \
     } \
 }
 
-bool traceX(const Location &from, Location &to)
+bool traceX(const Location &from, Location &to, bool accurate)
 {
     vec3i d = to.pos - from.pos;
 
@@ -190,7 +199,7 @@ bool traceX(const Location &from, Location &to)
     return true;
 }
 
-bool traceZ(const Location &from, Location &to)
+bool traceZ(const Location &from, Location &to, bool accurate)
 {
     vec3i d = to.pos - from.pos;
 
@@ -250,7 +259,7 @@ bool traceZ(const Location &from, Location &to)
 
 #undef TRACE_CHECK
 
-bool trace(const Location &from, Location &to)
+bool trace(const Location &from, Location &to, bool accurate)
 {
     int32 dx = abs(to.pos.x - from.pos.x);
     int32 dz = abs(to.pos.z - from.pos.z);
@@ -259,12 +268,12 @@ bool trace(const Location &from, Location &to)
     bool res;
 
     if (dz > dx) {
-        res = traceX(from, to);
-        if (!traceZ(from, to))
+        res = traceX(from, to, accurate);
+        if (!traceZ(from, to, accurate))
             return false;
     } else {
-        res = traceZ(from, to);
-        if (!traceX(from, to))
+        res = traceZ(from, to, accurate);
+        if (!traceX(from, to, accurate))
             return false;
     }
 
