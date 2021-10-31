@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="common.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClInclude Include="nav.h" />
     <ClCompile Include="render.cpp" />
   </ItemGroup>
   <ItemGroup>

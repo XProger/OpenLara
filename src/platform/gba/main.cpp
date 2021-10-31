@@ -1,11 +1,10 @@
 #if defined(_WIN32) || defined(__DOS__)
     const void* TRACKS_IMA;
     const void* levelData;
-    #define LEVEL_NAME "LEVEL1.PKD"
 #elif defined(__GBA__)
     #include "TRACKS_IMA.h"
-    #include "LEVEL1_PKD.h"
-    const void* levelData = LEVEL1_PKD;
+    #include "LEVEL2_PKD.h"
+    const void* levelData = LEVEL2_PKD;
 #elif defined(__TNS__)
     const void* levelData;
 #endif
@@ -19,11 +18,7 @@ int32 frameIndex = 0;
 int32 fpsCounter = 0;
 
 #if defined(_WIN32)
-    #ifdef MODE_PAL
-        uint32 SCREEN[FRAME_WIDTH * FRAME_HEIGHT];
-    #else
-        uint32 SCREEN[VRAM_WIDTH * FRAME_HEIGHT];
-    #endif
+    uint32 SCREEN[FRAME_WIDTH * FRAME_HEIGHT];
 
     HWND hWnd;
 
@@ -33,15 +28,11 @@ int32 fpsCounter = 0;
     #define WND_WIDTH   240*4
     #define WND_HEIGHT  160*4
 
-    #ifdef MODE_PAL
-        uint16 MEM_PAL_BG[256];
-    #endif
+    uint16 MEM_PAL_BG[256];
 
-    void paletteSet(const uint16* palette)
+    void osSetPalette(const uint16* palette)
     {
-    #ifdef MODE_PAL
         memcpy(MEM_PAL_BG, palette, 256 * 2);
-    #endif
     }
 
     int32 osGetSystemTimeMS()
@@ -52,7 +43,7 @@ int32 fpsCounter = 0;
     void osJoyVibrate(int32 index, int32 L, int32 R) {}
 
 #elif defined(__GBA__)
-    void paletteSet(const uint16* palette)
+    void osSetPalette(const uint16* palette)
     {
         memcpy((uint16*)MEM_PAL_BG, palette, 256 * 2);
     }
@@ -132,7 +123,7 @@ int32 fpsCounter = 0;
 
     void osJoyVibrate(int32 index, int32 L, int32 R) {}
 
-    void paletteSet(const uint16* palette)
+    void osSetPalette(const uint16* palette)
     {
         memcpy((uint16*)0xC0000200, palette, 256 * 2);
     }
@@ -214,7 +205,7 @@ int32 fpsCounter = 0;
         "mov ax,03h"          \
         "int 10h";
 
-    void paletteSet(const uint16* palette)
+    void osSetPalette(const uint16* palette)
     {
         outp(0x03C8, 0);
         for (int32 i = 0; i < 256; i++)
@@ -393,21 +384,12 @@ void soundFill()
 HDC hDC;
 
 void blit() {
-#ifdef MODE_PAL
     for (int i = 0; i < FRAME_WIDTH * FRAME_HEIGHT; i++) {
         uint16 c = MEM_PAL_BG[((uint8*)fb)[i]];
         SCREEN[i] = (((c << 3) & 0xFF) << 16) | ((((c >> 5) << 3) & 0xFF) << 8) | ((c >> 10 << 3) & 0xFF) | 0xFF000000;
     }
     const BITMAPINFO bmi = { sizeof(BITMAPINFOHEADER), FRAME_WIDTH, -FRAME_HEIGHT, 1, 32, BI_RGB, 0, 0, 0, 0, 0 };
     StretchDIBits(hDC, 0, 0, WND_WIDTH, WND_HEIGHT, 0, 0, FRAME_WIDTH, FRAME_HEIGHT, SCREEN, &bmi, DIB_RGB_COLORS, SRCCOPY);
-#else
-    for (int i = 0; i < VRAM_WIDTH * FRAME_HEIGHT; i++) {
-        uint16 c = ((uint16*)fb)[i];
-        SCREEN[i] = (((c << 3) & 0xFF) << 16) | ((((c >> 5) << 3) & 0xFF) << 8) | ((c >> 10 << 3) & 0xFF) | 0xFF000000;
-    }
-    const BITMAPINFO bmi = { sizeof(BITMAPINFOHEADER), VRAM_WIDTH, -FRAME_HEIGHT, 1, 32, BI_RGB, 0, 0, 0, 0, 0 };
-    StretchDIBits(hDC, 0, 0, WND_WIDTH, WND_HEIGHT, 0, 0, FRAME_WIDTH, FRAME_HEIGHT, SCREEN, &bmi, DIB_RGB_COLORS, SRCCOPY);
-#endif
 }
 
 LRESULT CALLBACK wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -429,10 +411,10 @@ LRESULT CALLBACK wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 case VK_RIGHT  : key = IK_RIGHT;  break;
                 case VK_DOWN   : key = IK_DOWN;   break;
                 case VK_LEFT   : key = IK_LEFT;   break;
-                case 'Z'       : key = IK_B;      break;
-                case 'X'       : key = IK_A;      break;
-                case 'A'       : key = IK_L;      break;
-                case 'S'       : key = IK_R;      break;
+                case 'A'       : key = IK_B;      break;
+                case 'S'       : key = IK_A;      break;
+                case 'Q'       : key = IK_L;      break;
+                case 'W'       : key = IK_R;      break;
                 case VK_RETURN : key = IK_START;  break;
                 case VK_SPACE  : key = IK_SELECT; break;
             }
@@ -471,21 +453,51 @@ void vblank() {
 
 #endif
 
-int main(void) {
+int32 gLevelID = 2;
+
+static const char* gLevelNames[] = {
+    "GYM",
+    "LEVEL1",
+    "LEVEL2",
+    "LEVEL3A",
+    "LEVEL3B",
+//    "LEVEL4",
+//    "LEVEL5",
+//    "LEVEL6",
+//    "LEVEL7A",
+//    "LEVEL7B",
+//    "LEVEL8A",
+//    "LEVEL8B",
+//    "LEVEL8C",
+//    "LEVEL10A",
+//    "LEVEL10B",
+//    "LEVEL10C"
+};
+
+void osLoadLevel(const char* name)
+{
+    mixer.stopMusic();
+    mixer.stopSamples();
+
 #if defined(_WIN32) || defined(__TNS__) || defined(__DOS__)
     {
     // level1
+        char buf[32];
+
+        delete[] levelData;
+
         #if defined(_WIN32) || defined(__DOS__)
-            FILE *f = fopen("data/" LEVEL_NAME, "rb");
+            sprintf(buf, "data/%s.PKD", name);
         #elif defined(__TNS__)
-            FILE *f = fopen("/documents/OpenLara/LEVEL1.PHD.tns", "rb");
+            sprintf(buf, "/documents/OpenLara/%s.PKD.tns", name);
         #else
             #error
         #endif
 
-        if (!f) {
-            return 0;
-        }
+        FILE *f = fopen(buf, "rb");
+
+        if (!f)
+            return;
 
         {
             fseek(f, 0, SEEK_END);
@@ -500,11 +512,11 @@ int main(void) {
 
     // track 13
         #if defined(_WIN32) || defined(__DOS__)
+        if (!TRACKS_IMA)
         {
             FILE *f = fopen("data/TRACKS.IMA", "rb");
-            if (!f) {
-                return 0;
-            }
+            if (!f)
+                return;
 
             fseek(f, 0, SEEK_END);
             int32 size = ftell(f);
@@ -518,7 +530,9 @@ int main(void) {
         #endif
     }
 #endif
+}
 
+int main(void) {
 #if defined(_WIN32)
     RECT r = { 0, 0, WND_WIDTH, WND_HEIGHT };
 
@@ -534,12 +548,13 @@ int main(void) {
 
     soundInit();
 
-    game.init();
+    game.init(gLevelNames[gLevelID]);
 
     MSG msg;
 
-    int startTime = GetTickCount() - 33;
-    int lastFrame = 0;
+    int32 startTime = GetTickCount() - 33;
+    int32 lastFrame = 0;
+    uint32 oldKeys = 0;
 
     do {
         if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
@@ -548,6 +563,15 @@ int main(void) {
         } else {
             int32 frame = (GetTickCount() - startTime) / 33;
             if (GetAsyncKeyState('R')) frame /= 10;
+
+            if ((keys & IK_SELECT) && !(oldKeys & IK_SELECT))
+            {
+                gLevelID = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
+                game.startLevel(gLevelNames[gLevelID]);
+                lastFrame = frame - 1; 
+            }
+            oldKeys = keys;
+
             int32 count = frame - lastFrame;
             if (GetAsyncKeyState('T')) count *= 10;
             game.update(count);
@@ -599,7 +623,7 @@ int main(void) {
     rumbleInit();
     soundInit();
 
-    game.init();
+    game.init(gLevelNames[gLevelID]);
 
     uint16 mode = DCNT_BG2 | DCNT_PAGE;
 
@@ -660,7 +684,7 @@ int main(void) {
     timerInit();
     inputInit();
 
-    game.init();
+    game.init(gLevelNames[gLevelID]);
 
     int startTime = GetTickCount();
     int lastTime = -16;
@@ -696,7 +720,7 @@ int main(void) {
     videoAcquire();
     inputAcquire();
 
-    game.init();
+    game.init(gLevelNames[gLevelID]);
 
     int32 lastFrameIndex = -1;
 

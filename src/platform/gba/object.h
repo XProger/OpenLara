@@ -8,57 +8,56 @@
 vec3i getBlockOffset(int16 angleY, int32 offset)
 {
     if (angleY == ANGLE_0)
-        return vec3i(0, 0, -offset);
+        return _vec3i(0, 0, -offset);
     if (angleY == ANGLE_180)
-        return vec3i(0, 0, offset);
+        return _vec3i(0, 0, offset);
     if (angleY == ANGLE_90)
-        return vec3i(-offset, 0, 0);
-    return vec3i(offset, 0, 0);
+        return _vec3i(-offset, 0, 0);
+    return _vec3i(offset, 0, 0);
 }
 
 struct Limit
 {
-    Bounds box;
+    AABBs box;
     vec3s angle;
 };
 
-namespace Limits
-{
-    static const Limit SWITCH = {
-        Bounds( -200, 200, 0, 0, 312, 512 ),
-        vec3s( ANGLE(10), ANGLE(30), ANGLE(10) )
-    };
+// armcpp won't initialize structs
 
-    static const Limit SWITCH_UW = {
-        Bounds( -1024, 1024, -1024, 1024, -1024, 1024 ),
-        vec3s( ANGLE(80), ANGLE(80), ANGLE(80) )
-    };
+int16 LIMIT_SWITCH[] = {
+    -200, 200, 0, 0, 312, 512,
+    ANGLE(10), ANGLE(30), ANGLE(10)
+};
 
-    static const Limit BLOCK = {
-        Bounds( -300, 300, 0, 0, -692, -512 ),
-        vec3s( ANGLE(10), ANGLE(30), ANGLE(10) )
-    };
+int16 LIMIT_SWITCH_UW[] = {
+    -1024, 1024, -1024, 1024, -1024, 1024,
+    ANGLE(80), ANGLE(80), ANGLE(80)
+};
 
-    static const Limit PICKUP = {
-        Bounds( -256, 256, -100, 100, -256, 100 ),
-        vec3s( ANGLE(10), 0, 0 )
-    };
+int16 LIMIT_BLOCK[] = {
+    -300, 300, 0, 0, -692, -512,
+    ANGLE(10), ANGLE(30), ANGLE(10)
+};
 
-    static const Limit PICKUP_UW = {
-        Bounds( -512, 512, -512, 512, -512, 512 ),
-        vec3s( ANGLE(45), ANGLE(45), ANGLE(45) )
-    };
+int16 LIMIT_PICKUP[] = {
+    -256, 256, -100, 100, -256, 100,
+    ANGLE(10), 0, 0
+};
 
-    static const Limit HOLE = {
-        Bounds( -200, 200, 0, 0, 312, 512 ),
-        vec3s( ANGLE(10), ANGLE(30), ANGLE(10) )
-    };
+int16 LIMIT_PICKUP_UW[] = {
+    -512, 512, -512, 512, -512, 512,
+    ANGLE(45), ANGLE(45), ANGLE(45)
+};
+
+int16 LIMIT_HOLE[] = {
+    -200, 200, 0, 0, 312, 512,
+    ANGLE(10), ANGLE(30), ANGLE(10)
 };
 
 
-struct Object : Item
+struct Object : ItemObj
 {
-    Object(Room* room) : Item(room) {}
+    Object(Room* room) : ItemObj(room) {}
 
     virtual void update()
     {
@@ -81,13 +80,15 @@ struct Object : Item
         return flags.reverse == 0;
     }
 
-    bool checkLimit(Lara* lara, const Limit& limit)
+    bool checkLimit(Lara* lara, const int16* limitData)
     {
+        Limit* limit = (Limit*)limitData;
+
         int16 ax = abs(lara->angle.x - angle.x);
         int16 ay = abs(lara->angle.y - angle.y);
         int16 az = abs(lara->angle.z - angle.z);
 
-        if (ax > limit.angle.x || ay > limit.angle.y || az > limit.angle.z)
+        if (ax > limit->angle.x || ay > limit->angle.y || az > limit->angle.z)
             return false;
 
         vec3i d = lara->pos - pos;
@@ -97,11 +98,11 @@ struct Object : Item
         const Matrix &m = matrixGet();
 
         vec3i p;
-        p.x = DP33(m[0], d) >> FIXED_SHIFT;
-        p.y = DP33(m[1], d) >> FIXED_SHIFT;
-        p.z = DP33(m[2], d) >> FIXED_SHIFT;
+        p.x = DP33(m.e00, m.e01, m.e02, d.x, d.y, d.z) >> FIXED_SHIFT;
+        p.y = DP33(m.e10, m.e11, m.e12, d.x, d.y, d.z) >> FIXED_SHIFT;
+        p.z = DP33(m.e20, m.e21, m.e22, d.x, d.y, d.z) >> FIXED_SHIFT;
 
-        return boxContains(limit.box, p);
+        return boxContains(limit->box, p);
     }
 
     void collideDefault(Lara* lara, CollisionInfo* cinfo)
@@ -117,9 +118,9 @@ struct Object : Item
 };
 
 
-struct SpriteEffect : Item
+struct SpriteEffect : ItemObj
 {
-    SpriteEffect(Room* room) : Item(room)
+    SpriteEffect(Room* room) : ItemObj(room)
     {
         tick = 0;
         timer = 0;
@@ -138,7 +139,7 @@ struct SpriteEffect : Item
             if (flags.animated)
             {
                 frameIndex++;
-                if (frameIndex >= -models[type].count)
+                if (frameIndex >= -level.models[type].count)
                 {
                     remove();
                     return;
@@ -158,14 +159,14 @@ struct SpriteEffect : Item
 };
 
 
-struct Bubble : Item
+struct Bubble : ItemObj
 {
-    Bubble(Room* room) : Item(room)
+    Bubble(Room* room) : ItemObj(room)
     {
         soundPlay(SND_BUBBLE, pos);
-        frameIndex = rand_draw() % (-models[type].count);
+        frameIndex = rand_draw() % (-level.models[type].count);
         vSpeed = -(10 + (rand_draw() % 6));
-        angle = vec3s(0, 0, ANGLE_90);
+        angle = _vec3s(0, 0, ANGLE_90);
         activate();
 
         roomFloor = getWaterLevel();
@@ -378,7 +379,7 @@ struct Switch : Object
         if (flags.status != ITEM_FLAGS_STATUS_NONE)
             return;
 
-        if (!checkLimit(lara, Limits::SWITCH))
+        if (!checkLimit(lara, LIMIT_SWITCH))
             return;
 
         lara->angle.y = angle.y;
@@ -432,10 +433,10 @@ struct SwitchWater : Switch
         if (lara->state != Lara::STATE_UW_TREAD)
             return;
 
-        if (!checkLimit(lara, Limits::SWITCH_UW))
+        if (!checkLimit(lara, LIMIT_SWITCH_UW))
             return;
 
-        if (!lara->moveTo(vec3i(0, 0, 108), this, true))
+        if (!lara->moveTo(_vec3i(0, 0, 108), this, true))
             return;
 
         lara->vSpeed = 0; // underwater speed
@@ -455,7 +456,7 @@ struct Key : Object
 {
     Key(Room* room) : Object(room) {}
 
-    bool use(Item* lara)
+    bool use(ItemObj* lara)
     {
         if (flags.status == ITEM_FLAGS_STATUS_ACTIVE && lara->extraL->weaponState == WEAPON_STATE_FREE) // TODO check weapons
         {
@@ -493,7 +494,7 @@ struct Pickup : Object
         {
             angle.x = 0;
 
-            if (!checkLimit(lara, Limits::PICKUP))
+            if (!checkLimit(lara, LIMIT_PICKUP))
                 return;
 
             if (lara->state == Lara::STATE_PICKUP)
@@ -514,7 +515,7 @@ struct Pickup : Object
                 if (!(lara->input & IN_ACTION))
                     return;
 
-                if (!lara->moveTo(vec3i(0, 0, -100), this, false))
+                if (!lara->moveTo(_vec3i(0, 0, -100), this, false))
                     return;
 
                 lara->animSkip(Lara::STATE_PICKUP, Lara::STATE_STOP);
@@ -526,7 +527,7 @@ struct Pickup : Object
         {
             angle.x = ANGLE(-25);
 
-            if (!checkLimit(lara, Limits::PICKUP_UW))
+            if (!checkLimit(lara, LIMIT_PICKUP_UW))
                 return;
 
             if (lara->state == Lara::STATE_PICKUP)
@@ -548,7 +549,7 @@ struct Pickup : Object
                 if (!(lara->input & IN_ACTION))
                     return;
 
-                if (!lara->moveTo(vec3i(0, -200, -350), this, true))
+                if (!lara->moveTo(_vec3i(0, -200, -350), this, true))
                     return;
 
                 lara->animSkip(Lara::STATE_PICKUP, Lara::STATE_UW_TREAD);
@@ -561,17 +562,17 @@ struct Pickup : Object
 };
 
 
-bool useSwitch(Item* item, int32 timer)
+bool useSwitch(ItemObj* item, int32 timer)
 {
     return ((Switch*)item)->use(timer);
 }
 
-bool useKey(Item* item, Item* lara)
+bool useKey(ItemObj* item, ItemObj* lara)
 {
     return ((Key*)item)->use(lara);
 }
 
-bool usePickup(Item* item)
+bool usePickup(ItemObj* item)
 {
     return ((Pickup*)item)->use();
 }
@@ -597,7 +598,7 @@ struct Hole : Object // parent class for KeyHole and PuzzleHole
         if (!(lara->input & IN_ACTION) && (inventory.useSlot == SLOT_MAX))
             return;
 
-        if (!checkLimit(lara, Limits::HOLE))
+        if (!checkLimit(lara, LIMIT_HOLE))
             return;
 
         if (inventory.useSlot == SLOT_MAX)
@@ -609,7 +610,7 @@ struct Hole : Object // parent class for KeyHole and PuzzleHole
         } else {
             if (inventory.applyItem(this))
             {
-                lara->moveTo(vec3i(0, 0, offset), this, false);
+                lara->moveTo(_vec3i(0, 0, offset), this, false);
                 lara->animSkip(stateUse, Lara::STATE_STOP);
                 lara->extraL->weaponState = WEAPON_STATE_BUSY;
                 flags.status = ITEM_FLAGS_STATUS_ACTIVE;
@@ -648,7 +649,7 @@ struct PuzzleHole : Hole
     {
         if (lara->state == Lara::STATE_USE_PUZZLE)
         {
-            if (!checkLimit(lara, Limits::HOLE))
+            if (!checkLimit(lara, LIMIT_HOLE))
                 return;
 
             if (!lara->animIsEnd(28))
@@ -712,7 +713,9 @@ struct TrapFloor : Object
             return;
         }
 
-        updateRoom();
+        if (flags.gravity) {
+            updateRoom();
+        }
 
         if (state == STATE_FALL && pos.y >= roomFloor)
         {
@@ -721,6 +724,18 @@ struct TrapFloor : Object
             flags.gravity = false;
             goalState = STATE_DOWN;
         }
+    }
+
+    virtual void draw()
+    {
+        int32 oldAnimIndex = animIndex;
+        if ((state == STATE_STATIC) && level.models[ITEM_TRAP_FLOOR_LOD].type) {
+            type = ITEM_TRAP_FLOOR_LOD;
+            animIndex = level.models[type].animIndex;
+        }
+        Object::draw();
+        type = ITEM_TRAP_FLOOR;
+        animIndex = oldAnimIndex;
     }
 };
 
@@ -750,7 +765,7 @@ struct TrapSwingBlade : Object
         if (!updateHitMask(lara, cinfo))
             return;
 
-        vec3i offsetPos = vec3i((rand_logic() - 0x4000) >> 8, -256 - (rand_logic() >> 6), (rand_logic() - 0x4000) >> 8);
+        vec3i offsetPos = _vec3i((rand_logic() - 0x4000) >> 8, -256 - (rand_logic() >> 6), (rand_logic() - 0x4000) >> 8);
         int32 offsetAngle = (rand_logic() - 0x4000) >> 3;
         lara->fxBlood(lara->pos + offsetPos, lara->angle.y + offsetAngle, lara->hSpeed);
 
@@ -832,7 +847,7 @@ struct TrapDartEmitter : Object
             p.y = -512;
             p += pos;
 
-            Item* dart = Item::add(ITEM_DART, room, p, angle.y);
+            ItemObj* dart = ItemObj::add(ITEM_DART, room, p, angle.y);
 
             if (dart)
             {
@@ -922,7 +937,7 @@ struct Block : Object
         return checkObstacles(pos.x + offset.x, pos.z + offset.z, 1024);
     }
 
-    bool checkPull(Item* lara)
+    bool checkPull(ItemObj* lara)
     {
         if (!checkBlocking())
             return false;
@@ -949,14 +964,14 @@ struct Block : Object
         if (lara->pos.y != pos.y)
             return;
 
-        uint16 quadrant = uint16(lara->angle.y + ANGLE_45) / ANGLE_90;
+        uint16 quadrant = uint16(lara->angle.y + ANGLE_45) >> ANGLE_SHIFT_90;
 
         if (lara->state == Lara::STATE_BLOCK_READY)
         {
             if (!lara->animIsEnd(0))
                 return;
 
-            if (!checkLimit(lara, Limits::BLOCK))
+            if (!checkLimit(lara, LIMIT_BLOCK))
                 return;
 
             if (lara->input & IN_UP)
@@ -996,7 +1011,7 @@ struct Block : Object
 
             angle.y = quadrant * ANGLE_90;
 
-            if (!checkLimit(lara, Limits::BLOCK))
+            if (!checkLimit(lara, LIMIT_BLOCK))
                 return;
 
             lara->goalState = Lara::STATE_BLOCK_READY;

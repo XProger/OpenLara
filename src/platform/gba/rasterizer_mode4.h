@@ -5,7 +5,6 @@
 
 extern uint8 lightmap[256 * 32];
 extern const uint8* tile;
-extern const Sprite* sprite;
 
 #if defined(__GBA__)
     #define USE_ASM
@@ -13,14 +12,14 @@ extern const Sprite* sprite;
 
 #ifdef USE_ASM
     extern "C" {
-        void rasterize_dummy(uint16* pixel, const VertexUV* L, const VertexUV* R);
-        void rasterizeS_mode4_asm(uint16* pixel, const VertexUV* L, const VertexUV* R);
-        void rasterizeF_mode4_asm(uint16* pixel, const VertexUV* L, const VertexUV* R, int32 index);
-        void rasterizeG_mode4_asm(uint16* pixel, const VertexUV* L, const VertexUV* R, int32 index);
-        void rasterizeFT_mode4_asm(uint16* pixel, const VertexUV* L, const VertexUV* R);
-        void rasterizeGT_mode4_asm(uint16* pixel, const VertexUV* L, const VertexUV* R);
-        void rasterizeFTA_mode4_asm(uint16* pixel, const VertexUV* L, const VertexUV* R);
-        void rasterizeGTA_mode4_asm(uint16* pixel, const VertexUV* L, const VertexUV* R);
+        void rasterize_dummy(uint16* pixel, const VertexLink* L, const VertexLink* R);
+        void rasterizeS_mode4_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
+        void rasterizeF_mode4_asm(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index);
+        void rasterizeG_mode4_asm(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index);
+        void rasterizeFT_mode4_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
+        void rasterizeGT_mode4_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
+        void rasterizeFTA_mode4_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
+        void rasterizeGTA_mode4_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
     }
 
     #define rasterizeS rasterizeS_mode4_asm
@@ -41,7 +40,7 @@ extern const Sprite* sprite;
     #define rasterizeGTA rasterizeGTA_mode4_c
     #define rasterizeSprite rasterizeSprite_mode4_c
 
-void rasterizeS_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
+void rasterizeS_mode4_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     const uint8* ft_lightmap = &lightmap[0x1A00];
 
@@ -56,7 +55,7 @@ void rasterizeS_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
     {
         while (!Lh)
         {
-            const VertexUV* N = L->prev;
+            const VertexLink* N = L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -75,7 +74,7 @@ void rasterizeS_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
 
         while (!Rh) 
         {
-            const VertexUV* N = R->next;
+            const VertexLink* N = R->next;
 
             if (N->v.y < R->v.y) return;
 
@@ -137,8 +136,6 @@ void rasterizeS_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
                     *ptr++ = index;
                     width -= 2;
                 }
-
-                #undef SHADE
             }
 
             pixel += VRAM_WIDTH;
@@ -149,7 +146,7 @@ void rasterizeS_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
     }
 }
 
-void rasterizeF_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R, int32 index)
+void rasterizeF_mode4_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index)
 {
     uint16 color = lightmap[(L->v.g << 8) | index];
     color |= (color << 8);
@@ -165,7 +162,7 @@ void rasterizeF_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R, int
     {
         while (!Lh)
         {
-            const VertexUV* N = L->prev;
+            const VertexLink* N = L->prev;
 
             ASSERT(L->v.y >= 0);
 
@@ -186,7 +183,7 @@ void rasterizeF_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R, int
 
         while (!Rh) 
         {
-            const VertexUV* N = R->next;
+            const VertexLink* N = R->next;
 
             ASSERT(R->v.y >= 0);
 
@@ -256,7 +253,7 @@ void rasterizeF_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R, int
     }
 }
 
-void rasterizeG_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R, int32 index)
+void rasterizeG_mode4_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index)
 {
     int32 Lh = 0, Rh = 0;
     int32 Lx, Rx, Ldx = 0, Rdx = 0;
@@ -268,7 +265,7 @@ void rasterizeG_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R, int
     {
         while (!Lh)
         {
-            const VertexUV* N = L->prev;
+            const VertexLink* N = L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -290,7 +287,7 @@ void rasterizeG_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R, int
 
         while (!Rh) 
         {
-            const VertexUV* N = R->next;
+            const VertexLink* N = R->next;
 
             if (N->v.y < R->v.y) return;
 
@@ -380,7 +377,7 @@ void rasterizeG_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R, int
     }
 }
 
-void rasterizeFT_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
+void rasterizeFT_mode4_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     const uint8* ft_lightmap = &lightmap[L->v.g << 8];
 
@@ -394,20 +391,20 @@ void rasterizeFT_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
     {
         while (!Lh)
         {
-            const VertexUV* N = L->prev;
+            const VertexLink* N = L->prev;
 
             if (N->v.y < L->v.y) return;
 
             Lh = N->v.y - L->v.y;
             Lx = L->v.x;
-            Lt = L->t.uv;
+            Lt = L->t.t;
 
             if (Lh > 1)
             {
                 int32 tmp = FixedInvU(Lh);
                 Ldx = tmp * (N->v.x - Lx);
 
-                uint32 duv = N->t.uv - Lt;
+                uint32 duv = N->t.t - Lt;
                 uint32 du = tmp * int16(duv >> 16);
                 uint32 dv = tmp * int16(duv);
                 Ldt = (du & 0xFFFF0000) | (dv >> 16);
@@ -419,20 +416,20 @@ void rasterizeFT_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
 
         while (!Rh) 
         {
-            const VertexUV* N = R->next;
+            const VertexLink* N = R->next;
 
             if (N->v.y < R->v.y) return;
 
             Rh = N->v.y - R->v.y;
             Rx = R->v.x;
-            Rt = R->t.uv;
+            Rt = R->t.t;
 
             if (Rh > 1)
             {
                 int32 tmp = FixedInvU(Rh);
                 Rdx = tmp * (N->v.x - Rx);
 
-                uint32 duv = N->t.uv - Rt;
+                uint32 duv = N->t.t - Rt;
                 uint32 du = tmp * int16(duv >> 16);
                 uint32 dv = tmp * int16(duv);
                 Rdt = (du & 0xFFFF0000) | (dv >> 16);
@@ -506,7 +503,7 @@ void rasterizeFT_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
     }
 }
 
-void rasterizeGT_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
+void rasterizeGT_mode4_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
 #ifdef ALIGNED_LIGHTMAP
     ASSERT((intptr_t(lightmap) & 0xFFFF) == 0); // lightmap should be 64k aligned
@@ -526,14 +523,14 @@ void rasterizeGT_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
     {
         while (!Lh)
         {
-            const VertexUV* N = L->prev;
+            const VertexLink* N = L->prev;
 
             if (N->v.y < L->v.y) return;
 
             Lh = N->v.y - L->v.y;
             Lx = L->v.x; 
             Lg = L->v.g;
-            Lt = L->t.uv;
+            Lt = L->t.t;
 
             if (Lh > 1)
             {
@@ -541,7 +538,7 @@ void rasterizeGT_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
                 Ldx = tmp * (N->v.x - Lx);
                 Ldg = tmp * (N->v.g - Lg) >> 8;
 
-                uint32 duv = N->t.uv - Lt;
+                uint32 duv = N->t.t - Lt;
                 uint32 du = tmp * int16(duv >> 16);
                 uint32 dv = tmp * int16(duv);
                 Ldt = (du & 0xFFFF0000) | (dv >> 16);
@@ -554,14 +551,14 @@ void rasterizeGT_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
 
         while (!Rh) 
         {
-            const VertexUV* N = R->next;
+            const VertexLink* N = R->next;
 
             if (N->v.y < R->v.y) return;
 
             Rh = N->v.y - R->v.y;
             Rx = R->v.x;
             Rg = R->v.g;
-            Rt = R->t.uv;
+            Rt = R->t.t;
 
             if (Rh > 1)
             {
@@ -569,7 +566,7 @@ void rasterizeGT_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
                 Rdx = tmp * (N->v.x - Rx);
                 Rdg = tmp * (N->v.g - Rg) >> 8;
 
-                uint32 duv = N->t.uv - Rt;
+                uint32 duv = N->t.t - Rt;
                 uint32 du = tmp * int16(duv >> 16);
                 uint32 dv = tmp * int16(duv);
                 Rdt = (du & 0xFFFF0000) | (dv >> 16);
@@ -664,7 +661,7 @@ void rasterizeGT_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
     }
 }
 
-void rasterizeFTA_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
+void rasterizeFTA_mode4_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     const uint8* ft_lightmap = &lightmap[L->v.g << 8];
 
@@ -678,20 +675,20 @@ void rasterizeFTA_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
     {
         while (!Lh)
         {
-            const VertexUV* N = L->prev;
+            const VertexLink* N = L->prev;
 
             if (N->v.y < L->v.y) return;
 
             Lh = N->v.y - L->v.y;
             Lx = L->v.x;
-            Lt = L->t.uv;
+            Lt = L->t.t;
 
             if (Lh > 1)
             {
                 int32 tmp = FixedInvU(Lh);
                 Ldx = tmp * (N->v.x - Lx);
 
-                uint32 duv = N->t.uv - Lt;
+                uint32 duv = N->t.t - Lt;
                 uint32 du = tmp * int16(duv >> 16);
                 uint32 dv = tmp * int16(duv);
                 Ldt = (du & 0xFFFF0000) | (dv >> 16);
@@ -703,20 +700,20 @@ void rasterizeFTA_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
 
         while (!Rh) 
         {
-            const VertexUV* N = R->next;
+            const VertexLink* N = R->next;
 
             if (N->v.y < R->v.y) return;
 
             Rh = N->v.y - R->v.y;
             Rx = R->v.x;
-            Rt = R->t.uv;
+            Rt = R->t.t;
 
             if (Rh > 1)
             {
                 int32 tmp = FixedInvU(Rh);
                 Rdx = tmp * (N->v.x - Rx);
 
-                uint32 duv = N->t.uv - Rt;
+                uint32 duv = N->t.t - Rt;
                 uint32 du = tmp * int16(duv >> 16);
                 uint32 dv = tmp * int16(duv);
                 Rdt = (du & 0xFFFF0000) | (dv >> 16);
@@ -801,7 +798,7 @@ void rasterizeFTA_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
     }
 }
 
-void rasterizeGTA_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
+void rasterizeGTA_mode4_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
 #ifdef ALIGNED_LIGHTMAP
     ASSERT((intptr_t(lightmap) & 0xFFFF) == 0); // lightmap should be 64k aligned
@@ -821,14 +818,14 @@ void rasterizeGTA_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
     {
         while (!Lh)
         {
-            const VertexUV* N = L->prev;
+            const VertexLink* N = L->prev;
 
             if (N->v.y < L->v.y) return;
 
             Lh = N->v.y - L->v.y;
             Lx = L->v.x;
             Lg = L->v.g;
-            Lt = L->t.uv;
+            Lt = L->t.t;
 
             if (Lh > 1)
             {
@@ -836,7 +833,7 @@ void rasterizeGTA_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
                 Ldx = tmp * (N->v.x - Lx);
                 Ldg = tmp * (N->v.g - Lg) >> 8;
 
-                uint32 duv = N->t.uv - Lt;
+                uint32 duv = N->t.t - Lt;
                 uint32 du = tmp * int16(duv >> 16);
                 uint32 dv = tmp * int16(duv);
                 Ldt = (du & 0xFFFF0000) | (dv >> 16);
@@ -849,14 +846,14 @@ void rasterizeGTA_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
 
         while (!Rh) 
         {
-            const VertexUV* N = R->next;
+            const VertexLink* N = R->next;
 
             if (N->v.y < R->v.y) return;
 
             Rh = N->v.y - R->v.y;
             Rx = R->v.x;
             Rg = R->v.g;
-            Rt = R->t.uv;
+            Rt = R->t.t;
 
             if (Rh > 1)
             {
@@ -864,7 +861,7 @@ void rasterizeGTA_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
                 Rdx = tmp * (N->v.x - Rx);
                 Rdg = tmp * (N->v.g - Rg) >> 8;
 
-                uint32 duv = N->t.uv - Rt;
+                uint32 duv = N->t.t - Rt;
                 uint32 du = tmp * int16(duv >> 16);
                 uint32 dv = tmp * int16(duv);
                 Rdt = (du & 0xFFFF0000) | (dv >> 16);
@@ -980,7 +977,7 @@ void rasterizeGTA_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
 #endif
 
 // TODO ARM version
-void rasterizeSprite_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R)
+void rasterizeSprite_mode4_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     const uint8* ft_lightmap = &lightmap[L->v.g << 8];
 
@@ -990,14 +987,14 @@ void rasterizeSprite_mode4_c(uint16* pixel, const VertexUV* L, const VertexUV* R
     int32 h = R->v.y - L->v.y;
     if (h <= 0 || h >= DIV_TABLE_SIZE) return;
 
-    int32 u = L->t.u << 8;
-    int32 v = L->t.v << 8;
+    int32 u = L->t.uv.u << 8;
+    int32 v = L->t.uv.v << 8;
 
     int32 iw = FixedInvU(w);
     int32 ih = FixedInvU(h);
 
-    int32 du = (R->t.u << 8) * iw >> 16;
-    int32 dv = (R->t.v << 8) * ih >> 16;
+    int32 du = (R->t.uv.u << 8) * iw >> 16;
+    int32 dv = (R->t.uv.v << 8) * ih >> 16;
 
     if (L->v.y < 0)
     {

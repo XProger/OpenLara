@@ -278,14 +278,14 @@ struct Inventory
         }
     }
 
-    void show(Item* lara, Item* hole)
+    void show(ItemObj* lara, ItemObj* hole)
     {
         if (hole) {
             useSlot = remapHoleToSlot((ItemType)hole->type);
         }
     }
 
-    bool applyItem(Item* hole)
+    bool applyItem(ItemObj* hole)
     {
         #define CHECK_CASE(A, B) case A: { if (useSlot != B) return false; break; }
 

@@ -121,6 +121,11 @@ struct Mixer
         }
     }
 
+    void stopSamples()
+    {
+        channelsCount = 0;
+    }
+
     void playMusic(const void* data, int32 size)
     {
         music.data = (uint8*)data;

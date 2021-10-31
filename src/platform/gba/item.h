@@ -4,7 +4,6 @@
 #include "common.h"
 #include "sound.h"
 #include "camera.h"
-#include "draw.h"
 #include "room.h"
 
 int32 curItemIndex;
@@ -31,6 +30,9 @@ int32 alignOffset(int32 a, int32 b)
 
 Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
 {
+#ifdef __3DO__
+    return NULL;
+#endif
     // TODO gym
     // 0 -> 200
     // 4 -> 204
@@ -45,7 +47,7 @@ Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
     if (b->chance && b->chance < rand_draw())
         return NULL;
 
-    vec3i d = pos - viewCameras[0].target.pos; // TODO find nearest camera for coop
+    vec3i d = pos - playersExtra[0].camera.target.pos; // TODO find nearest camera for coop
 
     if (abs(d.x) >= SND_MAX_DIST || abs(d.y) >= SND_MAX_DIST || abs(d.z) >= SND_MAX_DIST)
         return NULL;
@@ -108,6 +110,9 @@ void soundStop(int16 id)
 
 void musicPlay(int32 track)
 {
+#ifdef __3DO__
+    return;
+#endif
     if (track == 13) {
         gCurTrack = 0;
     }
@@ -133,13 +138,13 @@ void musicStop()
     mixer.stopMusic();
 }
 
-int32 Item::getFrames(const AnimFrame* &frameA, const AnimFrame* &frameB, int32 &animFrameRate) const
+int32 ItemObj::getFrames(const AnimFrame* &frameA, const AnimFrame* &frameB, int32 &animFrameRate) const
 {
     const Anim* anim = level.anims + animIndex;
 
     animFrameRate = anim->frameRate;
 
-    int32 frameSize = (sizeof(AnimFrame) >> 1) + (models[type].count << 1);
+    int32 frameSize = (sizeof(AnimFrame) >> 1) + (level.models[type].count << 1);
 
     int32 frame = frameIndex - anim->frameBegin;
 
@@ -169,7 +174,7 @@ int32 Item::getFrames(const AnimFrame* &frameA, const AnimFrame* &frameB, int32 
     return frameDelta;
 }
 
-const AnimFrame* Item::getFrame() const
+const AnimFrame* ItemObj::getFrame() const
 {
     const AnimFrame *frameA, *frameB;
 
@@ -179,9 +184,9 @@ const AnimFrame* Item::getFrame() const
     return (frameDelta <= (frameRate >> 1)) ? frameA : frameB;
 }
 
-Bounds tmpBox;
+AABBs tmpBox;
 
-const Bounds& Item::getBoundingBox(bool lerp) const
+const AABBs& ItemObj::getBoundingBox(bool lerp) const
 {
     if (!lerp)
         return getFrame()->box;
@@ -210,7 +215,7 @@ const Bounds& Item::getBoundingBox(bool lerp) const
     return tmpBox;
 }
 
-void Item::move()
+void ItemObj::move()
 {
     const Anim* anim = level.anims + animIndex;
 
@@ -238,7 +243,7 @@ void Item::move()
     pos.z += phd_cos(realAngle) * hSpeed >> FIXED_SHIFT;
 }
 
-const Anim* Item::animSet(int32 newAnimIndex, bool resetState, int32 frameOffset)
+const Anim* ItemObj::animSet(int32 newAnimIndex, bool resetState, int32 frameOffset)
 {
     const Anim* anim = level.anims + newAnimIndex;
 
@@ -252,9 +257,9 @@ const Anim* Item::animSet(int32 newAnimIndex, bool resetState, int32 frameOffset
     return anim;
 }
 
-const Anim* Item::animChange(const Anim* anim)
+const Anim* ItemObj::animChange(const Anim* anim)
 {
-    if (!anim->statesCount || goalState == state)
+    if (goalState == state || !anim->statesCount)
         return anim;
 
     const AnimState* animState = level.animStates + anim->statesStart;
@@ -269,10 +274,6 @@ const Anim* Item::animChange(const Anim* anim)
             {
                 if ((frameIndex >= animRange->frameBegin) && (frameIndex <= animRange->frameEnd))
                 {
-                    if ((type != ITEM_LARA) && (nextState == animState->state)) {
-                        nextState = 0;
-                    }
-
                     frameIndex = animRange->nextFrameIndex;
                     animIndex = animRange->nextAnimIndex;
                     anim = level.anims + animRange->nextAnimIndex;
@@ -288,7 +289,7 @@ const Anim* Item::animChange(const Anim* anim)
     return anim;
 }
 
-void Item::animCmd(bool fx, const Anim* anim)
+void ItemObj::animCmd(bool fx, const Anim* anim)
 {
     if (!anim->commandsCount) return;
 
@@ -386,7 +387,7 @@ void Item::animCmd(bool fx, const Anim* anim)
 
                         case FX_LARA_BUBBLES :
                         {
-                            fxBubbles(room, JOINT_HEAD, vec3i(0, 0, 50));
+                            fxBubbles(room, JOINT_HEAD, _vec3i(0, 0, 50));
                             break;
                         }
 
@@ -418,7 +419,7 @@ void Item::animCmd(bool fx, const Anim* anim)
     }
 }
 
-void Item::animSkip(int32 stateBefore, int32 stateAfter, bool advance)
+void ItemObj::animSkip(int32 stateBefore, int32 stateAfter, bool advance)
 {
     goalState = stateBefore;
 
@@ -443,9 +444,9 @@ void Item::animSkip(int32 stateBefore, int32 stateAfter, bool advance)
 #define ANIM_MOVE_LERP_POS  (16)
 #define ANIM_MOVE_LERP_ROT  ANGLE(2)
 
-void Item::animProcess(bool movement)
+void ItemObj::animProcess(bool movement)
 {
-    ASSERT(models[type].count > 0);
+    ASSERT(level.models[type].count > 0);
 
     const Anim* anim = level.anims + animIndex;
 
@@ -455,6 +456,10 @@ void Item::animProcess(bool movement)
 
     anim = animChange(anim);
 
+    if ((type != ITEM_LARA) && (nextState == state)) {
+        nextState = 0;
+    }
+
     if (frameIndex > anim->frameEnd)
     {
         animCmd(false, anim);
@@ -463,6 +468,14 @@ void Item::animProcess(bool movement)
         animIndex = anim->nextAnimIndex;
         anim = level.anims + anim->nextAnimIndex;
         state = uint8(anim->state);
+
+        if (type != ITEM_LARA)
+        {
+            goalState = state;
+            if (nextState == state) {
+                nextState = 0;
+            }
+        }
     }
 
     animCmd(true, anim);
@@ -474,21 +487,21 @@ void Item::animProcess(bool movement)
 #endif
 }
 
-bool Item::animIsEnd(int32 offset) const
+bool ItemObj::animIsEnd(int32 offset) const
 {
     return frameIndex == level.anims[animIndex].frameEnd - offset;
 }
 
-void Item::animHit(int32 dirX, int32 dirZ, int32 hitTimer)
+void ItemObj::animHit(int32 dirX, int32 dirZ, int32 hitTimer)
 {
     ASSERT(type == ITEM_LARA);
     ASSERT(extraL != NULL);
 
-    extraL->hitQuadrant = uint16(angle.y - phd_atan(dirZ, dirX) + ANGLE_180 + ANGLE_45) / ANGLE_90;
+    extraL->hitQuadrant = uint16(angle.y - phd_atan(dirZ, dirX) + ANGLE_180 + ANGLE_45) >> ANGLE_SHIFT_90;
     extraL->hitTimer = hitTimer;
 }
 
-bool Item::moveTo(const vec3i &point, Item* item, bool lerp)
+bool ItemObj::moveTo(const vec3i &point, ItemObj* item, bool lerp)
 {
     // lerp position
     vec3i p = item->getRelative(point);
@@ -518,15 +531,15 @@ bool Item::moveTo(const vec3i &point, Item* item, bool lerp)
     return (pos == p && angle == item->angle);
 }
 
-Item* Item::add(ItemType type, Room* room, const vec3i &pos, int32 angleY)
+ItemObj* ItemObj::add(ItemType type, Room* room, const vec3i &pos, int32 angleY)
 {
-    if (!Item::sFirstFree) {
+    if (!ItemObj::sFirstFree) {
         ASSERT(false);
         return NULL;
     }
 
-    Item* item = Item::sFirstFree;
-    Item::sFirstFree = item->nextItem;
+    ItemObj* item = ItemObj::sFirstFree;
+    ItemObj::sFirstFree = item->nextItem;
 
     item->type = type;
     item->pos = pos;
@@ -538,7 +551,7 @@ Item* Item::add(ItemType type, Room* room, const vec3i &pos, int32 angleY)
     return item;
 }
 
-void Item::remove()
+void ItemObj::remove()
 {
     deactivate();
     room->remove(this);
@@ -549,28 +562,28 @@ void Item::remove()
         if (playersExtra[i].armL.target == this) playersExtra[i].armL.target = NULL;
     }
 
-    nextItem = Item::sFirstFree;
-    Item::sFirstFree = this;
+    nextItem = ItemObj::sFirstFree;
+    ItemObj::sFirstFree = this;
 }
 
-void Item::activate()
+void ItemObj::activate()
 {
-    ASSERT(!flags.active)
+    //ASSERT(!flags.active) TODO check LEVEL3B
 
     flags.active = true;
 
-    nextActive = Item::sFirstActive;
-    Item::sFirstActive = this;
+    nextActive = ItemObj::sFirstActive;
+    ItemObj::sFirstActive = this;
 }
 
-void Item::deactivate()
+void ItemObj::deactivate()
 {
-    Item* prev = NULL;
-    Item* curr = Item::sFirstActive;
+    ItemObj* prev = NULL;
+    ItemObj* curr = ItemObj::sFirstActive;
 
     while (curr)
     {
-        Item* next = curr->nextActive;
+        ItemObj* next = curr->nextActive;
 
         if (curr == this)
         {
@@ -580,7 +593,7 @@ void Item::deactivate()
             if (prev) {
                 prev->nextActive = next;
             } else {
-                Item::sFirstActive = next;
+                ItemObj::sFirstActive = next;
             }
 
             break;
@@ -591,12 +604,12 @@ void Item::deactivate()
     }
 }
 
-void Item::hit(int32 damage, const vec3i &point, int32 soundId)
+void ItemObj::hit(int32 damage, const vec3i &point, int32 soundId)
 {
     //
 }
 
-void Item::fxBubbles(Room *fxRoom, int32 fxJoint, const vec3i &fxOffset)
+void ItemObj::fxBubbles(Room *fxRoom, int32 fxJoint, const vec3i &fxOffset)
 {
     int32 count = rand_draw() % 3;
 
@@ -607,28 +620,28 @@ void Item::fxBubbles(Room *fxRoom, int32 fxJoint, const vec3i &fxOffset)
 
     for (int32 i = 0; i < count; i++)
     {
-        Item::add(ITEM_BUBBLE, fxRoom, fxPos, 0);
+        ItemObj::add(ITEM_BUBBLE, fxRoom, fxPos, 0);
     }
 }
 
-void Item::fxRicochet(Room *fxRoom, const vec3i &fxPos, bool fxSound)
+void ItemObj::fxRicochet(Room *fxRoom, const vec3i &fxPos, bool fxSound)
 {
-    Item* ricochet = Item::add(ITEM_RICOCHET, fxRoom, fxPos, 0);
+    ItemObj* ricochet = ItemObj::add(ITEM_RICOCHET, fxRoom, fxPos, 0);
 
     if (!ricochet)
         return;
 
     ricochet->timer = 4;
-    ricochet->frameIndex = rand_draw() % (-models[ricochet->type].count);
+    ricochet->frameIndex = rand_draw() % (-level.models[ricochet->type].count);
 
     if (fxSound) {
         soundPlay(SND_RICOCHET, ricochet->pos);
     }
 }
 
-void Item::fxBlood(const vec3i &fxPos, int16 fxAngleY, int16 fxSpeed)
+void ItemObj::fxBlood(const vec3i &fxPos, int16 fxAngleY, int16 fxSpeed)
 {
-    Item* blood = Item::add(ITEM_BLOOD, room, fxPos, fxAngleY);
+    ItemObj* blood = ItemObj::add(ITEM_BLOOD, room, fxPos, fxAngleY);
     
     if (!blood)
         return;
@@ -638,9 +651,9 @@ void Item::fxBlood(const vec3i &fxPos, int16 fxAngleY, int16 fxSpeed)
     blood->flags.animated = true;
 }
 
-void Item::fxSmoke(const vec3i &fxPos)
+void ItemObj::fxSmoke(const vec3i &fxPos)
 {
-    Item* smoke = Item::add(ITEM_SMOKE, room, fxPos, 0);
+    ItemObj* smoke = ItemObj::add(ITEM_SMOKE, room, fxPos, 0);
     
     if (!smoke)
         return;
@@ -649,7 +662,7 @@ void Item::fxSmoke(const vec3i &fxPos)
     smoke->flags.animated = true;
 }
 
-void Item::fxSplash()
+void ItemObj::fxSplash()
 {
     vec3i fxPos = pos;
     fxPos.y = getWaterLevel();
@@ -657,7 +670,7 @@ void Item::fxSplash()
     // TODO TR3+
     for (int32 i = 0; i < 10; i++)
     {
-        Item* splash = Item::add(ITEM_SPLASH, room, fxPos, int16(rand_draw() - ANGLE_90) << 1);
+        ItemObj* splash = ItemObj::add(ITEM_SPLASH, room, fxPos, int16(rand_draw() - ANGLE_90) << 1);
     
         if (!splash)
             return;
@@ -667,7 +680,7 @@ void Item::fxSplash()
     }
 }
 
-void Item::updateRoom(int32 offset)
+void ItemObj::updateRoom(int32 offset)
 {
     Room* nextRoom = room->getRoom(pos.x, pos.y + offset, pos.z);
         
@@ -681,7 +694,7 @@ void Item::updateRoom(int32 offset)
     roomFloor = sector->getFloor(pos.x, pos.y, pos.z);
 }
 
-vec3i Item::getRelative(const vec3i &point) const
+vec3i ItemObj::getRelative(const vec3i &point) const
 {
     matrixPush();
 
@@ -691,16 +704,16 @@ vec3i Item::getRelative(const vec3i &point) const
     matrixRotateYXZ(angle.x, angle.y, angle.z);
 
     vec3i p;
-    p.x = pos.x + (DP33(m[0], point) >> FIXED_SHIFT);
-    p.y = pos.y + (DP33(m[1], point) >> FIXED_SHIFT);
-    p.z = pos.z + (DP33(m[2], point) >> FIXED_SHIFT);
+    p.x = pos.x + (DP33(m.e00, m.e01, m.e02, point.x, point.y, point.z) >> FIXED_SHIFT);
+    p.y = pos.y + (DP33(m.e10, m.e11, m.e12, point.x, point.y, point.z) >> FIXED_SHIFT);
+    p.z = pos.z + (DP33(m.e20, m.e21, m.e22, point.x, point.y, point.z) >> FIXED_SHIFT);
 
     matrixPop();
 
     return p;
 }
 
-int32 Item::getWaterLevel() const
+int32 ItemObj::getWaterLevel() const
 {
     const Sector* sector = room->getWaterSector(pos.x, pos.z);
     if (sector) {
@@ -714,7 +727,7 @@ int32 Item::getWaterLevel() const
     return WALL;
 }
 
-int32 Item::getWaterDepth() const
+int32 ItemObj::getWaterDepth() const
 {
     const Sector* sector = room->getWaterSector(pos.x, pos.z);
 
@@ -724,7 +737,7 @@ int32 Item::getWaterDepth() const
     return WALL;
 }
 
-int32 Item::getBridgeFloor(int32 x, int32 z) const
+int32 ItemObj::getBridgeFloor(int32 x, int32 z) const
 {
     if (type == ITEM_BRIDGE_FLAT)
         return pos.y;
@@ -745,7 +758,7 @@ int32 Item::getBridgeFloor(int32 x, int32 z) const
     return pos.y + ((type == ITEM_BRIDGE_TILT_1) ? (h >> 2) : (h >> 1));
 }
 
-int32 Item::getTrapDoorFloor(int32 x, int32 z) const
+int32 ItemObj::getTrapDoorFloor(int32 x, int32 z) const
 {
     int32 dx = (pos.x >> 10) - (x >> 10);
     int32 dz = (pos.z >> 10) - (z >> 10);
@@ -762,7 +775,7 @@ int32 Item::getTrapDoorFloor(int32 x, int32 z) const
     return WALL;
 }
 
-int32 Item::getDrawBridgeFloor(int32 x, int32 z) const
+int32 ItemObj::getDrawBridgeFloor(int32 x, int32 z) const
 {
     int32 dx = (pos.x >> 10) - (x >> 10);
     int32 dz = (pos.z >> 10) - (z >> 10);
@@ -778,7 +791,7 @@ int32 Item::getDrawBridgeFloor(int32 x, int32 z) const
     return WALL;
 }
 
-void Item::getItemFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int32* ceiling) const
+void ItemObj::getItemFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int32* ceiling) const
 {
     int32 h = WALL;
 
@@ -832,19 +845,21 @@ void Item::getItemFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int32* c
     }
 }
 
-vec3i Item::getJoint(int32 jointIndex, const vec3i &offset) const
+vec3i ItemObj::getJoint(int32 jointIndex, const vec3i &offset) const
 {
-    const Model* model = models + type;
+    const Model* model = level.models + type;
 
     const AnimFrame* frame = getFrame();
 
     const uint32* frameAngles = (uint32*)(frame->angles + 1);
 
+    int32 oldStackIndex = matrixStackIndex;
+
     matrixPush();
     matrixSetIdentity();
     matrixRotateYXZ(angle.x, angle.y, angle.z);
 
-    const Node* node = level.nodes + model->nodeIndex;
+    const ModelNode* node = level.nodes + model->nodeIndex;
 
     matrixFrame(frame->pos, frameAngles);
 
@@ -865,21 +880,21 @@ vec3i Item::getJoint(int32 jointIndex, const vec3i &offset) const
     matrixTranslate(offset.x, offset.y, offset.z);
 
     Matrix &m = matrixGet();
-    vec3i result = vec3i(m[0].w >> FIXED_SHIFT, m[1].w >> FIXED_SHIFT, m[2].w >> FIXED_SHIFT);
+    vec3i result = _vec3i(m.e03 >> FIXED_SHIFT, m.e13 >> FIXED_SHIFT, m.e23 >> FIXED_SHIFT);
 
-    matrixPop();
+    matrixStackIndex = oldStackIndex;
 
     return result;
 }
 
-int32 Item::getSpheres(Sphere* spheres, bool flag) const
+int32 ItemObj::getSpheres(Sphere* spheres, bool flag) const
 {
-    const Model* model = models + type;
+    const Model* model = level.models + type;
 
     const AnimFrame* frame = getFrame();
     const uint32* frameAngles = (uint32*)(frame->angles + 1);
 
-    const Mesh** meshPtr = meshes + model->start;
+    const Mesh** meshPtr = level.meshes + model->start;
 
     int32 x, y, z;
 
@@ -897,7 +912,7 @@ int32 Item::getSpheres(Sphere* spheres, bool flag) const
 
     matrixRotateYXZ(angle.x, angle.y, angle.z);
 
-    const Node* node = level.nodes + model->nodeIndex;
+    const ModelNode* node = level.nodes + model->nodeIndex;
 
     matrixFrame(frame->pos, frameAngles);
 
@@ -908,9 +923,9 @@ int32 Item::getSpheres(Sphere* spheres, bool flag) const
         const Mesh* mesh = *meshPtr;
         matrixTranslate(mesh->center.x, mesh->center.y, mesh->center.z);
         Matrix &m = matrixGet();
-        sphere->center.x = x + (m[0].w >> FIXED_SHIFT);
-        sphere->center.y = y + (m[1].w >> FIXED_SHIFT);
-        sphere->center.z = z + (m[2].w >> FIXED_SHIFT);
+        sphere->center.x = x + (m.e03 >> FIXED_SHIFT);
+        sphere->center.y = y + (m.e13 >> FIXED_SHIFT);
+        sphere->center.z = z + (m.e23 >> FIXED_SHIFT);
         sphere->radius = mesh->radius;
         sphere++;
         meshPtr++;
@@ -931,9 +946,9 @@ int32 Item::getSpheres(Sphere* spheres, bool flag) const
             const Mesh* mesh = *meshPtr;
             matrixTranslate(mesh->center.x, mesh->center.y, mesh->center.z);
             Matrix &m = matrixGet();
-            sphere->center.x = x + (m[0].w >> FIXED_SHIFT);
-            sphere->center.y = y + (m[1].w >> FIXED_SHIFT);
-            sphere->center.z = z + (m[2].w >> FIXED_SHIFT);
+            sphere->center.x = x + (m.e03 >> FIXED_SHIFT);
+            sphere->center.y = y + (m.e13 >> FIXED_SHIFT);
+            sphere->center.z = z + (m.e23 >> FIXED_SHIFT);
             sphere->radius = mesh->radius;
             sphere++;
             meshPtr++;
@@ -952,7 +967,7 @@ int32 Item::getSpheres(Sphere* spheres, bool flag) const
 #include "enemy.h"
 #include "object.h"
 
-Item::Item(Room* room) 
+ItemObj::ItemObj(Room* room) 
 {
     angle.x     = 0;
     angle.z     = 0;
@@ -960,7 +975,7 @@ Item::Item(Room* room)
     hSpeed      = 0;
     nextItem    = NULL;
     nextActive  = NULL;
-    animIndex   = models[type].animIndex;
+    animIndex   = level.models[type].animIndex; // ctor called on existing memory, type is already initialized
     frameIndex  = level.anims[animIndex].frameBegin;
     state       = uint8(level.anims[animIndex].state);
     nextState   = state;
@@ -999,23 +1014,27 @@ Item::Item(Room* room)
     room->add(this);
 }
 
-void Item::update()
+void ItemObj::update()
 {
     //
 }
 
-void Item::draw()
+void ItemObj::draw()
 {
     drawItem(this);
 }
 
-void Item::collide(Lara* lara, CollisionInfo* cinfo)
+void ItemObj::collide(Lara* lara, CollisionInfo* cinfo)
 {
     // empty
 }
 
-uint32 Item::collideSpheres(Lara* lara) const
+uint32 ItemObj::collideSpheres(Lara* lara) const
 {
+#ifdef __3DO__ // TODO_3DO damn slow!
+    return 0xFFFFFFFF;
+#endif
+
     Sphere a[MAX_SPHERES];
     Sphere b[MAX_SPHERES];
 
@@ -1047,10 +1066,10 @@ uint32 Item::collideSpheres(Lara* lara) const
     return mask;
 }
 
-bool Item::collideBounds(Lara* lara, CollisionInfo* cinfo) const
+bool ItemObj::collideBounds(Lara* lara, CollisionInfo* cinfo) const
 {
-    const Bounds &a = getBoundingBox(false);
-    const Bounds &b = lara->getBoundingBox(false);
+    const AABBs &a = getBoundingBox(false);
+    const AABBs &b = lara->getBoundingBox(false);
 
     int32 dy = lara->pos.y - pos.y;
 
@@ -1075,7 +1094,7 @@ bool Item::collideBounds(Lara* lara, CollisionInfo* cinfo) const
            (pz <= a.maxZ + r);
 }
 
-void Item::collidePush(Lara* lara, CollisionInfo* cinfo, bool enemyHit) const
+void ItemObj::collidePush(Lara* lara, CollisionInfo* cinfo, bool enemyHit) const
 {
     int32 dx = lara->pos.x - pos.x;
     int32 dz = lara->pos.z - pos.z;
@@ -1086,7 +1105,7 @@ void Item::collidePush(Lara* lara, CollisionInfo* cinfo, bool enemyHit) const
     int32 px = X_ROTX(dx, dz, s, c);
     int32 pz = X_ROTY(dx, dz, s, c);
 
-    const Bounds &box = getBoundingBox(false);
+    const AABBs &box = getBoundingBox(false);
     int32 minX = box.minX - cinfo->radius;
     int32 maxX = box.maxX + cinfo->radius;
     int32 minZ = box.minZ - cinfo->radius;
@@ -1095,7 +1114,7 @@ void Item::collidePush(Lara* lara, CollisionInfo* cinfo, bool enemyHit) const
     if ((px < minX) || (px > maxX) || (pz < minZ) || (pz > maxZ))
         return;
 
-    enemyHit &= cinfo->enemyHit && (box.maxY - box.minY) > 256;
+    enemyHit = enemyHit && cinfo->enemyHit && ((box.maxY - box.minY) > 256);
 
     int32 ax = px - minX;
     int32 bx = maxX - px;
@@ -1147,10 +1166,10 @@ void Item::collidePush(Lara* lara, CollisionInfo* cinfo, bool enemyHit) const
     }
 }
 
-void Item::collideRoom(int32 height, int32 yOffset) const
+void ItemObj::collideRoom(int32 height, int32 yOffset) const
 {
     cinfo.type = CT_NONE;
-    cinfo.offset = vec3i(0, 0, 0);
+    cinfo.offset = _vec3i(0, 0, 0);
 
     vec3i p = pos;
     p.y += yOffset;
@@ -1176,8 +1195,8 @@ void Item::collideRoom(int32 height, int32 yOffset) const
     CHECK_HEIGHT(p);
 
     cinfo.trigger = gLastFloorData;
-    cinfo.slantX = gLastFloorSlant.slantX;
-    cinfo.slantZ = gLastFloorSlant.slantZ;
+    cinfo.slantX = FD_SLANT_X(gLastFloorSlant);
+    cinfo.slantZ = FD_SLANT_Z(gLastFloorSlant);
 
     cinfo.setSide(CollisionInfo::ST_MIDDLE, floor, ceiling);
 
@@ -1186,27 +1205,27 @@ void Item::collideRoom(int32 height, int32 yOffset) const
 
     switch (cinfo.quadrant) {
         case 0 : {
-            f = vec3i((R * phd_sin(cinfo.angle)) >> FIXED_SHIFT, 0, R);
-            l = vec3i(-R, 0,  R);
-            r = vec3i( R, 0,  R);
+            f = _vec3i((R * phd_sin(cinfo.angle)) >> FIXED_SHIFT, 0, R);
+            l = _vec3i(-R, 0,  R);
+            r = _vec3i( R, 0,  R);
             break;
         }
         case 1 : {
-            f = vec3i( R, 0, (R * phd_cos(cinfo.angle)) >> FIXED_SHIFT);
-            l = vec3i( R, 0,  R);
-            r = vec3i( R, 0, -R);
+            f = _vec3i( R, 0, (R * phd_cos(cinfo.angle)) >> FIXED_SHIFT);
+            l = _vec3i( R, 0,  R);
+            r = _vec3i( R, 0, -R);
             break;
         }
         case 2 : {
-            f = vec3i((R * phd_sin(cinfo.angle)) >> FIXED_SHIFT, 0, -R);
-            l = vec3i( R, 0, -R);
-            r = vec3i(-R, 0, -R);
+            f = _vec3i((R * phd_sin(cinfo.angle)) >> FIXED_SHIFT, 0, -R);
+            l = _vec3i( R, 0, -R);
+            r = _vec3i(-R, 0, -R);
             break;
         }
         case 3 : {
-            f = vec3i(-R, 0, (R * phd_cos(cinfo.angle)) >> FIXED_SHIFT);
-            l = vec3i(-R, 0, -R);
-            r = vec3i(-R, 0,  R);
+            f = _vec3i(-R, 0, (R * phd_cos(cinfo.angle)) >> FIXED_SHIFT);
+            l = _vec3i(-R, 0, -R);
+            r = _vec3i(-R, 0,  R);
             break;
         }
         default : {
@@ -1313,7 +1332,7 @@ void Item::collideRoom(int32 height, int32 yOffset) const
     }
 }
 
-uint32 Item::updateHitMask(Lara* lara, CollisionInfo* cinfo)
+uint32 ItemObj::updateHitMask(Lara* lara, CollisionInfo* cinfo)
 {
     hitMask = 0;
 
@@ -1325,7 +1344,7 @@ uint32 Item::updateHitMask(Lara* lara, CollisionInfo* cinfo)
     return hitMask;
 }
 
-Item* Item::init(Room* room)
+ItemObj* ItemObj::init(Room* room)
 {
     #define INIT_ITEM(type, className) case ITEM_##type : return new (this) className(room)
 
@@ -1379,8 +1398,8 @@ Item* Item::init(Room* room)
         INIT_ITEM( BLOCK_3               , Block );
         INIT_ITEM( BLOCK_4               , Block );
         // INIT_ITEM( MOVING_BLOCK          , ??? );
-        // INIT_ITEM( TRAP_CEILING_1        , ??? );
-        // INIT_ITEM( TRAP_CEILING_2        , ??? );
+        // INIT_ITEM( TRAP_CEILING          , ??? );
+        // INIT_ITEM( TRAP_FLOOR_LOD        , ??? );
         INIT_ITEM( SWITCH                , Switch );
         INIT_ITEM( SWITCH_WATER          , SwitchWater );
         INIT_ITEM( DOOR_1                , Door );
@@ -1393,7 +1412,7 @@ Item* Item::init(Room* room)
         INIT_ITEM( DOOR_8                , Door );
         INIT_ITEM( TRAP_DOOR_1           , TrapDoor );
         INIT_ITEM( TRAP_DOOR_2           , TrapDoor );
-        // INIT_ITEM( UNUSED_3              , ??? );
+        // INIT_ITEM( TRAP_DOOR_LOD         , ??? );
         // INIT_ITEM( BRIDGE_FLAT           , ??? );
         // INIT_ITEM( BRIDGE_TILT_1         , ??? );
         // INIT_ITEM( BRIDGE_TILT_2         , ??? );
@@ -1519,7 +1538,7 @@ Item* Item::init(Room* room)
         // INIT_ITEM( GLYPHS                , ??? );
     }
 
-    return new (this) Item(room);
+    return new (this) ItemObj(room);
 }
 
 #endif

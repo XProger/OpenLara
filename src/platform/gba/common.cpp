@@ -1,11 +1,12 @@
 #include "common.h"
 
 uint32 keys;
-AABB   frustumAABB;
-Rect   viewport;
-vec3i  cameraViewPos;
+AABBi frustumAABB;
+RectMinMax viewport;
+vec3i cameraViewPos;
+vec3i cameraViewOffset;
 Matrix matrixStack[MAX_MATRICES];
-int32  matrixStackIndex = 0;
+int32 matrixStackIndex = 0;
 
 const FloorData* gLastFloorData;
 FloorData gLastFloorSlant;
@@ -46,7 +47,8 @@ int32 rand_draw()
     return X_RAND(rand_seed_draw);
 }
 
-EWRAM_DATA uint16 divTable[DIV_TABLE_SIZE] = { // must be at EWRAM start
+#ifdef USE_DIV_TABLE
+EWRAM_DATA divTableInt divTable[DIV_TABLE_SIZE] = { // must be at EWRAM start
     0xFFFF, 0xFFFF, 0x8000, 0x5555, 0x4000, 0x3333, 0x2AAA, 0x2492,
     0x2000, 0x1C71, 0x1999, 0x1745, 0x1555, 0x13B1, 0x1249, 0x1111,
     0x1000, 0x0F0F, 0x0E38, 0x0D79, 0x0CCC, 0x0C30, 0x0BA2, 0x0B21,
@@ -176,6 +178,7 @@ EWRAM_DATA uint16 divTable[DIV_TABLE_SIZE] = { // must be at EWRAM start
     0x0041, 0x0040, 0x0040, 0x0040, 0x0040, 0x0040, 0x0040, 0x0040,
     0x0040, 0x0040, 0x0040, 0x0040, 0x0040, 0x0040, 0x0040, 0x0040
 };
+#endif
 
 const int16 sinTable[1025] = { // ROM
     0x0000, 0x0019, 0x0032, 0x004B, 0x0065, 0x007E, 0x0097, 0x00B0,
@@ -651,19 +654,19 @@ void anglesFromVector(int32 x, int32 y, int32 z, int16 &angleX, int16 &angleY)
     }
 }
 
-Bounds boxRotate(const Bounds &box, int16 angle)
+AABBs boxRotate(const AABBs &box, int16 angle)
 {
     if (angle == ANGLE_90) {
-        return Bounds(  box.minZ,  box.maxZ, box.minY, box.maxY, -box.maxX, -box.minX );
+        return AABBs(  box.minZ,  box.maxZ, box.minY, box.maxY, -box.maxX, -box.minX );
     } else if (angle == -ANGLE_90) {
-        return Bounds( -box.maxZ, -box.minZ, box.minY, box.maxY,  box.minX,  box.maxX );
+        return AABBs( -box.maxZ, -box.minZ, box.minY, box.maxY,  box.minX,  box.maxX );
     } else if (angle == ANGLE_180) {
-        return Bounds( -box.maxX, -box.minX, box.minY, box.maxY, -box.maxZ, -box.minZ );
+        return AABBs( -box.maxX, -box.minX, box.minY, box.maxY, -box.maxZ, -box.minZ );
     }
     return box;
 }
 
-void boxTranslate(Bounds &box, const vec3i &offset)
+void boxTranslate(AABBs &box, const vec3i &offset)
 {
     box.minX += offset.x;
     box.maxX += offset.x;
@@ -673,21 +676,21 @@ void boxTranslate(Bounds &box, const vec3i &offset)
     box.maxZ += offset.z;
 }
 
-bool boxIntersect(const Bounds &a, const Bounds &b)
+bool boxIntersect(const AABBs &a, const AABBs &b)
 {
     return !(a.maxX <= b.minX || a.minX >= b.maxX || 
              a.maxY <= b.minY || a.minY >= b.maxY || 
              a.maxZ <= b.minZ || a.minZ >= b.maxZ);
 }
 
-bool boxContains(const Bounds &a, const vec3i &p)
+bool boxContains(const AABBs &a, const vec3i &p)
 {
     return !(a.minX > p.x || a.maxX < p.x ||
              a.minY > p.y || a.maxY < p.y ||
              a.minZ > p.z || a.maxZ < p.z);
 }
 
-vec3i boxPushOut(const Bounds &a, const Bounds &b)
+vec3i boxPushOut(const AABBs &a, const AABBs &b)
 {
     int32 ax = b.maxX - a.minX;
     int32 bx = a.maxX - b.minX;
@@ -703,6 +706,7 @@ vec3i boxPushOut(const Bounds &a, const Bounds &b)
 }
 
 /*
+#ifdef USE_DIV_TABLE
 void initDivTable()
 {
     uint16 divTable[DIV_TABLE_SIZE];
@@ -723,6 +727,7 @@ void initDivTable()
     }
     printf("};\n");
 }
+#endif
 */
 
 X_INLINE int16 lerpAngle(int16 a, int16 b, int32 t)
@@ -738,12 +743,30 @@ X_INLINE int16 lerpAngle(int16 a, int16 b, int32 t)
     return a + ((d * t) >> FIXED_SHIFT);
 }
 
+X_INLINE int16 lerpAngleSlow(int16 a, int16 b, int32 mul, int32 div)
+{
+    int32 d = b - a;
+
+    if (d > 0x8000) {
+        d -= 0x10000;
+    } else if (d < -0x8000) {
+        d += 0x10000;
+    }
+
+    return a + d * mul / div;
+}
+
 void matrixTranslate(int32 x, int32 y, int32 z)
 {
     Matrix &m = matrixGet();
-    m[0][3] += DP33c(m[0], x, y, z);
-    m[1][3] += DP33c(m[1], x, y, z);
-    m[2][3] += DP33c(m[2], x, y, z);
+
+    int32 dx = DP33(m.e00, m.e01, m.e02, x, y, z);
+    int32 dy = DP33(m.e10, m.e11, m.e12, x, y, z);
+    int32 dz = DP33(m.e20, m.e21, m.e22, x, y, z);
+
+    m.e03 += dx;
+    m.e13 += dy;
+    m.e23 += dz;
 }
 
 void matrixTranslateAbs(int32 x, int32 y, int32 z)
@@ -752,10 +775,14 @@ void matrixTranslateAbs(int32 x, int32 y, int32 z)
     y -= cameraViewPos.y;
     z -= cameraViewPos.z;
 
+    cameraViewOffset.x = x;
+    cameraViewOffset.y = y;
+    cameraViewOffset.z = z;
+
     Matrix &m = matrixGet();
-    m[0][3] = DP33c(m[0], x, y, z);
-    m[1][3] = DP33c(m[1], x, y, z);
-    m[2][3] = DP33c(m[2], x, y, z);
+    m.e03 = DP33(m.e00, m.e01, m.e02, x, y, z);
+    m.e13 = DP33(m.e10, m.e11, m.e12, x, y, z);
+    m.e23 = DP33(m.e20, m.e21, m.e22, x, y, z);
 }
 
 void matrixRotateX(int32 angle)
@@ -765,9 +792,9 @@ void matrixRotateX(int32 angle)
     int32 s = phd_sin(angle);
     int32 c = phd_cos(angle);
 
-    X_ROTXY(m[0][2], m[0][1], s, c);
-    X_ROTXY(m[1][2], m[1][1], s, c);
-    X_ROTXY(m[2][2], m[2][1], s, c);
+    X_ROTXY(m.e02, m.e01, s, c);
+    X_ROTXY(m.e12, m.e11, s, c);
+    X_ROTXY(m.e22, m.e21, s, c);
 }
 
 void matrixRotateY(int32 angle)
@@ -777,9 +804,9 @@ void matrixRotateY(int32 angle)
     int32 s = phd_sin(angle);
     int32 c = phd_cos(angle);
 
-    X_ROTXY(m[0][0], m[0][2], s, c);
-    X_ROTXY(m[1][0], m[1][2], s, c);
-    X_ROTXY(m[2][0], m[2][2], s, c);
+    X_ROTXY(m.e00, m.e02, s, c);
+    X_ROTXY(m.e10, m.e12, s, c);
+    X_ROTXY(m.e20, m.e22, s, c);
 }
 
 void matrixRotateZ(int32 angle)
@@ -789,9 +816,9 @@ void matrixRotateZ(int32 angle)
     int32 s = phd_sin(angle);
     int32 c = phd_cos(angle);
 
-    X_ROTXY(m[0][1], m[0][0], s, c);
-    X_ROTXY(m[1][1], m[1][0], s, c);
-    X_ROTXY(m[2][1], m[2][0], s, c);
+    X_ROTXY(m.e01, m.e00, s, c);
+    X_ROTXY(m.e11, m.e10, s, c);
+    X_ROTXY(m.e21, m.e20, s, c);
 }
 
 void matrixRotateYXZ(int32 angleX, int32 angleY, int32 angleZ)
@@ -868,12 +895,19 @@ void matrixFrameLerp(const vec3s &pos, const uint32* anglesA, const uint32* angl
 
     matrixTranslate(pos.x, pos.y, pos.z);
 
-#if 0 // TODO oh, damn Gimbal Lock!
-    if (aX != bX) aX = lerpAngle(aX, bX, t);
-    if (aY != bY) aY = lerpAngle(aY, bY, t);
-    if (aZ != bZ) aZ = lerpAngle(aZ, bZ, t);
+#if defined(ANIM_LERP_ANGLE) // TODO oh, damn Gimbal Lock!
+    #if 0
+        int32 t = (delta << FIXED_SHIFT) / rate;
+        if (aX != bX) aX = lerpAngle(aX, bX, t);
+        if (aY != bY) aY = lerpAngle(aY, bY, t);
+        if (aZ != bZ) aZ = lerpAngle(aZ, bZ, t);
+    #else
+        if (aX != bX) aX = lerpAngleSlow(aX, bX, delta, rate);
+        if (aY != bY) aY = lerpAngleSlow(aY, bY, delta, rate);
+        if (aZ != bZ) aZ = lerpAngleSlow(aZ, bZ, delta, rate);
+    #endif
     matrixRotateYXZ(aX, aY, aZ);
-#else
+#elif defined(ANIM_LERP_MATRIX)
     matrixPush();
     matrixRotateYXZ(bX, bY, bZ);
     Matrix &m = matrixGet();
@@ -882,6 +916,8 @@ void matrixFrameLerp(const vec3s &pos, const uint32* anglesA, const uint32* angl
     matrixRotateYXZ(aX, aY, aZ);
 
     matrixLerp(m, delta, rate);
+#else
+    #error animation lerp type is undefined
 #endif
 }
 
@@ -889,20 +925,20 @@ void matrixSetIdentity()
 {
     Matrix &m = matrixGet();
 
-    m[0][0] = 0x4000;
-    m[0][1] = 0;
-    m[0][2] = 0;
-    m[0][3] = 0;
+    m.e00 = 0x4000;
+    m.e01 = 0;
+    m.e02 = 0;
+    m.e03 = 0;
 
-    m[1][0] = 0;
-    m[1][1] = 0x4000;
-    m[1][2] = 0;
-    m[1][3] = 0;
+    m.e10 = 0;
+    m.e11 = 0x4000;
+    m.e12 = 0;
+    m.e13 = 0;
 
-    m[2][0] = 0;
-    m[2][1] = 0;
-    m[2][2] = 0x4000;
-    m[2][3] = 0;
+    m.e20 = 0;
+    m.e21 = 0;
+    m.e22 = 0x4000;
+    m.e23 = 0;
 }
 
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
@@ -914,31 +950,32 @@ void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
 
     Matrix &m = matrixGet();
 
-    m[0][0] = cy;
-    m[0][1] = 0;
-    m[0][2] = -sy;
-    m[0][3] = 0;
+    m.e00 = cy;
+    m.e01 = 0;
+    m.e02 = -sy;
+    m.e03 = 0;
 
-    m[1][0] = (sx * sy) >> FIXED_SHIFT;
-    m[1][1] = cx;
-    m[1][2] = (sx * cy) >> FIXED_SHIFT;
-    m[1][3] = 0;
+    m.e10 = (sx * sy) >> FIXED_SHIFT;
+    m.e11 = cx;
+    m.e12 = (sx * cy) >> FIXED_SHIFT;
+    m.e13 = 0;
 
-    m[2][0] = (cx * sy) >> FIXED_SHIFT;
-    m[2][1] = -sx;
-    m[2][2] = (cx * cy) >> FIXED_SHIFT;
-    m[2][3] = 0;
+    m.e20 = (cx * sy) >> FIXED_SHIFT;
+    m.e21 = -sx;
+    m.e22 = (cx * cy) >> FIXED_SHIFT;
+    m.e23 = 0;
 
     cameraViewPos = pos;
+    cameraViewOffset = _vec3i(0, 0, 0);
 }
 
 void CollisionInfo::setSide(CollisionInfo::SideType st, int32 floor, int32 ceiling)
 {
     SlantType slantType;
 
-    if (gLastFloorSlant.slantX == 0 && gLastFloorSlant.slantZ == 0) {
+    if (FD_SLANT_X(gLastFloorSlant) == 0 && FD_SLANT_Z(gLastFloorSlant) == 0) {
         slantType = SLANT_NONE;
-    } else if (abs(gLastFloorSlant.slantX) < 3 && abs(gLastFloorSlant.slantZ) < 3) {
+    } else if (abs(FD_SLANT_X(gLastFloorSlant)) < 3 && abs(FD_SLANT_Z(gLastFloorSlant)) < 3) {
         slantType = SLANT_LOW;
     } else {
         slantType = SLANT_HIGH;
@@ -958,4 +995,27 @@ void CollisionInfo::setSide(CollisionInfo::SideType st, int32 floor, int32 ceili
     s->slantType = slantType;
     s->floor     = floor;
     s->ceiling   = ceiling;
+}
+
+void setGamma(int32 value)
+{
+    if (value == 0) {
+        osSetPalette(level.palette);
+        return;
+    }
+
+    uint16 pal[256];
+    for (int32 i = 0; i < 256; i++)
+    {
+        int32 r = 31 & (level.palette[i]);
+        int32 g = 31 & (level.palette[i] >> 5);
+        int32 b = 31 & (level.palette[i] >> 10);
+
+        r = X_MIN(31, r + (((r * r >> 2) - r) * value >> 8));
+        g = X_MIN(31, g + (((g * g >> 2) - g) * value >> 8));
+        b = X_MIN(31, b + (((b * b >> 2) - b) * value >> 8));
+
+        pal[i] = r | (g << 5) | (b << 10);
+    }
+    osSetPalette(pal);
 }

@@ -1,5 +1,19 @@
 #include "common.h"
 
+struct Vertex
+{
+    int16 x, y, z;
+    uint8 g, clip;
+};
+
+struct VertexLink
+{
+    Vertex v;
+    TexCoord t;
+    VertexLink* prev;
+    VertexLink* next;
+};
+
 #if defined(_WIN32)
     uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
 #elif defined(__GBA__)
@@ -15,10 +29,6 @@
 #define PAL_COLOR_TRANSP    0x0000
 #define PAL_COLOR_BLACK     0x0421
 
-#ifndef MODE_PAL
-uint16 palette[256];      // IWRAM 0.5k
-#endif
-
 #if defined(__GBA__)
     #define ALIGNED_LIGHTMAP
 #endif
@@ -32,60 +42,69 @@ uint16 palette[256];      // IWRAM 0.5k
 #endif
 
 extern uint8 lightmap[256 * 32];
-extern Texture textures[MAX_TEXTURES];
-extern const Sprite* sprites;
-extern const uint8* tiles;
+extern Level level;
 extern int32 lightAmbient;
 extern int32 randTable[MAX_RAND_TABLE];
 extern int32 caustics[MAX_CAUSTICS];
 extern int32 causticsFrame;
 
 const uint8* tile;
-const Sprite* sprite;
 
-int32 gVerticesCount = 0;
-int32 gFacesCount = 0; // 1 is reserved as OT terminator
+int32 gVerticesCount;
+int32 gFacesCount;
 
 EWRAM_DATA Vertex gVertices[MAX_VERTICES]; // EWRAM 16k
 EWRAM_DATA Face gFaces[MAX_FACES];         // EWRAM 5k
-EWRAM_DATA Face* otFaces[OT_SIZE] = { 0 };
+EWRAM_DATA Face* otFaces[OT_SIZE];
+
 int32 otMin = OT_SIZE - 1;
 int32 otMax = 0;
 
 bool enableAlphaTest;
 bool enableClipping;
+bool enableMaxSort;
 
-bool transformBoxRect(const Bounds* box, Rect* rect)
+void setViewport(const RectMinMax &vp)
+{
+    viewport = vp;
+}
+
+void setPaletteIndex(int32 index)
+{
+    // TODO
+}
+
+bool transformBoxRect(const AABBs* box, RectMinMax* rect)
 {
     const Matrix &m = matrixGet();
 
-    if ((m[2][3] < VIEW_MIN_F) || (m[2][3] >= VIEW_MAX_F)) {
+    if ((m.e23 < VIEW_MIN_F) || (m.e23 >= VIEW_MAX_F)) {
         return false;
     }
 
     const vec3i v[8] = {
-        vec3i( box->minX, box->minY, box->minZ ),
-        vec3i( box->maxX, box->minY, box->minZ ),
-        vec3i( box->minX, box->maxY, box->minZ ),
-        vec3i( box->maxX, box->maxY, box->minZ ),
-        vec3i( box->minX, box->minY, box->maxZ ),
-        vec3i( box->maxX, box->minY, box->maxZ ),
-        vec3i( box->minX, box->maxY, box->maxZ ),
-        vec3i( box->maxX, box->maxY, box->maxZ )
+        _vec3i( box->minX, box->minY, box->minZ ),
+        _vec3i( box->maxX, box->minY, box->minZ ),
+        _vec3i( box->minX, box->maxY, box->minZ ),
+        _vec3i( box->maxX, box->maxY, box->minZ ),
+        _vec3i( box->minX, box->minY, box->maxZ ),
+        _vec3i( box->maxX, box->minY, box->maxZ ),
+        _vec3i( box->minX, box->maxY, box->maxZ ),
+        _vec3i( box->maxX, box->maxY, box->maxZ )
     };
 
-    *rect = Rect( INT_MAX, INT_MAX, INT_MIN, INT_MIN );
+    *rect = RectMinMax( INT_MAX, INT_MAX, INT_MIN, INT_MIN );
 
     for (int32 i = 0; i < 8; i++)
     {
-        int32 z = DP43(m[2], v[i]);
+        int32 z = DP43(m.e20, m.e21, m.e22, m.e23, v[i].x, v[i].y, v[i].z);
 
         if (z < VIEW_MIN_F || z >= VIEW_MAX_F) {
             continue;
         }
 
-        int32 x = DP43(m[0], v[i]);
-        int32 y = DP43(m[1], v[i]);
+        int32 x = DP43(m.e00, m.e01, m.e02, m.e03, v[i].x, v[i].y, v[i].z);
+        int32 y = DP43(m.e10, m.e11, m.e12, m.e13, v[i].x, v[i].y, v[i].z);
 
         PERSPECTIVE(x, y, z);
 
@@ -103,12 +122,12 @@ bool transformBoxRect(const Bounds* box, Rect* rect)
     return true;
 }
 
-int32 rectIsVisible(const Rect* rect)
+int32 rectIsVisible(const RectMinMax* rect)
 {
     if (rect->x0 > rect->x1 ||
-        rect->x0 > viewport.x1  ||
-        rect->x1 < viewport.x0  ||
-        rect->y0 > viewport.y1  ||
+        rect->x0 > viewport.x1 ||
+        rect->x1 < viewport.x0 ||
+        rect->y0 > viewport.y1 ||
         rect->y1 < viewport.y0) return 0; // not visible
 
     if (rect->x0 < viewport.x0 ||
@@ -119,52 +138,21 @@ int32 rectIsVisible(const Rect* rect)
     return 1; // fully visible
 }
 
-int32 boxIsVisible(const Bounds* box)
+int32 boxIsVisible(const AABBs* box)
 {
-    Rect rect;
+    RectMinMax rect;
     if (!transformBoxRect(box, &rect))
         return 0; // not visible
     return rectIsVisible(&rect);
 }
 
-X_INLINE int32 classify(const Vertex &v, const Rect &clip) {
+
+X_INLINE int32 classify(const Vertex &v, const RectMinMax &clip)
+{
     return (v.x < clip.x0 ? 1 : 0) |
            (v.x > clip.x1 ? 2 : 0) |
            (v.y < clip.y0 ? 4 : 0) |
            (v.y > clip.y1 ? 8 : 0);
-}
-
-void transform(int32 vx, int32 vy, int32 vz, int32 vg)
-{
-    ASSERT(gVerticesCount < MAX_VERTICES);
-
-    Vertex &res = gVertices[gVerticesCount++];
-
-    const Matrix &m = matrixGet();
-
-    int32 z = DP43c(m[2], vx, vy, vz);
-
-    if (z < VIEW_MIN_F || z >= VIEW_MAX_F)
-    {
-        res.clip = 32;
-        return;
-    }
-
-    int32 x = DP43c(m[0], vx, vy, vz);
-    int32 y = DP43c(m[1], vx, vy, vz);
-
-    res.z = z >> FIXED_SHIFT;
-    res.g = vg >> 8;
-
-    PERSPECTIVE(x, y, z);
-
-    x = X_CLAMP(x, -GUARD_BAND, GUARD_BAND);
-    y = X_CLAMP(y, -GUARD_BAND, GUARD_BAND);
-
-    res.x = x + (FRAME_WIDTH  >> 1);
-    res.y = y + (FRAME_HEIGHT >> 1);
-
-    res.clip = classify(res, viewport); // enableClipping ? classify(res, viewport) : 0; TODO fix clip boxes for static meshes
 }
 
 void transformRoomVertex(const RoomVertex* v, int32 caustics)
@@ -189,7 +177,13 @@ void transformRoomVertex(const RoomVertex* v, int32 caustics)
 
     const Matrix &m = matrixGet();
 
-    int32 z = DP43c(m[2], vx, vy, vz);
+    int32 z = DP43(m.e20, m.e21, m.e22, m.e23, vx, vy, vz);
+
+    if (z <= 0)
+    {
+        res.clip = 32;
+        return;
+    }
 
     if (z < VIEW_MIN_F || z >= VIEW_MAX_F)
     {
@@ -219,8 +213,8 @@ void transformRoomVertex(const RoomVertex* v, int32 caustics)
 
     res.g = vg >> 8;
 
-    int32 x = DP43c(m[0], vx, vy, vz);
-    int32 y = DP43c(m[1], vx, vy, vz);
+    int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
+    int32 y = DP43(m.e10, m.e11, m.e12, m.e13, vx, vy, vz);
 
     PERSPECTIVE(x, y, z);
 
@@ -233,13 +227,46 @@ void transformRoomVertex(const RoomVertex* v, int32 caustics)
     res.clip |= classify(res, viewport);
 }
 
-void transformRoom(const RoomVertex* vertices, int32 vCount, bool applyCaustics)
+void transformMeshVertex(int32 vx, int32 vy, int32 vz, int32 vg)
+{
+    ASSERT(gVerticesCount < MAX_VERTICES);
+
+    Vertex &res = gVertices[gVerticesCount++];
+
+    const Matrix &m = matrixGet();
+
+    int32 z = DP43(m.e20, m.e21, m.e22, m.e23, vx, vy, vz);
+
+    if (z < VIEW_MIN_F || z >= VIEW_MAX_F)
+    {
+        res.clip = 32;
+        return;
+    }
+
+    int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
+    int32 y = DP43(m.e10, m.e11, m.e12, m.e13, vx, vy, vz);
+
+    res.z = z >> FIXED_SHIFT;
+    res.g = vg >> 8;
+
+    PERSPECTIVE(x, y, z);
+
+    x = X_CLAMP(x, -GUARD_BAND, GUARD_BAND);
+    y = X_CLAMP(y, -GUARD_BAND, GUARD_BAND);
+
+    res.x = x + (FRAME_WIDTH  >> 1);
+    res.y = y + (FRAME_HEIGHT >> 1);
+
+    res.clip = classify(res, viewport); // enableClipping ? classify(res, viewport) : 0; TODO fix clip boxes for static meshes
+}
+
+void transformRoom(const RoomVertex* vertices, int32 vCount, bool underwater)
 {
     int32 causticsValue = 0;
 
     for (int32 i = 0; i < vCount; i++)
     {
-        if (applyCaustics) {
+        if (underwater) {
             causticsValue = caustics[(randTable[i & (MAX_RAND_TABLE - 1)] + causticsFrame) & (MAX_CAUSTICS - 1)];
         }
 
@@ -248,19 +275,19 @@ void transformRoom(const RoomVertex* vertices, int32 vCount, bool applyCaustics)
     }
 }
 
-void transformMesh(const vec3s* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal)
+void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal)
 {
     // TODO calc lighting for vNormal
     for (int32 i = 0; i < vCount; i++)
     {
         ASSERT(!vIntensity || (vIntensity[i] + lightAmbient >= 0)); // ohhh, use X_CLAMP...
 
-        transform(vertices->x, vertices->y, vertices->z, vIntensity ? X_MIN(vIntensity[i] + lightAmbient, 8191) : lightAmbient);
+        transformMeshVertex(vertices->x, vertices->y, vertices->z, vIntensity ? X_MIN(vIntensity[i] + lightAmbient, 8191) : lightAmbient);
         vertices++;
     }
 }
 
-VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount)
+VertexLink* clipPoly(VertexLink* poly, VertexLink* tmp, int32 &pCount)
 {
     #define LERP(a,b,t)         (b + ((a - b) * t >> 12))
     #define LERP2(a,b,ta,tb)    (b + (((a - b) * ta / tb) >> 12) )
@@ -270,16 +297,16 @@ VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount)
         int32 tb = (a->v.X - b->v.X);\
         ASSERT(tb != 0);\
         int32 t = ta / tb;\
-        VertexUV* v = output + count++;\
+        VertexLink* v = output + count++;\
         v->v.X = edge;\
         v->v.Y = LERP2(a->v.Y, b->v.Y, ta, tb);\
         v->v.g = LERP(a->v.g, b->v.g, t);\
-        v->t.u = LERP(a->t.u, b->t.u, t);\
-        v->t.v = LERP(a->t.v, b->t.v, t);\
+        v->t.uv.u = LERP(a->t.uv.u, b->t.uv.u, t);\
+        v->t.uv.v = LERP(a->t.uv.v, b->t.uv.v, t);\
     }
 
     #define CLIP_XY(X, Y, X0, X1, input, output) {\
-        const VertexUV *a, *b = input + pCount - 1;\
+        const VertexLink *a, *b = input + pCount - 1;\
         for (int32 i = 0; i < pCount; i++) {\
             a = b;\
             b = input + i;\
@@ -303,8 +330,8 @@ VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount)
 
     int32 count = 0;
 
-    VertexUV *in = poly;
-    VertexUV *out = tmp;
+    VertexLink *in = poly;
+    VertexLink *out = tmp;
 
     // clip x
     CLIP_XY(x, y, viewport.x0, viewport.x1, in, out);
@@ -319,7 +346,12 @@ VertexUV* clipPoly(VertexUV* poly, VertexUV* tmp, int32 &pCount)
     return in;
 }
 
-void rasterize(const Face* face, const VertexUV *top)
+void renderInit()
+{
+    //
+}
+
+void rasterize(const Face* face, const VertexLink *top)
 {
     uint16* pixel = (uint16*)fb + top->v.y * VRAM_WIDTH;
 #ifdef DEBUG_OVERDRAW
@@ -365,9 +397,9 @@ void rasterize(const Face* face, const VertexUV *top)
 #endif
 }
 
-void drawTriangle(const Face* face, VertexUV *v)
+void drawTriangle(const Face* face, VertexLink *v)
 {
-    VertexUV *v1 = v + 0,
+    VertexLink *v1 = v + 0,
              *v2 = v + 1,
              *v3 = v + 2;
 
@@ -378,7 +410,7 @@ void drawTriangle(const Face* face, VertexUV *v)
     v2->prev = v1;
     v3->prev = v2;
 
-    const VertexUV* top = v1;
+    const VertexLink* top = v1;
     if (v1->v.y < v2->v.y) {
         if (v1->v.y < v3->v.y) {
             top = v1;
@@ -396,9 +428,9 @@ void drawTriangle(const Face* face, VertexUV *v)
     rasterize(face, top);
 }
 
-void drawQuad(const Face* face, VertexUV *v)
+void drawQuad(const Face* face, VertexLink *v)
 {
-    VertexUV *v1 = v + 0,
+    VertexLink *v1 = v + 0,
              *v2 = v + 1,
              *v3 = v + 2,
              *v4 = v + 3;
@@ -412,7 +444,7 @@ void drawQuad(const Face* face, VertexUV *v)
     v3->prev = v2;
     v4->prev = v3;
 
-    VertexUV* top;
+    VertexLink* top;
 
     if (v1->v.y < v2->v.y) {
         if (v1->v.y < v3->v.y) {
@@ -431,9 +463,9 @@ void drawQuad(const Face* face, VertexUV *v)
     rasterize(face, top);
 }
 
-void drawPoly(Face* face, VertexUV* v)
+void drawPoly(Face* face, VertexLink* v)
 {
-    VertexUV tmp[16];
+    VertexLink tmp[16];
 
     int32 count = (face->flags & FACE_TRIANGLE) ? 3 : 4;
 
@@ -467,7 +499,7 @@ void drawPoly(Face* face, VertexUV* v)
         return;
     }
 
-    VertexUV* top = v;
+    VertexLink* top = v;
     top->next = v + 1;
     top->prev = v + count - 1;
 
@@ -475,7 +507,7 @@ void drawPoly(Face* face, VertexUV* v)
 
     for (int32 i = 1; i < count; i++)
     {
-        VertexUV *p = v + i;
+        VertexLink *p = v + i;
 
         p->next = v + (i + 1) % count;
         p->prev = v + (i - 1 + count) % count;
@@ -496,11 +528,8 @@ void drawPoly(Face* face, VertexUV* v)
     rasterize(face, top);
 }
 
-void drawSprite(Face* face, VertexUV* v)
+void drawSprite(Face* face, VertexLink* v)
 {
-    sprite = sprites + face->indices[1];
-    tile = tiles + (sprite->tile << 16);
-
     rasterize(face, v);
 }
 
@@ -514,44 +543,35 @@ void drawGlyph(const Sprite *sprite, int32 x, int32 y)
     int32 ix = x + sprite->l;
     int32 iy = y + sprite->t;
 
-#if defined(MODE_PAL)
     uint16* pixel = (uint16*)fb + iy * VRAM_WIDTH + (ix >> 1);
-#else
-    uint16* pixel = (uint16*)fb + iy * VRAM_WIDTH + ix;
-#endif
 
-    const uint8* glyphData = tiles + (sprite->tile << 16) + 256 * sprite->v + sprite->u;
+    const uint16* glyphData = (uint16*)(level.tiles + (sprite->tile << 16) + 256 * sprite->v + sprite->u);
 
     while (h--)
     {
-    #if defined(MODE_PAL)
-        const uint8* p = glyphData;
+        const uint16* p = glyphData;
 
         for (int32 i = 0; i < (w / 2); i++)
         {
-            if (p[0] || p[1])
+            if (p[0])
             {
-                uint16 d = pixel[i];
-
-                if (p[0]) d = (d & 0xFF00) | p[0];
-                if (p[1]) d = (d & 0x00FF) | (p[1] << 8);
-
-                pixel[i] = d;
+                if (p[0] & 0x00FF) {
+                    if (p[0] & 0xFF00) {
+                        pixel[i] = p[0];
+                    } else {
+                        pixel[i] = (pixel[i] & 0xFF00) | p[0];
+                    }
+                } else {
+                    pixel[i] = (pixel[i] & 0x00FF) | p[0];
+                }
             }
 
-            p += 2;
+            p++;
         }
-    #else
-        for (int32 i = 0; i < w; i++)
-        {
-            if (glyphData[i] == 0) continue;
-            pixel[i] = palette[glyphData[i]];
-        }
-    #endif
 
         pixel += VRAM_WIDTH;
 
-        glyphData += 256;
+        glyphData += 256 / 2;
     }
 }
 
@@ -594,7 +614,12 @@ void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex)
         flags |= FACE_FLAT;
     }
 
-    int32 depth = X_MAX(v1->z, X_MAX(v2->z, X_MAX(v3->z, v4->z))) >> OT_SHIFT;
+    int32 depth;
+    if (enableMaxSort) {
+        depth = X_MAX(v1->z, X_MAX(v2->z, X_MAX(v3->z, v4->z))) >> OT_SHIFT;
+    } else {
+        depth = (v1->z + v2->z + v3->z + v4->z) >> (2 + OT_SHIFT);
+    }
 
     Face* f = faceAdd(depth);
     f->flags = uint16(flags);
@@ -628,7 +653,12 @@ void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex)
         flags |= FACE_FLAT;
     }
 
-    int32 depth = X_MAX(v1->z, X_MAX(v2->z, v3->z)) >> OT_SHIFT;
+    int32 depth;
+    if (enableMaxSort) {
+        depth = X_MAX(v1->z, X_MAX(v2->z, v3->z)) >> OT_SHIFT;
+    } else {
+        depth = (v1->z + v2->z + v3->z + v3->z) >> (2 + OT_SHIFT);
+    }
 
     Face* f = faceAdd(depth);
     f->flags = uint16(flags | FACE_TRIANGLE);
@@ -641,7 +671,11 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
 {
     const Matrix &m = matrixGet();
 
-    int32 z = DP43c(m[2], vx, vy, vz);
+    vx -= cameraViewPos.x;
+    vy -= cameraViewPos.y;
+    vz -= cameraViewPos.z;
+
+    int32 z = DP33(m.e20, m.e21, m.e22, vx, vy, vz);
 
     if (z < VIEW_MIN_F || z >= VIEW_MAX_F)
     {
@@ -650,10 +684,10 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
 
     ASSERT(gFacesCount < MAX_FACES);
 
-    int32 x = DP43c(m[0], vx, vy, vz);
-    int32 y = DP43c(m[1], vx, vy, vz);
+    int32 x = DP33(m.e00, m.e01, m.e02, vx, vy, vz);
+    int32 y = DP33(m.e10, m.e11, m.e12, vx, vy, vz);
 
-    const Sprite* sprite = sprites + index;
+    const Sprite* sprite = level.sprites + index;
 
     int32 l = x + (sprite->l << FIXED_SHIFT);
     int32 r = x + (sprite->r << FIXED_SHIFT);
@@ -714,39 +748,40 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     f->indices[1] = index;
 }
 
+void faceAddGlyph(int32 vx, int32 vy, int32 index)
+{
+    //
+}
+
 void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount, int32 startVertex)
 {
-    for (uint16 i = 0; i < qCount; i++) {
+    for (int32 i = 0; i < qCount; i++) {
         faceAddQuad(quads[i].flags, quads[i].indices, startVertex);
     }
 
-    for (uint16 i = 0; i < tCount; i++) {
+    for (int32 i = 0; i < tCount; i++) {
         faceAddTriangle(triangles[i].flags, triangles[i].indices, startVertex);
     }
 }
 
 void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount, int32 startVertex)
 {
-    for (int i = 0; i < rCount; i++) {
+    for (int32 i = 0; i < rCount; i++) {
         faceAddQuad(rFaces[i].flags, rFaces[i].indices, startVertex);
     }
 
-    for (int i = 0; i < crCount; i++) {
+    for (int32 i = 0; i < crCount; i++) {
         faceAddQuad(crFaces[i].flags | FACE_COLORED, crFaces[i].indices, startVertex);
     }
 
-    for (int i = 0; i < tCount; i++) {
+    for (int32 i = 0; i < tCount; i++) {
         faceAddTriangle(tFaces[i].flags, tFaces[i].indices, startVertex);
     }
 
-    for (int i = 0; i < ctCount; i++) {
+    for (int32 i = 0; i < ctCount; i++) {
         faceAddTriangle(ctFaces[i].flags | FACE_COLORED, ctFaces[i].indices, startVertex);
     }
 }
-
-#ifdef DEBUG_FACES
-    int32 gFacesCountMax, gVerticesCountMax;
-#endif
 
 void flush()
 {
@@ -762,34 +797,36 @@ void flush()
             otFaces[i] = NULL;
 
             do {
-                VertexUV v[16];
-
                 uint32 flags = face->flags;
 
+                VertexLink v[16];
+
                 if (flags == FACE_SPRITE) {
-                    const Sprite &sprite = sprites[face->indices[1]];
+                    const Sprite &sprite = level.sprites[face->indices[1]];
 
                     v[0].v = gVertices[face->indices[0] + 0];
-                    v[0].t.u = sprite.u;
-                    v[0].t.v = sprite.v;
+                    v[0].t.uv.u = sprite.u;
+                    v[0].t.uv.v = sprite.v;
                     v[1].v = gVertices[face->indices[0] + 1];
-                    v[1].t.u = sprite.w;
-                    v[1].t.v = sprite.h;
+                    v[1].t.uv.u = sprite.w;
+                    v[1].t.uv.v = sprite.h;
 
                     ASSERT(v[0].v.x <= v[1].v.x);
                     ASSERT(v[0].v.y <= v[1].v.y);
+
+                    tile = level.tiles + (level.sprites[face->indices[1]].tile << 16);
 
                     drawSprite(face, v);
                 } else {
                     if (!(flags & FACE_COLORED))
                     {
-                        const Texture &tex = textures[flags & FACE_TEXTURE];
-                        tile = tiles + (tex.tile << 16);
+                        const Texture &tex = level.textures[flags & FACE_TEXTURE];
+                        tile = level.tiles + (tex.tile << 16);
 
-                        v[0].t.uv = tex.uv0;
-                        v[1].t.uv = tex.uv1;
-                        v[2].t.uv = tex.uv2;
-                        v[3].t.uv = tex.uv3;
+                        v[0].t.t = tex.uv0;
+                        v[1].t.t = tex.uv1;
+                        v[2].t.t = tex.uv2;
+                        v[3].t.t = tex.uv3;
 
                         enableAlphaTest = (tex.attribute == 1);
                     }
@@ -809,9 +846,8 @@ void flush()
                         } else {
                             drawQuad(face, v);
                         }
-                    };
+                    }
                 }
-
                 face = face->next;
             } while (face);
         }
@@ -819,15 +855,6 @@ void flush()
         otMin = OT_SIZE - 1;
         otMax = 0;
     }
-
-#ifdef DEBUG_FACES
-    if ((gFacesCount > gFacesCountMax) || (gVerticesCount > gVerticesCountMax))
-    {
-        if (gFacesCount > gFacesCountMax) gFacesCountMax = gFacesCount;
-        if (gVerticesCount > gVerticesCountMax) gVerticesCountMax = gVerticesCount;
-        printf("v: %d f: %d\n", gVerticesCountMax, gFacesCountMax);
-    }
-#endif
 
 #ifdef PROFILING
     #if !defined(PROFILE_FRAMETIME) && !defined(PROFILE_SOUNDTIME)

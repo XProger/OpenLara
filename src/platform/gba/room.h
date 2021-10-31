@@ -3,6 +3,13 @@
 
 #include "common.h"
 
+Room* roomsList[MAX_ROOM_LIST];
+
+//#ifdef ROM_READ
+int32 dynSectorsCount;
+EWRAM_DATA Sector dynSectors[MAX_DYN_SECTORS];   // EWRAM 8k
+//#endif
+
 void animTexturesShift()
 {
     const int16* data = level.animTexData;
@@ -13,14 +20,14 @@ void animTexturesShift()
     {
         int32 count = *data++;
 
-        Texture tmp = textures[*data];
+        Texture tmp = level.textures[*data];
         while (count > 0)
         {
-            textures[data[0]] = textures[data[1]];
+            level.textures[data[0]] = level.textures[data[1]];
             data++;
             count--;
         }
-        textures[*data++] = tmp;
+        level.textures[*data++] = tmp;
     }
 }
 
@@ -46,18 +53,18 @@ int32 Sector::getFloor(int32 x, int32 y, int32 z) const
 
     int32 floor = lowerSector->floor << 8;
 
-    gLastFloorSlant.value = 0;
+    gLastFloorSlant = 0;
 
     if (lowerSector->floorIndex)
     {
         const FloorData* fd = level.floors + lowerSector->floorIndex;
-        FloorData::Command cmd = (fd++)->cmd;
+        uint16 cmd = *fd++;
 
-        if (cmd.func == FLOOR_TYPE_FLOOR) // found floor
+        if (FD_FLOOR_TYPE(cmd) == FLOOR_TYPE_FLOOR) // found floor
         {
             gLastFloorSlant = *fd;
-            int32 sx = fd->slantX;
-            int32 sz = fd->slantZ;
+            int32 sx = FD_SLANT_X(gLastFloorSlant);
+            int32 sz = FD_SLANT_Z(gLastFloorSlant);
             int32 dx = x & 1023;
             int32 dz = z & 1023;
             floor -= sx * (sx < 0 ? dx : (dx - 1023)) >> 2;
@@ -79,18 +86,18 @@ int32 Sector::getCeiling(int32 x, int32 y, int32 z) const
     if (upperSector->floorIndex)
     {
         const FloorData* fd = level.floors + upperSector->floorIndex;
-        FloorData::Command cmd = (fd++)->cmd;
+        uint16 cmd = *fd++;
 
-        if (cmd.func == FLOOR_TYPE_FLOOR) // skip floor
+        if (FD_FLOOR_TYPE(cmd) == FLOOR_TYPE_FLOOR) // skip floor
         {
             fd++;
-            cmd = (fd++)->cmd;
+            cmd = *fd++;
         }
 
-        if (cmd.func == FLOOR_TYPE_CEILING) // found ceiling
+        if (FD_FLOOR_TYPE(cmd) == FLOOR_TYPE_CEILING) // found ceiling
         {
-            int32 sx = fd->slantX;
-            int32 sz = fd->slantZ;
+            int32 sx = FD_SLANT_X(*fd);
+            int32 sz = FD_SLANT_Z(*fd);
             int32 dx = x & 1023;
             int32 dz = z & 1023;
             ceiling -= sx * (sx < 0 ? (dx - 1023) : dx) >> 2;
@@ -117,28 +124,28 @@ Room* Sector::getNextRoom() const
     // - other
 
     const FloorData* fd = level.floors + floorIndex;
-    FloorData::Command cmd = (fd++)->cmd;
+    uint16 cmd = *fd++;
 
-    if (cmd.func == FLOOR_TYPE_FLOOR)  // skip floor
+    if (FD_FLOOR_TYPE(cmd) == FLOOR_TYPE_FLOOR)  // skip floor
     {
-        if (cmd.end) return NULL;
+        if (FD_END(cmd)) return NULL;
         fd++;
-        cmd = (fd++)->cmd;
+        cmd = *fd++;
     }
 
-    if (cmd.func == FLOOR_TYPE_CEILING) // skip ceiling
+    if (FD_FLOOR_TYPE(cmd) == FLOOR_TYPE_CEILING) // skip ceiling
     {
-        if (cmd.end) return NULL;
+        if (FD_END(cmd)) return NULL;
         fd++;
-        cmd = (fd++)->cmd;
+        cmd = *fd++;
     }
 
-    if (cmd.func != FLOOR_TYPE_PORTAL) // no portal
+    if (FD_FLOOR_TYPE(cmd) != FLOOR_TYPE_PORTAL) // no portal
         return NULL;
 
-    ASSERT(fd->value != NO_ROOM);
+    ASSERT(*fd != NO_ROOM);
 
-    return rooms + fd->value;
+    return rooms + *fd;
 }
 
 void Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int32* ceiling) const
@@ -146,13 +153,13 @@ void Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int
     if (!floorIndex)
         return;
 
-    FloorData::Command cmd;
+    uint16 cmd;
     const FloorData* fd = level.floors + floorIndex;
 
     do {
-        cmd = (fd++)->cmd;
+        cmd = *fd++;
             
-        switch (cmd.func)
+        switch (FD_FLOOR_TYPE(cmd))
         {
             case FLOOR_TYPE_PORTAL:
             case FLOOR_TYPE_FLOOR:
@@ -169,22 +176,22 @@ void Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int
                 }
 
                 fd++;
-                FloorData::TriggerCommand trigger;
+                uint16 trigger;
 
                 do {
-                    trigger = (fd++)->triggerCmd;
+                    trigger = *fd++;
 
-                    if (trigger.action == TRIGGER_ACTION_ACTIVATE_OBJECT)
+                    if (FD_ACTION(trigger) == TRIGGER_ACTION_ACTIVATE_OBJECT)
                     {
-                        items[trigger.args].getItemFloorCeiling(x, y, z, floor, ceiling);
+                        items[FD_ARGS(trigger)].getItemFloorCeiling(x, y, z, floor, ceiling);
                     }
 
-                    if (trigger.action == TRIGGER_ACTION_ACTIVATE_CAMERA)
+                    if (FD_ACTION(trigger) == TRIGGER_ACTION_ACTIVATE_CAMERA)
                     {
-                        trigger = (fd++)->triggerCmd; // skip camera index
+                        trigger = *fd++; // skip camera index
                     }
 
-                } while (!trigger.end);
+                } while (!FD_END(trigger));
 
                 break;
             }
@@ -196,7 +203,7 @@ void Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int
                 break;
         }
 
-    } while (!cmd.end);
+    } while (!FD_END(cmd));
 }
 
 
@@ -215,13 +222,13 @@ const Sector* Room::getWaterSector(int32 x, int32 z) const
     const Sector* sector = room->getSector(x, z);
 
     // go up to the air
-    if (room->info->flags.water)
+    if (ROOM_FLAG_WATER(room->info->flags))
     {
         while (sector->roomAbove != NO_ROOM)
         {
             room = rooms + sector->roomAbove;
 
-            if (!room->info->flags.water) {
+            if (!ROOM_FLAG_WATER(room->info->flags)) {
                 return sector;
             }
 
@@ -236,7 +243,7 @@ const Sector* Room::getWaterSector(int32 x, int32 z) const
         room = rooms + sector->roomBelow;
         sector = room->getSector(x, z);
 
-        if (room->info->flags.water) {
+        if (ROOM_FLAG_WATER(room->info->flags)) {
             return sector;
         }
     }
@@ -277,9 +284,9 @@ Room* Room::getRoom(int32 x, int32 y, int32 z)
 bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
 {
     cinfo.staticHit = false;
-    cinfo.offset    = vec3i(0);
+    cinfo.offset = _vec3i(0, 0, 0);
 
-    Bounds objBox;
+    AABBs objBox;
     objBox.minX = -cinfo.radius;
     objBox.maxX =  cinfo.radius;
     objBox.minZ = -cinfo.radius;
@@ -298,16 +305,16 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
             const RoomMesh* mesh = room->data.meshes + i;
 
         #ifdef NO_STATIC_MESH_PLANTS
-            if (mesh->id < 10)
+            if (STATIC_MESH_ID(mesh->flags) < 10)
                 continue;
         #endif
 
-            const StaticMesh* staticMesh = staticMeshes + mesh->id;
+            const StaticMesh* staticMesh = level.staticMeshes + STATIC_MESH_ID(mesh->flags);
 
             if (staticMesh->flags & STATIC_MESH_FLAG_NO_COLLISION)
                 continue;
 
-            Bounds meshBox = boxRotate(staticMesh->cbox, (mesh->rot - 2) * ANGLE_90);
+            AABBs meshBox = boxRotate(staticMesh->cbox, STATIC_MESH_ROT(mesh->flags));
 
         // TODO align RoomInfo::Mesh (room relative int16?)
             vec3i pos;
@@ -336,7 +343,7 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
                     cinfo.offset.x = 0;
                     cinfo.type = ((cinfo.offset.z > 0) ^ flip) ? CT_RIGHT : CT_LEFT;
                 } else {
-                    cinfo.offset = vec3i(0);
+                    cinfo.offset = _vec3i(0, 0, 0);
                 }
             } else {
                 if (abs(cinfo.offset.x) > cinfo.radius) {
@@ -348,7 +355,7 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
                     cinfo.offset.z = 0;
                     cinfo.type = ((cinfo.offset.x > 0) ^ flip) ? CT_LEFT : CT_RIGHT;
                 } else {
-                    cinfo.offset = vec3i(0);
+                    cinfo.offset = _vec3i(0, 0, 0);
                 }
             }
 
@@ -361,6 +368,180 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
     return false;
 }
 
+#ifdef __3DO__
+bool Room::checkPortal(const Portal* portal, vec3i* points)
+{
+    int32 x0 = clip.x1;
+    int32 y0 = clip.y1;
+    int32 x1 = clip.x0;
+    int32 y1 = clip.y0;
+
+    int32 znear = 0, zfar = 0;
+
+    for (int32 i = 0; i < 4; i++)
+    {
+        int32 x = points[i].x;
+        int32 y = points[i].y;
+        int32 z = points[i].z;
+
+        if (z <= 0) {
+            points[i].x = -points[i].x;
+            points[i].y = -points[i].y;
+            znear++;
+            continue;
+        }
+
+        if (z >= (VIEW_MAX_F >> FIXED_SHIFT)) {
+            zfar++;
+        }
+
+        x += FRAME_WIDTH  >> 1;
+        y += FRAME_HEIGHT >> 1;
+
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+    }
+
+    if (znear == 4 || zfar == 4)
+        return false;
+
+    if (znear)
+    {
+        const vec3i *a = points;
+        const vec3i *b = points + 3;
+        for (int32 i = 0; i < 4; i++)
+        {
+            if ((a->z <= 0) ^ (b->z <= 0))
+            {
+                if (a->x < 0 && b->x < 0) {
+                    x0 = 0;
+                } else if (a->x > 0 && b->x > 0) {
+                    x1 = FRAME_WIDTH;
+                } else {
+                    x0 = 0;
+                    x1 = FRAME_WIDTH;
+                }
+
+                if (a->y < 0 && b->y < 0) {
+                    y0 = 0;
+                } else if (a->y > 0 && b->y > 0) {
+                    y1 = FRAME_HEIGHT;
+                } else {
+                    y0 = 0;
+                    y1 = FRAME_HEIGHT;
+                }
+            }
+            b = a;
+            a++;
+        }
+    }
+
+    if (x0 < clip.x0) x0 = clip.x0;
+    if (x1 > clip.x1) x1 = clip.x1;
+    if (y0 < clip.y0) y0 = clip.y0;
+    if (y1 > clip.y1) y1 = clip.y1;
+
+    if (x0 >= x1 || y0 >= y1)
+        return false;
+
+    Room* nextRoom = rooms + portal->roomIndex;
+
+    if (x0 < nextRoom->clip.x0) nextRoom->clip.x0 = x0;
+    if (x1 > nextRoom->clip.x1) nextRoom->clip.x1 = x1;
+    if (y0 < nextRoom->clip.y0) nextRoom->clip.y0 = y0;
+    if (y1 > nextRoom->clip.y1) nextRoom->clip.y1 = y1;
+
+    return true;
+}
+
+Room** Room::addVisibleRoom(Room** list)
+{
+    uint32 vis[MAX_PORTALS];
+    vec3i vertices[MAX_PORTALS * 4];
+
+    int32 cx = cameraViewPos.x - (info->x << 8);
+    int32 cy = cameraViewPos.y;
+    int32 cz = cameraViewPos.z - (info->z << 8);
+
+    const Portal* portal = data.portals;
+    vec3i* v = (vec3i*)vertices;
+    int32 vCount = 0;
+
+    for (int32 i = 0; i < info->portalsCount; i++, portal++)
+    {
+        int32 axis = 0;
+        int32 x = (portal->v[0].x - cx) << F16_SHIFT;
+        if (x > 0) axis |= (2 << 0);
+        if (x < 0) axis |= (1 << 0);
+        int32 y = (portal->v[0].y - cy) << F16_SHIFT;
+        if (y > 0) axis |= (2 << 2);
+        if (y < 0) axis |= (1 << 2);
+        int32 z = (portal->v[0].z - cz) << F16_SHIFT;
+        if (z > 0) axis |= (2 << 4);
+        if (z < 0) axis |= (1 << 4);
+
+        vis[i] = (portal->normalMask & axis);
+
+        if (!vis[i])
+            continue;
+
+        v->x = x;
+        v->y = y;
+        v->z = z;
+        v++;
+
+        v->x = (portal->v[1].x - cx) << F16_SHIFT;
+        v->y = (portal->v[1].y - cy) << F16_SHIFT;
+        v->z = (portal->v[1].z - cz) << F16_SHIFT;
+        v++;
+
+        v->x = (portal->v[2].x - cx) << F16_SHIFT;
+        v->y = (portal->v[2].y - cy) << F16_SHIFT;
+        v->z = (portal->v[2].z - cz) << F16_SHIFT;
+        v++;
+
+        v->x = (portal->v[3].x - cx) << F16_SHIFT;
+        v->y = (portal->v[3].y - cy) << F16_SHIFT;
+        v->z = (portal->v[3].z - cz) << F16_SHIFT;
+        v++;
+
+        vCount += 4;
+    }
+
+    if (!vCount)
+        return list;
+
+    transform((vec3i*)vertices, vCount);
+
+    portal = data.portals;
+    v = (vec3i*)vertices;
+
+    for (int32 i = 0; i < info->portalsCount; i++, portal++)
+    {
+        if (!vis[i])
+            continue;
+
+        if (checkPortal(portal, v))
+        {
+            Room* nextRoom = rooms + portal->roomIndex;
+
+            list = nextRoom->addVisibleRoom(list);
+
+            if (!nextRoom->visible)
+            {
+                nextRoom->visible = true;
+                *list++ = nextRoom;
+            }
+        }
+
+        v += 4;
+    }
+
+    return list;
+}
+#else
 bool Room::checkPortal(const Portal* portal)
 {
     vec3i d;
@@ -368,8 +549,25 @@ bool Room::checkPortal(const Portal* portal)
     d.y = portal->v[0].y - cameraViewPos.y;
     d.z = portal->v[0].z - cameraViewPos.z + (info->z << 8);
 
-    if (DP33(portal->n, d) >= 0)
+    Matrix &m = matrixGet();
+
+    vec3i pv[4];
+
+#ifdef __3DO__
+    int32 axis = 0;
+    if (d.x > 0) axis |= (2 << 0);
+    if (d.x < 0) axis |= (1 << 0);
+    if (d.y > 0) axis |= (2 << 2);
+    if (d.y < 0) axis |= (1 << 2);
+    if (d.z > 0) axis |= (2 << 4);
+    if (d.z < 0) axis |= (1 << 4);
+
+    if (!(portal->normalMask & axis))
         return false;
+#else
+    if (DP33(portal->n.x, portal->n.y, portal->n.z, d.x, d.y, d.z) >= 0)
+        return false;
+#endif
 
     int32 x0 = clip.x1;
     int32 y0 = clip.y1;
@@ -378,40 +576,39 @@ bool Room::checkPortal(const Portal* portal)
 
     int32 znear = 0, zfar = 0;
 
-    Matrix &m = matrixGet();
-
-    vec3i pv[4];
-
     for (int32 i = 0; i < 4; i++)
     {
-        const vec3s &v = portal->v[i];
+        int32 px = portal->v[i].x;
+        int32 py = portal->v[i].y;
+        int32 pz = portal->v[i].z;
 
-        int32 x = DP43(m[0], v);
-        int32 y = DP43(m[1], v);
-        int32 z = DP43(m[2], v);
+        int32 x = DP43(m.e00, m.e01, m.e02, m.e03, px, py, pz);
+        int32 y = DP43(m.e10, m.e11, m.e12, m.e13, px, py, pz);
+        int32 z = DP43(m.e20, m.e21, m.e22, m.e23, px, py, pz);
 
         pv[i].x = x;
         pv[i].y = y;
         pv[i].z = z;
 
-        if (z <= VIEW_MIN_F) {
+        if (z <= 0) {
             znear++;
             continue;
         }
 
-        if (z >= VIEW_MAX_F) {
+        if (z >= VIEW_MAX_F)
+        {
             z = VIEW_MAX_F;
             zfar++;
         }
 
-        if (z != 0) {
+        int32 dz = (z >> (FIXED_SHIFT + FOV_SHIFT + 1));
+        if (dz > 0) {
             PERSPECTIVE(x, y, z);
-
             x += FRAME_WIDTH  >> 1;
             y += FRAME_HEIGHT >> 1;
         } else {
-            x = (x > 0) ? viewport.x1 : viewport.x0;
-            y = (y > 0) ? viewport.y1 : viewport.y0;
+            x = (x < 0) ? viewport.x0 : viewport.x1;
+            y = (y < 0) ? viewport.y0 : viewport.y1;
         }
 
         if (x < x0) x0 = x;
@@ -499,12 +696,11 @@ Room** Room::addVisibleRoom(Room** list)
 
     return list;
 }
+#endif
 
 Room** Room::getVisibleRooms()
 {
-    Room** list = roomsList;
-
-    list = addVisibleRoom(list);
+    Room** list = addVisibleRoom(roomsList);
     *list++ = this;
     *list++ = NULL;
 
@@ -516,7 +712,7 @@ Room** Room::getVisibleRooms()
 void Room::reset()
 {
     visible = false;
-    clip = Rect( FRAME_WIDTH, FRAME_HEIGHT, 0, 0 );
+    clip = RectMinMax( FRAME_WIDTH, FRAME_HEIGHT, 0, 0 );
 }
 
 Room** Room::addNearRoom(Room** list, int32 x, int32 y, int32 z)
@@ -571,6 +767,7 @@ Room** Room::getAdjRooms()
 
 void Room::modify()
 {
+//#ifdef ROM_READ
     if (sectors == data.sectors)
     {
         // convert room->sectors to mutable (non-ROM) data
@@ -581,9 +778,10 @@ void Room::modify()
         //printf("dynSectors: %d\n", dynSectorsCount);
         ASSERT(dynSectorsCount <= MAX_DYN_SECTORS);
     }
+//#endif
 }
 
-void Room::add(Item* item)
+void Room::add(ItemObj* item)
 {
     ASSERT(item && item->nextItem == NULL);
 
@@ -592,16 +790,16 @@ void Room::add(Item* item)
     firstItem = item;
 }
 
-void Room::remove(Item* item)
+void Room::remove(ItemObj* item)
 {
     ASSERT(item && item->room == this);
 
-    Item* prev = NULL;
-    Item* curr = firstItem;
+    ItemObj* prev = NULL;
+    ItemObj* curr = firstItem;
 
     while (curr)
     {
-        Item* next = curr->nextItem;
+        ItemObj* next = curr->nextItem;
 
         if (curr == item)
         {
@@ -618,6 +816,507 @@ void Room::remove(Item* item)
 
         prev = curr;
         curr = next;
+    }
+}
+
+#define TRACE_SHIFT 10 // trace precision
+
+#define TRACE_CHECK(r, x, y, z) \
+{ \
+    const Sector* sector = r->getSector(x, z); \
+    if (accurate) { \
+        if (y > sector->getFloor(x, y, z) || y < sector->getCeiling(x, y, z)) \
+        { \
+            to.pos = p; \
+            to.room = room; \
+            return false; \
+        } \
+    } else { \
+        if (y > (sector->floor << 8) || y < (sector->ceiling << 8)) \
+        { \
+            to.pos = p; \
+            to.room = room; \
+            return false; \
+        } \
+    } \
+}
+
+bool traceX(const Location &from, Location &to, bool accurate)
+{
+    vec3i d = to.pos - from.pos;
+
+    if (!d.x)
+        return true;
+
+    d.y = (d.y << TRACE_SHIFT) / d.x;
+    d.z = (d.z << TRACE_SHIFT) / d.x;
+
+    vec3i p = from.pos;
+
+    Room* room = from.room;
+
+    if (d.x < 0)
+    {
+        d.x = 1024;
+        p.x &= ~1023;
+        p.y += d.y * (p.x - from.pos.x) >> TRACE_SHIFT;
+        p.z += d.z * (p.x - from.pos.x) >> TRACE_SHIFT;
+
+        while (p.x > to.pos.x)
+        {
+            room = room->getRoom(p.x, p.y, p.z);
+            TRACE_CHECK(room, p.x, p.y, p.z);
+
+            Room* nextRoom = room->getRoom(p.x - 1, p.y, p.z);
+            TRACE_CHECK(nextRoom, p.x - 1, p.y, p.z);
+
+            room = nextRoom;
+            p -= d;
+        }
+    }
+    else
+    {
+        d.x = 1024;
+        p.x |= 1023;
+        p.y += d.y * (p.x - from.pos.x) >> TRACE_SHIFT;
+        p.z += d.z * (p.x - from.pos.x) >> TRACE_SHIFT;
+
+        while (p.x < to.pos.x)
+        {
+            room = room->getRoom(p.x, p.y, p.z);
+            TRACE_CHECK(room, p.x, p.y, p.z);
+
+            Room* nextRoom = room->getRoom(p.x + 1, p.y, p.z);
+            TRACE_CHECK(nextRoom, p.x + 1, p.y, p.z);
+
+            room = nextRoom;
+            p += d;
+        }
+    }
+
+    to.room = room;
+
+    return true;
+}
+
+bool traceZ(const Location &from, Location &to, bool accurate)
+{
+    vec3i d = to.pos - from.pos;
+
+    if (!d.z)
+        return true;
+
+    d.x = (d.x << TRACE_SHIFT) / d.z;
+    d.y = (d.y << TRACE_SHIFT) / d.z;
+
+    vec3i p = from.pos;
+
+    Room* room = from.room;
+
+    if (d.z < 0)
+    {
+        d.z = 1024;
+        p.z &= ~1023;
+        p.x += d.x * (p.z - from.pos.z) >> TRACE_SHIFT;
+        p.y += d.y * (p.z - from.pos.z) >> TRACE_SHIFT;
+
+        while (p.z > to.pos.z)
+        {
+            room = room->getRoom(p.x, p.y, p.z);
+            TRACE_CHECK(room, p.x, p.y, p.z);
+
+            Room* nextRoom = room->getRoom(p.x, p.y, p.z - 1);
+            TRACE_CHECK(nextRoom, p.x, p.y, p.z - 1);
+
+            room = nextRoom;
+            p -= d;
+        }
+    }
+    else
+    {
+        d.z = 1024;
+        p.z |= 1023;
+        p.x += d.x * (p.z - from.pos.z) >> TRACE_SHIFT;
+        p.y += d.y * (p.z - from.pos.z) >> TRACE_SHIFT;
+
+        while (p.z < to.pos.z)
+        {
+            room = room->getRoom(p.x, p.y, p.z);
+            TRACE_CHECK(room, p.x, p.y, p.z);
+
+            Room* nextRoom = room->getRoom(p.x, p.y, p.z + 1);
+            TRACE_CHECK(nextRoom, p.x, p.y, p.z + 1);
+
+            room = nextRoom;
+            p += d;
+        }
+    }
+
+    to.room = room;
+
+    return true;
+}
+
+#undef TRACE_CHECK
+
+bool trace(const Location &from, Location &to, bool accurate)
+{
+    int32 dx = abs(to.pos.x - from.pos.x);
+    int32 dz = abs(to.pos.z - from.pos.z);
+    int32 dy;
+
+    bool res;
+
+    if (dz > dx) {
+        res = traceX(from, to, accurate);
+        if (!traceZ(from, to, accurate))
+            return false;
+    } else {
+        res = traceZ(from, to, accurate);
+        if (!traceX(from, to, accurate))
+            return false;
+    }
+
+    dy = to.pos.y - from.pos.y;
+
+    if (dy)
+    {
+        const Sector* sector = to.room->getSector(to.pos.x, to.pos.z);
+
+        int32 h = sector->getFloor(to.pos.x, to.pos.y, to.pos.z);
+        if (to.pos.y <= h || from.pos.y >= h)
+        {
+            h = sector->getCeiling(to.pos.x, to.pos.y, to.pos.z);
+            if (to.pos.y >= h || from.pos.y <= h)
+            {
+                h = WALL;
+            }
+        }
+
+        if (h != WALL)
+        {
+            to.pos.y = h;
+            h -= from.pos.y;
+            to.pos.x = from.pos.x + (to.pos.x - from.pos.x) * h / dy;
+            to.pos.z = from.pos.z + (to.pos.z - from.pos.z) * h / dy;
+            return false;
+        }
+    }
+
+    return res;
+}
+
+void checkCamera(const FloorData* fd, Camera* camera)
+{
+    bool lookAt = false;
+
+    while (1)
+    {
+        uint16 triggerCmd = *fd++;
+
+        switch (FD_ACTION(triggerCmd))
+        {
+            case TRIGGER_ACTION_ACTIVATE_CAMERA:
+            {
+                FD_SET_END(triggerCmd, FD_END(*fd++));
+
+                if (FD_ARGS(triggerCmd) != camera->lastIndex)
+                {
+                    camera->lookAtItem = NULL;
+                    return;
+                }
+
+                camera->index = FD_ARGS(triggerCmd);
+
+                if (camera->timer < 0 || camera->mode == CAMERA_MODE_LOOK || camera->mode == CAMERA_MODE_COMBAT)
+                {
+                    camera->timer = -1;
+                    camera->lookAtItem = NULL;
+                    return;
+                }
+
+                camera->mode = CAMERA_MODE_FIXED;
+                lookAt = true;
+                break;
+            }
+
+            case TRIGGER_ACTION_CAMERA_TARGET:
+            {
+                if (camera->mode == CAMERA_MODE_LOOK || camera->mode == CAMERA_MODE_COMBAT)
+                    break;
+
+                ASSERT(FD_ARGS(triggerCmd) < level.itemsCount);
+                camera->lookAtItem = items + FD_ARGS(triggerCmd);
+                break;
+            }
+
+            case TRIGGER_ACTION_FLYBY:
+            {
+                FD_SET_END(triggerCmd, FD_END(*fd++));
+                break;
+            }
+        }
+
+        if (FD_END(triggerCmd))
+            break;
+    };
+
+    if (!lookAt && camera->lookAtItem && camera->lookAtItem != camera->lastItem && camera->lookAtItem->flags.animated) {
+        camera->lookAtItem = NULL;
+    }
+}
+
+void checkTrigger(const FloorData* fd, ItemObj* lara)
+{
+    if (!fd)
+        return;
+
+    if (FD_FLOOR_TYPE(*fd) == FLOOR_TYPE_LAVA)
+    {
+        // TODO lava
+
+        if (FD_END(*fd))
+            return;
+
+        fd++;
+    }
+
+    uint16 cmd = *fd++;
+    uint16 data = *fd++;
+
+    ItemObj* switchItem = NULL;
+    ItemObj* cameraItem = NULL;
+
+    Camera* camera = lara ? &lara->extraL->camera : &playersExtra[0].camera;
+
+    if (camera->mode != CAMERA_MODE_OBJECT) {
+        checkCamera(fd, camera);
+    }
+
+    if (!lara && FD_TRIGGER_TYPE(cmd) != TRIGGER_TYPE_OBJECT)
+        return;
+
+    if (lara)
+    {
+        switch (FD_TRIGGER_TYPE(cmd))
+        {
+            case TRIGGER_TYPE_ACTIVATE:
+                break;
+
+            case TRIGGER_TYPE_PAD:
+            case TRIGGER_TYPE_ANTIPAD:
+            {
+                if (lara->pos.y != lara->roomFloor)
+                    return;
+                break;
+            }
+
+            case TRIGGER_TYPE_SWITCH:
+            {
+                switchItem = items + FD_ARGS(*fd);
+                if (!useSwitch(switchItem, FD_TIMER(data)))
+                    return;
+                fd++;
+                break;
+            }
+
+            case TRIGGER_TYPE_KEY:
+            {
+                ItemObj* keyItem = items + FD_ARGS(*fd);
+                if (!useKey(keyItem, lara))
+                    return;
+                fd++;
+                break;
+            }
+
+            case TRIGGER_TYPE_PICKUP:
+            {
+                ItemObj* pickupItem = items + FD_ARGS(*fd);
+                if (!usePickup(pickupItem))
+                    return;
+                fd++;
+                break;
+            }
+                
+            case TRIGGER_TYPE_OBJECT:
+                return;
+
+            case TRIGGER_TYPE_COMBAT:
+            {
+                if (lara->extraL->weaponState != WEAPON_STATE_READY)
+                    return;
+                break;
+            }
+
+            case TRIGGER_TYPE_DUMMY:
+                return;
+        }
+    }
+
+    while (1)
+    {
+        uint16 triggerCmd = *fd++;
+
+        switch (FD_ACTION(triggerCmd))
+        {
+            case TRIGGER_ACTION_ACTIVATE_OBJECT:
+            {
+                ASSERT(FD_ARGS(triggerCmd) < level.itemsCount);
+                ItemObj* item = items + FD_ARGS(triggerCmd);
+                
+                if (item->flags.once)
+                    break;
+
+                item->timer = FD_TIMER(data);
+                if (item->timer != 1) {
+                    item->timer *= 30;
+                }
+
+                if (FD_TRIGGER_TYPE(cmd) == TRIGGER_TYPE_SWITCH) {
+                    item->flags.mask ^= FD_MASK(data);
+                } else if (FD_TRIGGER_TYPE(cmd) == TRIGGER_TYPE_ANTIPAD) {
+                    item->flags.mask &= ~FD_MASK(data);
+                } else {
+                    item->flags.mask |= FD_MASK(data);
+                }
+
+                if (item->flags.mask != ITEM_FLAGS_MASK_ALL)
+                    break;
+
+                item->flags.once |= FD_ONCE(data);
+
+                if (item->flags.active)
+                    break;
+
+                item->activate();
+
+                if ((item->flags.status == ITEM_FLAGS_STATUS_NONE) && item->flags.active) {
+                    item->flags.status = ITEM_FLAGS_STATUS_ACTIVE;
+                }
+
+                break;
+            }
+
+            case TRIGGER_ACTION_ACTIVATE_CAMERA:
+            {
+                uint16 cam = *fd++;
+                FD_SET_END(triggerCmd, FD_END(cam));
+
+                if (level.cameras[FD_ARGS(triggerCmd)].flags.once)
+                    break;
+
+                camera->index = FD_ARGS(triggerCmd);
+
+                if (camera->mode == CAMERA_MODE_LOOK || camera->mode == CAMERA_MODE_COMBAT)
+                    break;
+
+                if (FD_TRIGGER_TYPE(cmd) == TRIGGER_TYPE_COMBAT)
+                    break;
+
+                if (FD_TRIGGER_TYPE(cmd) == TRIGGER_TYPE_SWITCH && (switchItem->state == 1) && (FD_TIMER(data) != 0))
+                    break;
+
+                if (FD_TRIGGER_TYPE(cmd) == TRIGGER_TYPE_SWITCH || camera->index != camera->lastIndex)
+                {
+                    camera->timer = FD_TIMER(cam);
+                    if (camera->timer != 1) {
+                        camera->timer *= 30;
+                    }
+
+                    if (FD_ONCE(cam)) {
+                        level.cameras[camera->index].flags.once = true;
+                    }
+                
+                    camera->speed = (FD_SPEED(cam) << 3) + 1;
+                    camera->mode = lara ? CAMERA_MODE_FIXED : CAMERA_MODE_OBJECT;
+                }
+                break;
+            }
+
+            case TRIGGER_ACTION_FLOW:
+                // TODO flow
+                break;
+
+            case TRIGGER_ACTION_FLIP:
+                // TODO flipmap
+                break;
+
+            case TRIGGER_ACTION_FLIP_ON:
+                // TODO flipmap
+                break;
+
+            case TRIGGER_ACTION_FLIP_OFF:
+                // TODO flipmap
+                break;
+
+            case TRIGGER_ACTION_CAMERA_TARGET:
+            {
+                cameraItem = items + FD_ARGS(triggerCmd);
+                break;
+            }
+
+            case TRIGGER_ACTION_END:
+                // TODO go to the next level
+                break;
+
+            case TRIGGER_ACTION_SOUNDTRACK:
+            {
+                int32 track = doTutorial(lara, FD_ARGS(triggerCmd));
+
+                if (track == 0) break;
+
+                SaveGame::TrackFlags &flags = gSaveGame.tracks[track];
+
+                if (flags.once)
+                    break;
+
+                if (FD_TRIGGER_TYPE(cmd) == TRIGGER_TYPE_SWITCH)
+                    flags.mask ^= FD_MASK(data);
+                else if (FD_TRIGGER_TYPE(cmd) == TRIGGER_TYPE_ANTIPAD)
+                    flags.mask &= ~FD_MASK(data);
+                else
+                    flags.mask |= FD_MASK(data);
+
+                if (flags.mask == ITEM_FLAGS_MASK_ALL) {
+                    flags.once |= FD_ONCE(data);
+                    musicPlay(track);
+                } else {
+                    musicStop();
+                }
+                break;
+            }
+
+            case TRIGGER_ACTION_EFFECT:
+                // TODO effect
+                break;
+
+            case TRIGGER_ACTION_SECRET:
+            {
+                if (gSaveGame.secrets & (1 << FD_ARGS(triggerCmd)))
+                    break;
+                gSaveGame.secrets |= (1 << FD_ARGS(triggerCmd));
+                musicPlay(13);
+                break;
+            }
+
+            case TRIGGER_ACTION_CLEAR_BODIES:
+                break;
+
+            case TRIGGER_ACTION_FLYBY:
+                FD_SET_END(triggerCmd, FD_END(*fd++));
+                break;
+
+            case TRIGGER_ACTION_CUTSCENE:
+                break;
+        }
+
+        if (FD_END(triggerCmd))
+            break;
+    };
+
+    if (cameraItem && (camera->mode == CAMERA_MODE_FIXED || camera->mode == CAMERA_MODE_OBJECT))
+    {
+        camera->lookAtItem = cameraItem;
     }
 }
 

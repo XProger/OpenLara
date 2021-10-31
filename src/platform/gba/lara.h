@@ -223,7 +223,7 @@ const WeaponParams weaponParams[WEAPON_MAX] = {
     },
 };
 
-struct Lara : Item
+struct Lara : ItemObj
 {
     enum State {
         LARA_STATES(DECL_ENUM)
@@ -354,7 +354,7 @@ struct Lara : Item
         Room** adjRoom = room->getAdjRooms();
         while (*adjRoom)
         {
-            Item* item = (*adjRoom++)->firstItem;
+            ItemObj* item = (*adjRoom++)->firstItem;
             
             while (item)
             {
@@ -608,12 +608,12 @@ struct Lara : Item
     bool s_checkLook()
     {
         if (input & IN_LOOK) {
-            gCamera->mode = CAMERA_MODE_LOOK;
+            extraL->camera.mode = CAMERA_MODE_LOOK;
             return true;
         }
-   
-        if (gCamera->mode == CAMERA_MODE_LOOK) {
-            gCamera->mode = CAMERA_MODE_FOLLOW;
+
+        if (extraL->camera.mode == CAMERA_MODE_LOOK) {
+            extraL->camera.mode = CAMERA_MODE_FOLLOW;
         }
 
         return false;
@@ -800,7 +800,7 @@ struct Lara : Item
 
     S_HANDLER( STATE_HANG )
     {
-        gCamera->targetAngleX = ANGLE(-60);
+        extraL->camera.targetAngle.x = ANGLE(-60);
 
         s_ignoreEnemy();
         if (input & IN_LEFT) {
@@ -812,7 +812,7 @@ struct Lara : Item
 
     S_HANDLER( STATE_REACH )
     {
-        gCamera->targetAngleY = ANGLE(85);
+        extraL->camera.targetAngle.y = ANGLE(85);
 
         s_checkFall();
     }
@@ -968,7 +968,7 @@ struct Lara : Item
 
     S_HANDLER( STATE_SLIDE )
     {
-        gCamera->targetAngleX = ANGLE(-45);
+        extraL->camera.targetAngle.x = ANGLE(-45);
 
         if (input & IN_JUMP) {
             goalState = STATE_JUMP;
@@ -977,7 +977,7 @@ struct Lara : Item
 
     S_HANDLER( STATE_JUMP_BACK )
     {
-        gCamera->targetAngleY = ANGLE(135);
+        extraL->camera.targetAngle.y = ANGLE(135);
 
         if (s_checkFall())
             return;
@@ -1013,7 +1013,7 @@ struct Lara : Item
 
     S_HANDLER( STATE_HANG_LEFT )
     {
-        gCamera->targetAngleX = ANGLE(-60);
+        extraL->camera.targetAngle.x = ANGLE(-60);
 
         s_ignoreEnemy();
 
@@ -1024,7 +1024,7 @@ struct Lara : Item
 
     S_HANDLER( STATE_HANG_RIGHT )
     {
-        gCamera->targetAngleX = ANGLE(-60);
+        extraL->camera.targetAngle.x = ANGLE(-60);
 
         s_ignoreEnemy();
 
@@ -1105,25 +1105,25 @@ struct Lara : Item
 
     S_HANDLER( STATE_BLOCK_PUSH )
     {
-        gCamera->targetAngleX = ANGLE(-25);
-        gCamera->targetAngleY = ANGLE(35);
-        gCamera->center = true;
+        extraL->camera.targetAngle.x = ANGLE(-25);
+        extraL->camera.targetAngle.y = ANGLE(35);
+        extraL->camera.center = true;
 
         s_ignoreEnemy();
     }
 
     S_HANDLER( STATE_BLOCK_PULL )
     {
-        gCamera->targetAngleX = ANGLE(-25);
-        gCamera->targetAngleY = ANGLE(35);
-        gCamera->center = true;
+        extraL->camera.targetAngle.x = ANGLE(-25);
+        extraL->camera.targetAngle.y = ANGLE(35);
+        extraL->camera.center = true;
 
         s_ignoreEnemy();
     }
 
     S_HANDLER( STATE_BLOCK_READY )
     {
-        gCamera->targetAngleY = ANGLE(75);
+        extraL->camera.targetAngle.y = ANGLE(75);
 
         s_ignoreEnemy();
 
@@ -1134,45 +1134,45 @@ struct Lara : Item
 
     S_HANDLER( STATE_PICKUP )
     {
-        gCamera->targetAngleX = ANGLE(-15);
-        gCamera->targetAngleY = ANGLE(-130);
-        gCamera->targetDist = 1024;
+        extraL->camera.targetAngle.x = ANGLE(-15);
+        extraL->camera.targetAngle.y = ANGLE(-130);
+        extraL->camera.targetDist = 1024;
 
         s_ignoreEnemy();
     }
 
     S_HANDLER( STATE_SWITCH_DOWN )
     {
-        gCamera->targetAngleX = ANGLE(-25);
-        gCamera->targetAngleY = ANGLE(80);
-        gCamera->targetDist = 1024;
+        extraL->camera.targetAngle.x = ANGLE(-25);
+        extraL->camera.targetAngle.y = ANGLE(80);
+        extraL->camera.targetDist = 1024;
 
         s_ignoreEnemy();
     }
 
     S_HANDLER( STATE_SWITCH_UP )
     {
-        gCamera->targetAngleX = ANGLE(-25);
-        gCamera->targetAngleY = ANGLE(80);
-        gCamera->targetDist = 1024;
+        extraL->camera.targetAngle.x = ANGLE(-25);
+        extraL->camera.targetAngle.y = ANGLE(80);
+        extraL->camera.targetDist = 1024;
 
         s_ignoreEnemy();
     }
 
     S_HANDLER( STATE_USE_KEY )
     {
-        gCamera->targetAngleX = ANGLE(-25);
-        gCamera->targetAngleY = ANGLE(-80);
-        gCamera->targetDist = 1024;
+        extraL->camera.targetAngle.x = ANGLE(-25);
+        extraL->camera.targetAngle.y = ANGLE(-80);
+        extraL->camera.targetDist = 1024;
 
         s_ignoreEnemy();
     }
 
     S_HANDLER( STATE_USE_PUZZLE )
     {
-        gCamera->targetAngleX = ANGLE(-25);
-        gCamera->targetAngleY = ANGLE(-80);
-        gCamera->targetDist = 1024;
+        extraL->camera.targetAngle.x = ANGLE(-25);
+        extraL->camera.targetAngle.y = ANGLE(-80);
+        extraL->camera.targetDist = 1024;
 
         s_ignoreEnemy();
     }
@@ -1190,9 +1190,9 @@ struct Lara : Item
 
     S_HANDLER( STATE_SPECIAL )
     {
-        gCamera->targetAngleX = ANGLE(-25);
-        gCamera->targetAngleY = ANGLE(170);
-        gCamera->center = true;
+        extraL->camera.targetAngle.x = ANGLE(-25);
+        extraL->camera.targetAngle.y = ANGLE(170);
+        extraL->camera.center = true;
     }
 
     S_HANDLER( STATE_SURF_BACK )
@@ -1279,7 +1279,7 @@ struct Lara : Item
     S_HANDLER( STATE_WATER_OUT )
     {
         s_ignoreEnemy();
-        gCamera->center = true;
+        extraL->camera.center = true;
     }
 
     S_HANDLER( STATE_CLIMB_START  ) {}
@@ -1303,7 +1303,7 @@ struct Lara : Item
     void c_applyOffset()
     {
         pos += cinfo.offset;
-        cinfo.offset = vec3i(0, 0, 0);
+        cinfo.offset = _vec3i(0, 0, 0);
     }
 
     void c_angle(int16 angleDelta)
@@ -2660,7 +2660,7 @@ struct Lara : Item
     C_HANDLER( STATE_UNUSED_4     ) {}
     C_HANDLER( STATE_ZIPLINE      ) {}
 
-    Lara(Room* room) : Item(room)
+    Lara(Room* room) : ItemObj(room)
     {
         int32 playerIndex = -1;
 
@@ -2680,10 +2680,11 @@ struct Lara : Item
 
         extraL->weapon = extraL->goalWeapon = WEAPON_PISTOLS; // TODO LEVEL10A
         setWeaponState(WEAPON_STATE_FREE);
-
         meshSwap(ITEM_LARA, 0xFFFFFFFF);
 
-        bool isHome = false;
+    //#ifndef PROFILING
+        extern int32 gLevelID;
+        bool isHome = gLevelID == 0;
 
         if (isHome) {
             meshSwap(ITEM_LARA_SPEC, JOINT_MASK_UPPER | JOINT_MASK_LOWER);
@@ -2704,11 +2705,14 @@ struct Lara : Item
             //extraL->weapon = extraL->goalWeapon = WEAPON_SHOTGUN;
         }
 
+        animSet(ANIM_STAND, true, 0);
+    //#endif
+
         health = LARA_MAX_HEALTH;
         oxygen = LARA_MAX_OXYGEN;
         flags.shadow = true;
 
-        animSet(ANIM_STAND, true, 0);
+        extraL->camera.init(this);
     }
 
 // update control
@@ -2716,7 +2720,7 @@ struct Lara : Item
     {
         input = 0;
 
-        if (gCamera->mode == CAMERA_MODE_FREE)
+        if (extraL->camera.mode == CAMERA_MODE_FREE)
             return;
 
         if (keys & IK_LEFT)  input |= IN_LEFT;
@@ -2724,10 +2728,22 @@ struct Lara : Item
         if (keys & IK_UP)    input |= IN_UP;
         if (keys & IK_DOWN)  input |= IN_DOWN;
 
+    #ifdef __3DO__
+        if (keys & IK_A) input |= IN_JUMP;
+        if (keys & IK_B) input |= IN_ACTION;
+        if (keys & IK_C) input |= IN_WEAPON;
+
+        if ((keys & (IK_L | IK_R)) == (IK_L | IK_R)) {
+            input |= IN_UP | IN_DOWN;
+        } else {
+            if (keys & IK_L) input |= IN_LOOK;
+            if (keys & IK_R) input |= IN_WALK;
+        }
+    #else
         if (keys & IK_A)
         {
             if (keys & IK_L) {
-                if (extraL->weaponState != WEAPON_STATE_BUSY && extraL->ammo[WEAPON_PISTOLS] != 0) {
+                if (extraL->weaponState != WEAPON_STATE_BUSY) {
                     input |= IN_WEAPON;
                 } else {
                     input |= IN_ACTION;
@@ -2754,6 +2770,25 @@ struct Lara : Item
                 input |= IN_WALK;
             }
         }
+
+        if (keys & IK_SELECT)
+        {
+            int32 gamma = gSaveGame.gamma;
+
+            if (keys & IK_R) {
+                gamma += 16;
+            }
+
+            if (keys & IK_L) {
+                gamma -= 16;
+            }
+
+            gamma = X_CLAMP(gamma, 0, 256);
+            if (gamma != gSaveGame.gamma) {
+                setGamma(gSaveGame.gamma = gamma);
+            }
+        }
+    #endif
     }
 
     void updateLook()
@@ -2764,7 +2799,7 @@ struct Lara : Item
         vec3s &T = extraL->torso.angle;
 
         if (health <= 0) {
-            H = T = vec3s(0, 0, 0);
+            H = T = _vec3s(0, 0, 0);
             return;
         }
 
@@ -2790,9 +2825,9 @@ struct Lara : Item
             return;
         }
 
-        if ((input & IN_LOOK) && gCamera->mode != CAMERA_MODE_FIXED)
+        if ((input & IN_LOOK) && extraL->camera.mode != CAMERA_MODE_FIXED)
         {
-            gCamera->lookAtItem = NULL;
+            extraL->camera.lookAtItem = NULL;
 
             if (input & IN_UP) {
                 H.x -= LARA_LOOK_TURN_SPEED;
@@ -2817,7 +2852,7 @@ struct Lara : Item
             return;
         }
 
-        if (gCamera->lastItem != NULL)
+        if (extraL->camera.lastItem != NULL)
             return;
 
         H.x = T.x = angleDec(H.x, abs(H.x) >> 3);
@@ -2845,7 +2880,7 @@ struct Lara : Item
                 int32 waterDepth = getWaterDepth();
                 if (waterDepth > LARA_WADE_MAX_DEPTH - 256)
                 {
-                    if (!room->info->flags.water) // go dive
+                    if (!ROOM_FLAG_WATER(room->info->flags)) // go dive
                         break;
 
                     waterState = WATER_STATE_UNDER;
@@ -2889,7 +2924,7 @@ struct Lara : Item
 
             case WATER_STATE_SURFACE:
             {
-                if (room->info->flags.water)
+                if (ROOM_FLAG_WATER(room->info->flags))
                     break;
 
                 if (waterDist > LARA_WADE_MIN_DEPTH) {
@@ -2911,7 +2946,7 @@ struct Lara : Item
 
             case WATER_STATE_UNDER:
             {
-                if (room->info->flags.water || flags.dozy)
+                if (ROOM_FLAG_WATER(room->info->flags) || extraL->dozy)
                     break;
 
                 if ((getWaterDepth() != WALL) && abs(waterDist) < 256) {
@@ -3004,7 +3039,7 @@ struct Lara : Item
         pos.x += (phd_sin(extraL->moveAngle) * vSpeed) >> 16;
         pos.z += (phd_cos(extraL->moveAngle) * vSpeed) >> 16;
 
-        gCamera->targetAngleX = ANGLE(-22);
+        extraL->camera.targetAngle.x = ANGLE(-22);
     }
 
     void updateUnder()
@@ -3092,7 +3127,7 @@ struct Lara : Item
                     if (s.center.z <= s.radius)
                         continue;
 
-                    if (X_SQR(s.center.x) + X_SQR(s.center.y) > X_SQR(s.radius))
+                    if (fastLength(s.center.x, s.center.y) > s.radius)
                         continue;
 
                     int32 dist = s.center.z - s.radius;
@@ -3141,7 +3176,7 @@ struct Lara : Item
         {
             const WeaponParams &params = weaponParams[extraL->weapon];
             int32 anim = (extraL->weapon == WEAPON_SHOTGUN) ? ANIM_SHOTGUN_DRAW : ANIM_PISTOLS_PICK;
-            R.animIndex = L.animIndex = models[params.animType].animIndex + anim;
+            R.animIndex = L.animIndex = level.models[params.animType].animIndex + anim;
             R.frameIndex = L.frameIndex = 0;
         }
 
@@ -3178,7 +3213,7 @@ struct Lara : Item
         const Anim* animPtr = level.anims + arm->animIndex;
         int32 animLength = animPtr->frameEnd - animPtr->frameBegin;
         int32 frame = arm->frameIndex + 1;
-        int32 anim = arm->animIndex - models[params.animType].animIndex;
+        int32 anim = arm->animIndex - level.models[params.animType].animIndex;
 
         if (frame > animLength)
         {
@@ -3195,8 +3230,8 @@ struct Lara : Item
             frame = 0;
         }
 
-        extraL->armR.angle = extraL->armL.angle = vec3s(0, 0, 0);
-        extraL->armR.animIndex = extraL->armL.animIndex = anim + models[params.animType].animIndex;
+        extraL->armR.angle = extraL->armL.angle = _vec3s(0, 0, 0);
+        extraL->armR.animIndex = extraL->armL.animIndex = anim + level.models[params.animType].animIndex;
         extraL->armR.frameIndex = extraL->armL.frameIndex = frame;
     }
 
@@ -3212,7 +3247,7 @@ struct Lara : Item
                 continue;
 
             int32 frame = arm->frameIndex;
-            int32 anim = arm->animIndex - models[params.animType].animIndex;
+            int32 anim = arm->animIndex - level.models[params.animType].animIndex;
 
             if (frame)
             {
@@ -3244,7 +3279,7 @@ struct Lara : Item
                     anim = ANIM_PISTOLS_AIM;
                 }
 
-                arm->animIndex = anim + models[params.animType].animIndex;
+                arm->animIndex = anim + level.models[params.animType].animIndex;
                 frame = level.anims[arm->animIndex].frameEnd - level.anims[arm->animIndex].frameBegin;
             }
 
@@ -3265,7 +3300,7 @@ struct Lara : Item
         const Anim* animPtr = level.anims + arm.animIndex;
         int32 animLength = animPtr->frameEnd - animPtr->frameBegin;
         int32 frame = arm.frameIndex + 1;
-        int32 anim = arm.animIndex - models[params.animType].animIndex;
+        int32 anim = arm.animIndex - level.models[params.animType].animIndex;
 
         ASSERT(anim == ANIM_SHOTGUN_DRAW);
 
@@ -3278,8 +3313,8 @@ struct Lara : Item
             setWeaponState(WEAPON_STATE_READY);
         }
 
-        extraL->armR.angle = extraL->armL.angle = vec3s(0, 0, 0);
-        extraL->armR.animIndex = extraL->armL.animIndex = anim + models[params.animType].animIndex;
+        extraL->armR.angle = extraL->armL.angle = _vec3s(0, 0, 0);
+        extraL->armR.animIndex = extraL->armL.animIndex = anim + level.models[params.animType].animIndex;
         extraL->armR.frameIndex = extraL->armL.frameIndex = frame;
     }
 
@@ -3290,12 +3325,12 @@ struct Lara : Item
         ExtraInfoLara::Arm &arm = extraL->armR;
 
         int32 frame = arm.frameIndex;
-        int32 anim = arm.animIndex - models[params.animType].animIndex;
+        int32 anim = arm.animIndex - level.models[params.animType].animIndex;
 
         if (anim == ANIM_SHOTGUN_AIM) {
             if (frame == 0) {
                 anim = ANIM_SHOTGUN_DRAW;
-                const Anim* animPtr = level.anims + models[params.animType].animIndex + anim;
+                const Anim* animPtr = level.anims + level.models[params.animType].animIndex + anim;
                 frame = animPtr->frameEnd - animPtr->frameBegin;
             } else {
                 frame--;
@@ -3304,7 +3339,7 @@ struct Lara : Item
             frame++;
             if (frame > 12) {
                 anim = ANIM_SHOTGUN_DRAW;
-                const Anim* animPtr = level.anims + models[params.animType].animIndex + anim;
+                const Anim* animPtr = level.anims + level.models[params.animType].animIndex + anim;
                 frame = animPtr->frameEnd - animPtr->frameBegin;
             }
         } else if (anim == ANIM_SHOTGUN_DRAW) {
@@ -3320,8 +3355,8 @@ struct Lara : Item
             }
         }
 
-        extraL->armR.angle = extraL->armL.angle = vec3s(0, 0, 0);
-        extraL->armR.animIndex = extraL->armL.animIndex = anim + models[params.animType].animIndex;
+        extraL->armR.angle = extraL->armL.angle = _vec3s(0, 0, 0);
+        extraL->armR.animIndex = extraL->armL.animIndex = anim + level.models[params.animType].animIndex;
         extraL->armR.frameIndex = extraL->armL.frameIndex = frame;
     }
 
@@ -3376,7 +3411,7 @@ struct Lara : Item
             const Anim* animPtr = level.anims + arm->animIndex;
             int32 animLength = animPtr->frameEnd - animPtr->frameBegin;
             int32 frame = arm->frameIndex;
-            int32 anim = arm->animIndex - models[params.animType].animIndex;
+            int32 anim = arm->animIndex - level.models[params.animType].animIndex;
 
             if (((input & IN_ACTION) && !arm->target) || arm->aim)
             {
@@ -3402,7 +3437,7 @@ struct Lara : Item
                     if (frame == params.reloadTimer)
                     {
                         anim = ANIM_PISTOLS_AIM;
-                        const Anim* animPtr = level.anims + anim + models[params.animType].animIndex;
+                        const Anim* animPtr = level.anims + anim + level.models[params.animType].animIndex;
                         frame = animPtr->frameEnd - animPtr->frameBegin;
                     }
                 }
@@ -3410,14 +3445,14 @@ struct Lara : Item
                 if (anim == ANIM_PISTOLS_FIRE)
                 {
                     anim = ANIM_PISTOLS_AIM;
-                    const Anim* animPtr = level.anims + anim + models[params.animType].animIndex;
+                    const Anim* animPtr = level.anims + anim + level.models[params.animType].animIndex;
                     frame = animPtr->frameEnd - animPtr->frameBegin;
                 } else if (frame) {
                     frame--;
                 };
             }
 
-            arm->animIndex = anim + models[params.animType].animIndex;
+            arm->animIndex = anim + level.models[params.animType].animIndex;
             arm->frameIndex = frame;
             arm->useBasis = (anim == ANIM_PISTOLS_AIM && frame) || (anim == ANIM_PISTOLS_FIRE);
         }
@@ -3437,7 +3472,7 @@ struct Lara : Item
         const Anim* animPtr = level.anims + arm->animIndex;
         int32 animLength = animPtr->frameEnd - animPtr->frameBegin;
         int32 frame = arm->frameIndex;
-        int32 anim = arm->animIndex - models[params.animType].animIndex;
+        int32 anim = arm->animIndex - level.models[params.animType].animIndex;
 
         bool aim = ((input & IN_ACTION) && !arm->target) || arm->aim;
 
@@ -3450,12 +3485,12 @@ struct Lara : Item
                     soundPlay(SND_SHOTGUN_RELOAD, pos);
                 } else if (frame == params.reloadTimer) {
                     anim = ANIM_SHOTGUN_AIM;
-                    animPtr = level.anims + models[params.animType].animIndex + anim;
+                    animPtr = level.anims + level.models[params.animType].animIndex + anim;
                     frame = animPtr->frameEnd - animPtr->frameBegin;
                 } else if ((animLength - frame < 10) && !aim) {
                     anim = ANIM_SHOTGUN_AIM;
                     frame = animLength - frame; // how many frames left for fire animation
-                    animPtr = level.anims + models[params.animType].animIndex + anim;
+                    animPtr = level.anims + level.models[params.animType].animIndex + anim;
                     frame = animPtr->frameEnd - animPtr->frameBegin - frame; // offset aim frames from the end
                 }
                 break;
@@ -3486,7 +3521,7 @@ struct Lara : Item
                 } else {
                     if (frame == 0) {
                         anim = ANIM_SHOTGUN_DRAW;
-                        animPtr = level.anims + models[params.animType].animIndex + anim;
+                        animPtr = level.anims + level.models[params.animType].animIndex + anim;
                         animLength = animPtr->frameEnd - animPtr->frameBegin;
                         frame = animLength;
                     } else {
@@ -3498,7 +3533,7 @@ struct Lara : Item
         }
 
         R.useBasis = L.useBasis = false;
-        R.animIndex = L.animIndex = anim + models[params.animType].animIndex;
+        R.animIndex = L.animIndex = anim + level.models[params.animType].animIndex;
         R.frameIndex = L.frameIndex = frame;
     }
 
@@ -3525,18 +3560,23 @@ struct Lara : Item
         if (!change)
             return;
 
-        if (extraL->weaponState == WEAPON_STATE_FREE) {
-            setWeaponState(WEAPON_STATE_DRAW);
+        if (extraL->weaponState == WEAPON_STATE_FREE)
+        {
+            if (extraL->ammo[WEAPON_PISTOLS] != 0)
+            {
+                setWeaponState(WEAPON_STATE_DRAW);
+            }
         }
             
-        if (extraL->weaponState == WEAPON_STATE_READY) {
+        if (extraL->weaponState == WEAPON_STATE_READY)
+        {
             setWeaponState(WEAPON_STATE_HOLSTER);
         }
     }
 
-    void weaponGetAimPoint(Item* target, Location &point)
+    void weaponGetAimPoint(ItemObj* target, Location &point)
     {
-        const Bounds &box = target->getBoundingBox(false);
+        const AABBs &box = target->getBoundingBox(false);
         vec3i p;
         p.x = (box.minX + box.maxX) >> 1;
         p.y = box.minY + (box.maxY - box.minY) / 3;
@@ -3588,8 +3628,8 @@ struct Lara : Item
             if (abs(angleAim.x) <= params.aimX && abs(angleAim.y) <= params.aimY) {
                 extraL->armR.aim = extraL->armL.aim = true;
             } else {
-                extraL->armR.aim &= abs(angleAim.x) <= params.armX && angleAim.y >=  params.armMinY && angleAim.y <=  params.armMaxY;
-                extraL->armL.aim &= abs(angleAim.x) <= params.armX && angleAim.y >= -params.armMaxY && angleAim.y <= -params.armMinY;
+                extraL->armR.aim = extraL->armR.aim && (abs(angleAim.x) <= params.armX) && (angleAim.y >=  params.armMinY) && (angleAim.y <=  params.armMaxY);
+                extraL->armL.aim = extraL->armR.aim && (abs(angleAim.x) <= params.armX) && (angleAim.y >= -params.armMaxY) && (angleAim.y <= -params.armMinY);
             }
         } else {
             extraL->armR.aim = extraL->armL.aim = false;
@@ -3600,7 +3640,7 @@ struct Lara : Item
 
     void weaponFindTargets()
     {
-        if (!Item::sFirstActive)
+        if (!ItemObj::sFirstActive)
             return;
 
         const WeaponParams &params = weaponParams[extraL->weapon];
@@ -3614,7 +3654,7 @@ struct Lara : Item
         from.pos.z = pos.z;
         from.room = room;
 
-        Item* item = Item::sFirstActive;
+        ItemObj* item = ItemObj::sFirstActive;
         do
         {
             if (item->health <= 0)
@@ -3686,7 +3726,11 @@ struct Lara : Item
             return;
 
         if (health <= 0)
+        {
+            extraL->armR.animIndex = extraL->armL.animIndex = 0;
+            extraL->armR.useBasis = extraL->armL.useBasis = false;
             return;
+        }
 
         weaponUpdateState();
 
@@ -3694,7 +3738,7 @@ struct Lara : Item
         {
             case WEAPON_STATE_DRAW:
             {
-                gCamera->toCombat();
+                extraL->camera.toCombat();
                 weaponDraw();
                 break;
             }
@@ -3707,7 +3751,7 @@ struct Lara : Item
 
             case WEAPON_STATE_READY:
             {
-                gCamera->toCombat();
+                extraL->camera.toCombat();
                 weaponUpdateTargets();
 
                 if (extraL->weapon < WEAPON_SHOTGUN) {
@@ -3732,8 +3776,7 @@ struct Lara : Item
 
     virtual void update()
     {
-        gCamera = extraL->camera;
-        ASSERT(gCamera);
+        vec3i oldPos = pos;
 
         updateInput();
 
@@ -3777,16 +3820,30 @@ struct Lara : Item
         }
         updateRoom(offset);
 
+        const Sector* sector = room->getSector(pos.x, pos.z);
+        bool badPos = (sector->floor == NO_FLOOR);
+
+        //if (!badPos) {
+        //    int32 h = pos.y - roomFloor;
+        //    badPos = (h > cinfo.gapPos) || (h < cinfo.gapNeg);
+        //}
+
+        if (badPos)
+        {
+            pos = oldPos;
+            updateRoom(offset);
+        }
+
         updateWeapon();
 
         checkTrigger(cinfo.trigger, this);
 
-        extraL->camera->update();
+        extraL->camera.update();
     }
 
     void meshSwap(ItemType type, uint32 mask)
     {
-        int32 start = models[type].start;
+        int32 start = level.models[type].start;
 
         for (int32 i = 0; i < JOINT_MAX && mask; i++, mask >>= 1)
         {
@@ -3851,8 +3908,11 @@ const Lara::Handler Lara::cHandlers[X_MAX] = { LARA_STATES(DECL_C_HANDLER) };
 #undef S_HANDLER
 #undef C_HANDLER
 
-int32 doTutorial(Item* lara, int32 track)
+int32 doTutorial(ItemObj* lara, int32 track)
 {
+    if (!lara)
+        return track;
+
     switch (track)
     {
         case 28 :

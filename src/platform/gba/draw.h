@@ -68,7 +68,7 @@ void calcLightingDynamic(const Room* room, const vec3i &point)
 
     Matrix &m = matrixGet();
 
-    int32 fogZ = m[2].w >> FIXED_SHIFT;
+    int32 fogZ = m.e23 >> FIXED_SHIFT;
     if (fogZ > FOG_MIN) {
         lightAmbient += (fogZ - FOG_MIN) << FOG_SHIFT;
         lightAmbient = X_MIN(lightAmbient, 8191);
@@ -81,7 +81,7 @@ void calcLightingStatic(int32 intensity)
 
     Matrix &m = matrixGet();
 
-    int32 fogZ = m[2].w >> FIXED_SHIFT;
+    int32 fogZ = m.e23 >> FIXED_SHIFT;
     if (fogZ > FOG_MIN) {
         lightAmbient += (fogZ - FOG_MIN) << FOG_SHIFT;
     }
@@ -89,11 +89,14 @@ void calcLightingStatic(int32 intensity)
 
 void drawNumber(int32 number, int32 x, int32 y)
 {
+#ifdef __3DO__
+    return;
+#endif
     static const int32 widths[] = {
         12, 8, 10, 10, 10, 10, 10, 10, 10, 10
     };
 
-    const Sprite* glyphSprites = level.sprites + models[ITEM_GLYPHS].start;
+    const Sprite* glyphSprites = level.sprites + level.models[ITEM_GLYPHS].start;
 
     while (number > 0)
     {
@@ -103,40 +106,120 @@ void drawNumber(int32 number, int32 x, int32 y)
     }
 }
 
+const static uint8 char_width[110] = {
+    14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 12, 11, // A-Z
+    9, 9, 9, 9, 9, 9, 9, 9, 5, 9, 9, 5, 12, 10, 9, 9, 9, 8, 9, 8, 9, 9, 11, 9, 9, 9, // a-z
+    12, 8, 10, 10, 10, 10, 10, 9, 10, 10, // 0-9
+    5, 5, 5, 11, 9, 7, 8, 6, 0, 7, 7, 3, 8, 8, 13, 7, 9, 4, 12, 12, 
+    7, 5, 7, 7, 7, 7, 7, 7, 7, 7, 16, 14, 14, 14, 16, 16, 16, 16, 16, 12, 14, 8, 8, 8, 8, 8, 8, 8
+};
+
+static const uint8 char_map[102] = {
+    0, 64, 66, 78, 77, 74, 78, 79, 69, 70, 92, 72, 63, 71, 62, 68, 52, 53, 54, 55, 56, 57, 58, 59, 
+    60, 61, 73, 73, 66, 74, 75, 65, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 
+    18, 19, 20, 21, 22, 23, 24, 25, 80, 76, 81, 97, 98, 77, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 
+    37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 100, 101, 102, 67, 0, 0, 0, 0, 0, 0, 0
+};
+
+X_INLINE int32 charRemap(char c)
+{
+    if (c < 11)
+        return c + 81;
+    if (c < 16)
+        return c + 91;
+    return char_map[c - 32];
+}
+
+int32 getTextWidth(const char* text)
+{
+    int32 w = 0;
+
+    char c;
+    while (c = *text++)
+    {
+        if (c == ' ') {
+            w += 6;
+            continue;
+        }
+        w += char_width[charRemap(c)];
+    }
+
+    return w;
+}
+
+enum TextAlign {
+    TEXT_ALIGN_LEFT,
+    TEXT_ALIGN_RIGHT,
+    TEXT_ALIGN_CENTER
+};
+
+void drawText(int32 x, int32 y, const char* text, TextAlign align)
+{
+    if (align == TEXT_ALIGN_CENTER) {
+        x += (FRAME_WIDTH - getTextWidth(text)) >> 1;
+    }
+
+    char c;
+    while ((c = *text++))
+    {
+        if (c == ' ') {
+            x += 6;
+            continue;
+        }
+        int32 index = charRemap(c);
+        faceAddGlyph(x, y, level.models[ITEM_GLYPHS].start + index);
+        x += char_width[index];
+    }
+}
+
 void drawMesh(int32 meshIndex)
 {
-    const uint8* ptr = (uint8*)meshes[meshIndex] + sizeof(Mesh);
+    const uint8* ptr = (uint8*)level.meshes[meshIndex];
 
-    int16 vCount = *(int16*)ptr; ptr += 2;
-    const vec3s* vertices = (vec3s*)ptr;
-    ptr += vCount * 3 * sizeof(int16);
+    const Mesh* mesh = (Mesh*)ptr; ptr += sizeof(Mesh);
+
+    int16 vCount = mesh->vCount;
+
+    bool hasNormals = true;
+    if (vCount < 0) {
+        hasNormals = false;
+        vCount = -vCount;
+    }
+
+    const MeshVertex* vertices = (MeshVertex*)ptr;
+    ptr += vCount * sizeof(vertices[0]);
+
+    Quad* rFaces = (Quad*)ptr;
+    ptr += mesh->rCount * sizeof(Quad);
+
+    Triangle* tFaces = (Triangle*)ptr;
+    ptr += mesh->tCount * sizeof(Triangle);
+
+    Quad* crFaces = (Quad*)ptr;
+    ptr += mesh->crCount * sizeof(Quad);
+
+    Triangle* ctFaces = (Triangle*)ptr;
+    ptr += mesh->ctCount * sizeof(Triangle);
 
     const uint16* vIntensity = NULL;
     const vec3s* vNormal = NULL;
 
-    int16 nCount = *(int16*)ptr; ptr += 2;
     //const int16* normals = (int16*)ptr;
-    if (nCount > 0) { // normals
+    if (hasNormals) { // normals
         vNormal = (vec3s*)ptr;
-        ptr += nCount * 3 * sizeof(int16);
+        ptr += vCount * sizeof(vec3s);
     } else { // intensity
         vIntensity = (uint16*)ptr;
         ptr += vCount * sizeof(uint16);
     }
 
-    int16     rCount = *(int16*)ptr; ptr += 2;
-    Quad*     rFaces = (Quad*)ptr; ptr += rCount * sizeof(Quad);
-
-    int16     tCount = *(int16*)ptr; ptr += 2;
-    Triangle* tFaces = (Triangle*)ptr; ptr += tCount * sizeof(Triangle);
-
-    int16     crCount = *(int16*)ptr; ptr += 2;
-    Quad*     crFaces = (Quad*)ptr; ptr += crCount * sizeof(Quad);
-
-    int16     ctCount = *(int16*)ptr; ptr += 2;
-    Triangle* ctFaces = (Triangle*)ptr; ptr += ctCount * sizeof(Triangle);
-
     int32 startVertex = gVerticesCount;
+
+    if (MAX_VERTICES - gVerticesCount < vCount)
+        return;
+
+    if (MAX_FACES - gFacesCount < mesh->rCount + mesh->tCount + mesh->crCount + mesh->ctCount)
+        return;
 
     {
         PROFILE(CNT_TRANSFORM);
@@ -145,11 +228,11 @@ void drawMesh(int32 meshIndex)
 
     {
         PROFILE(CNT_ADD);
-        faceAddMesh(rFaces, crFaces, tFaces, ctFaces, rCount, crCount, tCount, ctCount, startVertex);
+        faceAddMesh(rFaces, crFaces, tFaces, ctFaces, mesh->rCount, mesh->crCount, mesh->tCount, mesh->ctCount, startVertex);
     }
 }
 
-void drawShadow(const Item* item, int32 size)
+void drawShadow(const ItemObj* item, int32 size)
 {
     const Sector* sector = item->room->getSector(item->pos.x, item->pos.z);
     int32 floor = sector->getFloor(item->pos.x, item->pos.y, item->pos.z);
@@ -159,31 +242,36 @@ void drawShadow(const Item* item, int32 size)
 
     enableClipping = true;
 
-    const Bounds& box = item->getBoundingBox(true);
+    const AABBs& box = item->getBoundingBox(true);
     int32 x = (box.maxX + box.minX) >> 1;
     int32 z = (box.maxZ + box.minZ) >> 1;
     int32 sx = (box.maxX - box.minX) * size >> 10;
     int32 sz = (box.maxZ - box.minZ) * size >> 10;
+
+    matrixPush();
+    matrixTranslateAbs(item->pos.x, floor, item->pos.z);
+    matrixRotateY(item->angle.y);
+
+#ifdef __3DO__
+    faceAddShadow(x, z, sx, sz);
+#else
     int32 sx2 = sx << 1;
     int32 sz2 = sz << 1;
 
-    int32 startVertex = gVerticesCount;
+    MeshVertex v[8] = {
+        { x - sx,  0, z + sz2 }, // 0
+        { x + sx,  0, z + sz2 }, // 1
+        { x + sx2, 0, z + sz  }, // 2
+        { x + sx2, 0, z - sz  }, // 3
+        { x + sx,  0, z - sz2 }, // 4
+        { x - sx,  0, z - sz2 }, // 5
+        { x - sx2, 0, z - sz  }, // 6
+        { x - sx2, 0, z + sz  }  // 7
+    };
 
-    int32 y = floor - item->pos.y;
+    int32 startVertex32 = gVerticesCount;
 
-    matrixPush();
-    matrixTranslateAbs(item->pos.x, item->pos.y, item->pos.z);
-    matrixRotateY(item->angle.y);
-
-    transform(x - sx,  y, z + sz2, 4096);
-    transform(x + sx,  y, z + sz2, 4096);
-    transform(x + sx2, y, z + sz,  4096);
-    transform(x + sx2, y, z - sz,  4096);
-
-    transform(x + sx,  y, z - sz2, 4096);
-    transform(x - sx,  y, z - sz2, 4096);
-    transform(x - sx2, y, z - sz,  4096);
-    transform(x - sx2, y, z + sz,  4096);
+    transformMesh(v, 8, NULL, NULL);
 
     static const Index indices[] = { 
         0, 1, 2, 7,
@@ -191,17 +279,17 @@ void drawShadow(const Item* item, int32 size)
         6, 3, 4, 5
     };
 
-    faceAddQuad(FACE_SHADOW, indices + 0, startVertex);
-    faceAddQuad(FACE_SHADOW, indices + 4, startVertex);
-    faceAddQuad(FACE_SHADOW, indices + 8, startVertex);
+    faceAddQuad(FACE_SHADOW, indices + 0, startVertex32);
+    faceAddQuad(FACE_SHADOW, indices + 4, startVertex32);
+    faceAddQuad(FACE_SHADOW, indices + 8, startVertex32);
+#endif
 
     matrixPop();
 }
 
-void drawSprite(const Item* item)
+void drawSprite(const ItemObj* item)
 {
-    vec3i d = item->pos - cameraViewPos;
-    faceAddSprite(d.x, d.y, d.z, item->intensity << 5, models[item->type].start + item->frameIndex);
+    faceAddSprite(item->pos.x, item->pos.y, item->pos.z, item->intensity << 5, level.models[item->type].start + item->frameIndex);
 }
 
 void drawFlash(const ExtraInfoLara::Arm::Flash &flash)
@@ -213,17 +301,17 @@ void drawFlash(const ExtraInfoLara::Arm::Flash &flash)
     int32 tmp = lightAmbient;
     calcLightingStatic(flash.intensity);
 
-    drawMesh(models[ITEM_MUZZLE_FLASH].start);
+    drawMesh(level.models[ITEM_MUZZLE_FLASH].start);
 
     lightAmbient = tmp;
 
     matrixPop();
 }
 
-void drawNodes(const Item* item, const AnimFrame* frameA)
+void drawNodes(const ItemObj* item, const AnimFrame* frameA)
 {
-    const Model* model = models + item->type;
-    const Node* node = level.nodes + model->nodeIndex;
+    const Model* model = level.models + item->type;
+    const ModelNode* node = level.nodes + model->nodeIndex;
     int32 meshIndex = model->start;
     int32 meshCount = model->count;
     uint32 visibleMask = item->visibleMask;
@@ -263,7 +351,7 @@ void drawNodes(const Item* item, const AnimFrame* frameA)
     }
 }
 
-void drawNodesLerp(const Item* item, const AnimFrame* frameA, const AnimFrame* frameB, int32 frameDelta, int32 frameRate)
+void drawNodesLerp(const ItemObj* item, const AnimFrame* frameA, const AnimFrame* frameB, int32 frameDelta, int32 frameRate)
 {
     if (frameDelta == 0)
     {
@@ -271,8 +359,8 @@ void drawNodesLerp(const Item* item, const AnimFrame* frameA, const AnimFrame* f
         return;
     }
 
-    const Model* model = models + item->type;
-    const Node* node = level.nodes + model->nodeIndex;
+    const Model* model = level.models + item->type;
+    const ModelNode* node = level.nodes + model->nodeIndex;
     int32 meshIndex = model->start;
     int32 meshCount = model->count;
     uint32 visibleMask = item->visibleMask;
@@ -321,12 +409,12 @@ void drawNodesLerp(const Item* item, const AnimFrame* frameA, const AnimFrame* f
     }
 }
 
-#define DEF_TORSO_ANGLE vec3s(1216, -832, -192)
+#define DEF_TORSO_ANGLE _vec3s(1216, -832, -192)
 
-void drawLaraNodes(const Item* lara, const AnimFrame* frameA)
+void drawLaraNodes(const ItemObj* lara, const AnimFrame* frameA)
 {
-    const Model* model = models + lara->type;
-    const Node* node = level.nodes + model->nodeIndex;
+    const Model* model = level.models + lara->type;
+    const ModelNode* node = level.nodes + model->nodeIndex;
     const ExtraInfoLara* extraL = lara->extraL;
 
     const uint16* mesh = extraL->meshes;
@@ -401,10 +489,12 @@ void drawLaraNodes(const Item* lara, const AnimFrame* frameA)
                 matrixTranslate(node->pos.x, node->pos.y, node->pos.z);
                 node++;
                 if (arm->useBasis) { // hands are rotated relative to the basis
+                #ifndef __3DO__ // TODO_3DO
                     matrixSetBasis(matrixGet(), basis);
+                #endif
                     matrixRotateYXZ(arm->angle.x, arm->angle.y, arm->angle.z);
                 }
-                matrixFrame(vec3s(0, 0, 0), anglesArm[i]++);
+                matrixFrame(_vec3s(0, 0, 0), anglesArm[i]++);
                 drawMesh(*mesh++);
 
                 { // JOINT_ARM_2
@@ -433,7 +523,7 @@ void drawLaraNodes(const Item* lara, const AnimFrame* frameA)
     matrixPop();
 }
 
-void drawLaraNodesLerp(const Item* lara, const AnimFrame* frameA, const AnimFrame* frameB, int32 frameDelta, int32 frameRate)
+void drawLaraNodesLerp(const ItemObj* lara, const AnimFrame* frameA, const AnimFrame* frameB, int32 frameDelta, int32 frameRate)
 {
     if (frameDelta == 0)
     {
@@ -441,8 +531,8 @@ void drawLaraNodesLerp(const Item* lara, const AnimFrame* frameA, const AnimFram
         return;
     }
 
-    const Model* model = models + lara->type;
-    const Node* node = level.nodes + model->nodeIndex;
+    const Model* model = level.models + lara->type;
+    const ModelNode* node = level.nodes + model->nodeIndex;
     const ExtraInfoLara* extraL = lara->extraL;
 
     const uint16* mesh = extraL->meshes;
@@ -533,16 +623,18 @@ void drawLaraNodesLerp(const Item* lara, const AnimFrame* frameA, const AnimFram
                 matrixTranslate(node->pos.x, node->pos.y, node->pos.z);
                 node++;
                 if (arm->useBasis) { // hands are rotated relative to the basis
+                #ifndef __3DO__ // TODO_3DO
                     matrixSetBasis(matrixGet(), basis);
+                #endif
                     matrixRotateYXZ(arm->angle.x, arm->angle.y, arm->angle.z);
                 }
 
                 bool useLerp = frameRateArm[i] > 1; // armed hands always use frameRate == 1 (i.e. useLerp == false)
 
                 if (useLerp) {
-                    matrixFrameLerp(vec3s(0, 0, 0), anglesArmA[i]++, anglesArmB[i]++, frameDelta, frameRate);
+                    matrixFrameLerp(_vec3s(0, 0, 0), anglesArmA[i]++, anglesArmB[i]++, frameDelta, frameRate);
                 } else {
-                    matrixFrame(vec3s(0, 0, 0), anglesArmA[i]++);
+                    matrixFrame(_vec3s(0, 0, 0), anglesArmA[i]++);
                 }
                 drawMesh(*mesh++);
 
@@ -580,20 +672,43 @@ void drawLaraNodesLerp(const Item* lara, const AnimFrame* frameA, const AnimFram
     matrixPop();
 }
 
-void drawModel(const Item* item)
+void drawModel(const ItemObj* item)
 {
     const AnimFrame *frameA, *frameB;
     
     int32 frameRate;
-    int32 frameDelta = item->getFrames(frameA, frameB, frameRate); // TODO lerp
+    int32 frameDelta = item->getFrames(frameA, frameB, frameRate);
+
+#ifdef NO_ANIM_LERP
+    frameDelta = 0;
+#endif
 
     matrixPush();
     matrixTranslateAbs(item->pos.x, item->pos.y, item->pos.z);
     matrixRotateYXZ(item->angle.x, item->angle.y, item->angle.z);
 
-    int32 vis = boxIsVisible(&frameA->box);
-    if (vis != 0)
+    int32 vis;
+    RectMinMax rect;
+    if (transformBoxRect(&frameA->box, &rect)) {
+        vis = rectIsVisible(&rect);
+    } else {
+        vis = 0;
+    }
+
+    if (vis)
     {
+    #ifndef NO_ANIM_LERP
+        #ifdef LOD_ANIM
+            if ((item->type != ITEM_LARA) && (item->type != ITEM_CRYSTAL))
+            {
+                int32 d = X_MAX(rect.x1 - rect.x0, rect.y1 - rect.y0);
+                if (d < LOD_ANIM) {
+                    frameDelta = 0; // don't use matrix interpolation for small objects on the screen
+                }
+            }
+        #endif
+    #endif
+
         enableClipping = vis < 0;
 
         int32 intensity = item->intensity << 5;
@@ -606,78 +721,109 @@ void drawModel(const Item* item)
         }
 
         // skip rooms portal clipping for objects
-        Rect oldViewport = viewport;
-        viewport = Rect( 0, 0, FRAME_WIDTH, FRAME_HEIGHT );
-
         if (item->type == ITEM_LARA) {
             drawLaraNodesLerp(item, frameA, frameB, frameDelta, frameRate);
         } else {
             drawNodesLerp(item, frameA, frameB, frameDelta, frameRate);
         }
-
-        viewport = oldViewport;
     }
 
     matrixPop();
 
 // shadow
-    if (vis != 0 && item->flags.shadow) {
+    if (vis && item->flags.shadow) {
         drawShadow(item, 160);  // TODO per item shadow size
     }
 }
 
-void drawItem(const Item* item)
+void drawItem(const ItemObj* item)
 {
-    if (models[item->type].count > 0) {
+    if (level.models[item->type].count > 0) {
         drawModel(item);
     } else {
         drawSprite(item);
     }
 }
 
-void drawRoom(const Room* room)
+void drawRoom(const Room* room, Camera* camera)
 {
-    viewport = room->clip;
+    setViewport(room->clip);
 
     int32 startVertex = gVerticesCount;
 
     const RoomInfo* info = room->info;
     const RoomData& data = room->data;
 
+    if (MAX_VERTICES - gVerticesCount < info->verticesCount)
+        return;
+
+    if (MAX_FACES - gFacesCount < info->quadsCount + info->trianglesCount)
+        return;
+
+    int32 rx = info->x << 8;
+    int32 rz = info->z << 8;
+
     matrixPush();
     matrixTranslateAbs(info->x << 8, 0, info->z << 8);
 
-    gCamera->updateFrustum(info->x << 8, 0, info->z << 8);
+    camera->updateFrustum(info->x << 8, 0, info->z << 8);
+
+    setPaletteIndex(ROOM_FLAG_WATER(info->flags) ? 1 : 0);
 
     enableClipping = true;
 
+/* // show portals
+    for (int32 i = 0; i < info->portalsCount; i++)
+    {
+        RoomVertex pv[4];
+        for (int32 j = 0; j < 4; j++)
+        {
+            pv[j].x = (data.portals[i].v[j].x + 1) >> 10;
+            pv[j].y = (data.portals[i].v[j].y + 1) >> 8;
+            pv[j].z = (data.portals[i].v[j].z + 1) >> 10;
+        }
+        Quad q;
+        q.flags = 171;
+        q.indices[0] = i * 4 + 0;
+        q.indices[1] = i * 4 + 1;
+        q.indices[2] = i * 4 + 2;
+        q.indices[3] = i * 4 + 3;
+
+        transformRoom(pv, 4, 0);
+        faceAddRoom(&q, 1, NULL, 0, startVertex);
+    }
+    startVertex = gVerticesCount;
+*/
+
     {
         PROFILE(CNT_TRANSFORM);
-        transformRoom(data.vertices, info->verticesCount, info->flags.water);
+        transformRoom(data.vertices, info->verticesCount, ROOM_FLAG_WATER(info->flags));
     }
 
     {
         PROFILE(CNT_ADD);
+        enableMaxSort = true;
         faceAddRoom(data.quads, info->quadsCount, data.triangles, info->trianglesCount, startVertex);
+        enableMaxSort = false;
     }
+
+    matrixPop();
 
     for (int32 i = 0; i < info->spritesCount; i++)
     {
         const RoomSprite* sprite = data.sprites + i;
-        faceAddSprite(sprite->pos.x, sprite->pos.y, sprite->pos.z, sprite->g << 5, sprite->index);
+        faceAddSprite(sprite->pos.x + rx, sprite->pos.y, sprite->pos.z + rz, sprite->g << 5, sprite->index);
     }
-
-    matrixPop();
 
     for (int32 i = 0; i < info->meshesCount; i++)
     {
         const RoomMesh* mesh = data.meshes + i;
 
     #ifdef NO_STATIC_MESH_PLANTS
-        if (mesh->id < 10) continue;
+        if (STATIC_MESH_ID(mesh->flags) < 10) continue;
     #endif
 
-        const StaticMesh* staticMesh = staticMeshes + mesh->id;
+        const StaticMesh* staticMesh = level.staticMeshes + STATIC_MESH_ID(mesh->flags);
 
         if (!(staticMesh->flags & STATIC_MESH_FLAG_VISIBLE)) continue; // invisible
 
@@ -688,11 +834,11 @@ void drawRoom(const Room* room)
 
         matrixPush();
         matrixTranslateAbs(pos.x, pos.y, pos.z);
-        matrixRotateY((mesh->rot - 2) * ANGLE_90);
+        matrixRotateY(STATIC_MESH_ROT(mesh->flags));
 
         int32 vis = boxIsVisible(&staticMesh->vbox);
         if (vis != 0) {
-            enableClipping = true;//vis < 0; // TODO wrong visibility BBox?
+            enableClipping =vis < 0; // TODO wrong visibility BBox?
 
             calcLightingStatic(mesh->intensity << 5);
             drawMesh(staticMesh->meshIndex);
@@ -701,7 +847,7 @@ void drawRoom(const Room* room)
         matrixPop();
     }
 
-    Item* item = room->firstItem;
+    ItemObj* item = room->firstItem;
     while (item)
     {
         if (item->flags.status != ITEM_FLAGS_STATUS_INVISIBLE) {
@@ -711,21 +857,47 @@ void drawRoom(const Room* room)
     }
 }
 
-void drawRooms()
+void drawRooms(Camera* camera)
 {
-    gCamera->view.room->clip = Rect( 0, 0, FRAME_WIDTH, FRAME_HEIGHT );
+    camera->view.room->clip = viewport;
 
-    Room** visRoom = gCamera->view.room->getVisibleRooms();
+    Room** visRoom = camera->view.room->getVisibleRooms();
 
+    // draw Lara first
+    for (int32 i = 0; i < MAX_PLAYERS; i++)
+    {
+        Lara* lara = players[i];
+        if (lara)
+        {
+            lara->flags.status = ITEM_FLAGS_STATUS_NONE;
+            setPaletteIndex(ROOM_FLAG_WATER(lara->room->info->flags) ? 1 : 0);
+            lara->draw();
+            lara->flags.status = ITEM_FLAGS_STATUS_INVISIBLE; // skip drawing in the general pass
+        }
+    }
+
+    // draw rooms and objects
     while (*visRoom)
     {
         Room* room = *visRoom++;
-
-        drawRoom(room);
+        drawRoom(room, camera);
         room->reset();
     }
 
+    // reset visibility flags for Lara
+    for (int32 i = 0; i < MAX_PLAYERS; i++)
+    {
+        Lara* lara = players[i];
+        if (lara)
+        {
+            lara->flags.status = ITEM_FLAGS_STATUS_NONE;
+        }
+    }
+
     flush();
+
+    setPaletteIndex(0);
+    setViewport(camera->view.room->clip);
 }
 
 #endif
