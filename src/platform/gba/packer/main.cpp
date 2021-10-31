@@ -3,6 +3,10 @@
 #include <math.h>
 #include <windows.h>
 
+#include "libimagequant.h"
+
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include "stb_image_resize.h"
 
 #define ASSERT(x) { if (!(x)) { DebugBreak(); } }
 
@@ -14,6 +18,21 @@ typedef unsigned char      uint8;
 typedef unsigned short     uint16;
 typedef unsigned int       uint32;
 typedef unsigned long long uint64;
+
+inline uint16 swap16(uint16 x) {
+    return ((x & 0x00FF) << 8) | ((x & 0xFF00) >> 8);
+}
+
+inline uint32 swap32(uint32 x) {
+    return ((x & 0x000000FF) << 24) | ((x & 0x0000FF00) << 8) | ((x & 0x00FF0000) >> 8) | ((x & 0xFF000000) >> 24);
+}
+
+template <class T>
+inline void swap(T &a, T &b) {
+    T tmp = a;
+    a = b;
+    b = tmp;
+}
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -73,7 +92,7 @@ typedef unsigned long long uint64;
     E( BLOCK_4               ) \
     E( MOVING_BLOCK          ) \
     E( TRAP_CEILING          ) \
-    E( UNUSED_3              ) \
+    E( TRAP_FLOOR_LOD        ) \
     E( SWITCH                ) \
     E( SWITCH_WATER          ) \
     E( DOOR_1                ) \
@@ -86,7 +105,7 @@ typedef unsigned long long uint64;
     E( DOOR_8                ) \
     E( TRAP_DOOR_1           ) \
     E( TRAP_DOOR_2           ) \
-    E( UNUSED_4              ) \
+    E( TRAP_DOOR_LOD         ) \
     E( BRIDGE_FLAT           ) \
     E( BRIDGE_TILT_1         ) \
     E( BRIDGE_TILT_2         ) \
@@ -224,6 +243,9 @@ enum ItemType {
 struct vec3s
 {
     int16 x, y, z;
+
+    vec3s() {}
+    vec3s(int16 x, int16 y, int16 z) : x(x), y(y), z(z) {}
 };
 
 struct vec3i
@@ -245,7 +267,9 @@ struct FileStream
 {
     FILE* f;
 
-    FileStream(const char* fileName, bool write)
+    bool bigEndian;
+
+    FileStream(const char* fileName, bool write) : bigEndian(false)
     {
         f = fopen(fileName, write ? "wb" : "rb");
     }
@@ -312,19 +336,79 @@ struct FileStream
         read(elements, count);
     }
 
-    template <typename T>
-    void write(const T &result)
+    void write(int8 value)
     {
-        fwrite(&result, sizeof(result), 1, f);
+        writeRaw(value);
+    }
+
+    void write(uint8 value)
+    {
+        writeRaw(value);
+    }
+
+    void write(int16 value)
+    {
+        if (bigEndian) {
+            value = (int16)swap16((uint16)value);
+        }
+        writeRaw(value);
+    }
+
+    void write(uint16 value)
+    {
+        if (bigEndian) {
+            value = swap16(value);
+        }
+        writeRaw(value);
+    }
+
+    void write(int32 value)
+    {
+        if (bigEndian) {
+            value = (int32)swap32((uint32)value);
+        }
+        writeRaw(value);
+    }
+
+    void write(uint32 value)
+    {
+        if (bigEndian) {
+            value = swap32(value);
+        }
+        writeRaw(value);
     }
 
     template <typename T, typename C>
     void write(const T* elements, C count)
     {
-        if (!elements || !count) return;
-        fwrite(&elements[0], sizeof(elements[0]), count, f);
+        if (!elements || !count)
+            return;
+
+        for (int32 i = 0; i < count; i++)
+        {
+            write(elements[i]);
+        }
     }
 
+    template <typename T, typename C>
+    void writeObj(const T* elements, C count)
+    {
+        if (!elements || !count)
+            return;
+
+        for (int32 i = 0; i < count; i++)
+        {
+            elements[i].write(*this);
+        }
+    }
+
+    template <typename T>
+    void writeRaw(const T &result)
+    {
+        fwrite(&result, sizeof(result), 1, f);
+    }
+
+private:
     template <typename T, typename C>
     void writeArray(const T* elements, C count)
     {
@@ -399,7 +483,7 @@ struct Array
     }
 };
 
-void saveBitmap(const char* fileName, uint8* data, int32 width, int32 height)
+void saveBitmap(const char* fileName, uint8* data, int32 width, int32 height, int32 bpp = 24)
 {
     struct BITMAPFILEHEADER {
         uint32  bfSize;
@@ -429,8 +513,8 @@ void saveBitmap(const char* fileName, uint8* data, int32 width, int32 height)
     ihdr.biWidth     = width;
     ihdr.biHeight    = height;
     ihdr.biPlanes    = 1;
-    ihdr.biBitCount  = 24;
-    ihdr.biSizeImage = width * height * 3;
+    ihdr.biBitCount  = bpp;
+    ihdr.biSizeImage = width * height * bpp / 8;
 
     fhdr.bfOffBits   = 2 + sizeof(fhdr) + ihdr.biSize;
     fhdr.bfSize      = fhdr.bfOffBits + ihdr.biSizeImage;
@@ -443,7 +527,7 @@ void saveBitmap(const char* fileName, uint8* data, int32 width, int32 height)
         fwrite(&ihdr, sizeof(ihdr), 1, f);
         for (int32 i = 0; i < height; i++)
         {
-            fwrite(data + (height - i - 1) * width * 3, 3, width, f);
+            fwrite(data + (height - i - 1) * width * bpp / 8, bpp / 8, width, f);
         }
         fclose(f);
     }
@@ -513,6 +597,88 @@ void fixTexCoord(uint32 uv0, uint32 &uv1)
 #pragma pack(1)
 struct LevelPC
 {
+    struct Quad3DO
+    {
+        uint16 indices[4];
+        uint16 flags;
+        uint16 _unused;
+
+        void write(FileStream &f) const
+        {
+            f.write(indices[0]);
+            f.write(indices[1]);
+            f.write(indices[2]);
+            f.write(indices[3]);
+            f.write(flags);
+            f.write(_unused);
+        }
+    };
+
+    struct Quad
+    {
+        uint16 indices[4];
+        uint16 flags;
+
+        void write(FileStream &f) const
+        {
+            f.write(indices[0]);
+            f.write(indices[1]);
+            f.write(indices[2]);
+            f.write(indices[3]);
+            f.write(flags);
+        }
+
+        void write3DO(FileStream &f) const
+        {
+            Quad3DO comp;
+            comp.indices[0] = indices[0];
+            comp.indices[1] = indices[1];
+            comp.indices[2] = indices[2];
+            comp.indices[3] = indices[3];
+            comp.flags = flags;
+            comp._unused = 0;
+            comp.write(f);
+        }
+    };
+
+    struct Triangle3DO
+    {
+        uint16 indices[3];
+        uint16 flags;
+
+        void write(FileStream &f) const
+        {
+            f.write(indices[0]);
+            f.write(indices[1]);
+            f.write(indices[2]);
+            f.write(flags);
+        }
+    };
+
+    struct Triangle
+    {
+        uint16 indices[3];
+        uint16 flags;
+
+        void write(FileStream &f) const
+        {
+            f.write(indices[0]);
+            f.write(indices[1]);
+            f.write(indices[2]);
+            f.write(flags);
+        }
+
+        void write3DO(FileStream &f) const
+        {
+            Triangle3DO comp;
+            comp.indices[0] = indices[0];
+            comp.indices[1] = indices[1];
+            comp.indices[2] = indices[2];
+            comp.flags = flags;
+            comp.write(f);
+        }
+    };
+
     struct Room
     {
         struct Info
@@ -555,6 +721,34 @@ struct LevelPC
             uint32 sectors;
             uint32 lights;
             uint32 meshes;
+
+            void write(FileStream &f) const
+            {
+                f.write(x);
+                f.write(z);
+                f.write(yBottom);
+                f.write(yTop);
+                f.write(quadsCount);
+                f.write(trianglesCount);
+                f.write(verticesCount);
+                f.write(spritesCount);
+                f.write(portalsCount);
+                f.write(lightsCount);
+                f.write(meshesCount);
+                f.write(ambient);
+                f.write(xSectors);
+                f.write(zSectors);
+                f.write(alternateRoom);
+                f.write(flags);
+                f.write(quads);
+                f.write(triangles);
+                f.write(vertices);
+                f.write(sprites);
+                f.write(portals);
+                f.write(sectors);
+                f.write(lights);
+                f.write(meshes);
+            }
         };
 
         struct Vertex
@@ -572,18 +766,14 @@ struct LevelPC
         {
             int8  x, y, z; 
             uint8 g;
-        };
 
-        struct Quad
-        {
-            uint16 indices[4];
-            uint16 flags;
-        };
-
-        struct Triangle
-        {
-            uint16 indices[3];
-            uint16 flags;
+            void write(FileStream &f) const
+            {
+                f.write(x);
+                f.write(y);
+                f.write(z);
+                f.write(g);
+            }
         };
 
         struct Sprite
@@ -597,6 +787,15 @@ struct LevelPC
             int16 x, y, z;
             uint8 g;
             uint8 index;
+
+            void write(FileStream &f) const
+            {
+                f.write(x);
+                f.write(y);
+                f.write(z);
+                f.write(g);
+                f.write(index);
+            }
         };
         /*
         struct MeshComp {
@@ -619,6 +818,39 @@ struct LevelPC
             int16 roomIndex;
             vec3s normal;
             vec3s vertices[4];
+
+            void write(FileStream &f) const
+            {
+                f.write(roomIndex);
+                f.write(normal.x);
+                f.write(normal.y);
+                f.write(normal.z);
+                for (int32 i = 0; i < 4; i++)
+                {
+                    f.write(vertices[i].x);
+                    f.write(vertices[i].y);
+                    f.write(vertices[i].z);
+                }
+            }
+        };
+
+        struct PortalComp
+        {
+            uint32 roomIndex;
+            uint32 normalMask;
+            vec3i vertices[4];
+
+            void write(FileStream &f) const
+            {
+                f.write(roomIndex);
+                f.write(normalMask);
+                for (int32 i = 0; i < 4; i++)
+                {
+                    f.write(vertices[i].x);
+                    f.write(vertices[i].y);
+                    f.write(vertices[i].z);
+                }
+            }
         };
 
         struct Sector
@@ -629,6 +861,16 @@ struct LevelPC
             int8 floor;
             uint8 roomAbove;
             int8 ceiling;
+
+            void write(FileStream &f) const
+            {
+                f.write(floorIndex);
+                f.write(boxIndex);
+                f.write(roomBelow);
+                f.write(floor);
+                f.write(roomAbove);
+                f.write(ceiling);
+            }
         };
 
         struct Light
@@ -643,6 +885,15 @@ struct LevelPC
             vec3s pos;
             uint8 radius;
             uint8 intensity;
+
+            void write(FileStream &f) const
+            {
+                f.write(pos.x);
+                f.write(pos.y);
+                f.write(pos.z);
+                f.write(radius);
+                f.write(intensity);
+            }
         };
 
         struct Mesh
@@ -658,6 +909,15 @@ struct LevelPC
             vec3s pos;
             uint8 intensity;
             uint8 flags;
+
+            void write(FileStream &f) const
+            {
+                f.write(pos.x);
+                f.write(pos.y);
+                f.write(pos.z);
+                f.write(intensity);
+                f.write(flags);
+            }
         };
 
         Info info;
@@ -696,6 +956,11 @@ struct LevelPC
     struct FloorData
     {
         uint16 value;
+
+        void write(FileStream &f) const
+        {
+            f.write(value);
+        }
     };
 
     struct Animation
@@ -720,6 +985,24 @@ struct LevelPC
 
         uint16 commandsCount;
         uint16 commandsStart;
+
+        void write(FileStream &f) const
+        {
+            f.write(frameOffset);
+            f.write(frameRate);
+            f.write(frameSize);
+            f.write(state);
+            f.write(speed);
+            f.write(accel);
+            f.write(frameBegin);
+            f.write(frameEnd);
+            f.write(nextAnimIndex);
+            f.write(nextFrameIndex);
+            f.write(statesCount);
+            f.write(statesStart);
+            f.write(commandsCount);
+            f.write(commandsStart);
+        }
     };
 
     struct AnimState
@@ -734,6 +1017,13 @@ struct LevelPC
         uint8  state;
         uint8  rangesCount;
         uint16 rangesStart;
+
+        void write(FileStream &f) const
+        {
+            f.write(state);
+            f.write(rangesCount);
+            f.write(rangesStart);
+        }
     };
 
     struct AnimRange
@@ -742,6 +1032,14 @@ struct LevelPC
         int16 frameEnd;
         int16 nextAnimIndex;
         int16 nextFrameIndex;
+
+        void write(FileStream &f) const
+        {
+            f.write(frameBegin);
+            f.write(frameEnd);
+            f.write(nextAnimIndex);
+            f.write(nextFrameIndex);
+        }
     };
 
     struct Model
@@ -761,6 +1059,15 @@ struct LevelPC
         uint16 start;
         uint16 nodeIndex;
         uint16 animIndex;
+
+        void write(FileStream &f) const
+        {
+            f.write(type);
+            f.write(count);
+            f.write(start);
+            f.write(nodeIndex);
+            f.write(animIndex);
+        }
     };
 
     struct MinMax
@@ -768,6 +1075,13 @@ struct LevelPC
         int16 minX, maxX;
         int16 minY, maxY;
         int16 minZ, maxZ;
+
+        void write(FileStream &f) const
+        {
+            f.write(minX); f.write(maxX);
+            f.write(minY); f.write(maxY);
+            f.write(minZ); f.write(maxZ);
+        }
     };
 
     struct StaticMesh
@@ -786,6 +1100,15 @@ struct LevelPC
         uint16 flags;
         MinMax vbox;
         MinMax cbox;
+
+        void write(FileStream &f) const
+        {
+            f.write(id);
+            f.write(meshIndex);
+            f.write(flags);
+            vbox.write(f);
+            cbox.write(f);
+        }
     };
 
     struct ObjectTexture
@@ -822,6 +1145,39 @@ struct LevelPC
         uint32 uv1;
         uint32 uv2;
         uint32 uv3;
+
+        void write(FileStream &f) const
+        {
+            f.write(attribute);
+            f.write(tile);
+            f.write(uv0);
+            f.write(uv1);
+            f.write(uv2);
+            f.write(uv3);
+/*
+            union TexCoord {
+                struct { uint16 v, u; };
+                uint32 uv;
+            } t;
+
+
+            t.uv = uv0;
+            f.write(t.v);
+            f.write(t.u);
+
+            t.uv = uv1;
+            f.write(t.v);
+            f.write(t.u);
+
+            t.uv = uv2;
+            f.write(t.v);
+            f.write(t.u);
+
+            t.uv = uv3;
+            f.write(t.v);
+            f.write(t.u);
+*/
+        }
     };
 
     struct SpriteTexture
@@ -830,6 +1186,19 @@ struct LevelPC
         uint8 u, v;
         uint16 w, h;
         int16 l, t, r, b;
+
+        void write(FileStream &f) const
+        {
+            f.write(tile);
+            f.write(u);
+            f.write(v);
+            f.write(w);
+            f.write(h);
+            f.write(l);
+            f.write(t);
+            f.write(r);
+            f.write(b);
+        }
     };
 
     struct SpriteTextureComp
@@ -838,6 +1207,34 @@ struct LevelPC
         uint8 u, v;
         uint8 w, h;
         int16 l, t, r, b;
+
+        void write(FileStream &f) const
+        {
+            f.write(tile);
+            f.write(u);
+            f.write(v);
+            f.write(w);
+            f.write(h);
+            f.write(l);
+            f.write(t);
+            f.write(r);
+            f.write(b);
+        }
+    };
+
+    struct SpriteTexture3DO
+    {
+        uint32 texture;
+        int32 l, t, r, b;
+
+        void write(FileStream &f) const
+        {
+            f.write(texture);
+            f.write(l);
+            f.write(t);
+            f.write(r);
+            f.write(b);
+        }
     };
 
     struct SpriteSequence
@@ -846,6 +1243,14 @@ struct LevelPC
         uint16 unused;
         int16 count;
         int16 start;
+
+        void write(FileStream &f) const
+        {
+            f.write(type);
+            f.write(unused);
+            f.write(count);
+            f.write(start);
+        }
     };
 
     struct Camera
@@ -853,6 +1258,15 @@ struct LevelPC
         vec3i pos;
         int16 roomIndex;
         uint16 flags;
+
+        void write(FileStream &f) const
+        {
+            f.write(pos.x);
+            f.write(pos.y);
+            f.write(pos.z);
+            f.write(roomIndex);
+            f.write(flags);
+        }
     };
 
     struct SoundSource
@@ -860,6 +1274,15 @@ struct LevelPC
         vec3i pos;
         uint16 id;
         uint16 flags;
+
+        void write(FileStream &f) const
+        {
+            f.write(pos.x);
+            f.write(pos.y);
+            f.write(pos.z);
+            f.write(id);
+            f.write(flags);
+        }
     };
 
     struct Box
@@ -876,11 +1299,16 @@ struct LevelPC
         int8 minX, maxX;
         int16 floor;
         int16 overlap;
-    };
 
-    struct Overlap
-    {
-        uint16 value;
+        void write(FileStream &f) const
+        {
+            f.write(minZ);
+            f.write(maxZ);
+            f.write(minX);
+            f.write(maxX);
+            f.write(floor);
+            f.write(overlap);
+        }
     };
 
     struct Zone
@@ -907,6 +1335,17 @@ struct LevelPC
         vec3s pos;
         int16 intensity;
         uint16 flags;
+
+        void write(FileStream &f) const
+        {
+            f.write(type);
+            f.write(roomIndex);
+            f.write(pos.x);
+            f.write(pos.y);
+            f.write(pos.z);
+            f.write(intensity);
+            f.write(flags);
+        }
     };
 
     struct CameraFrame
@@ -915,6 +1354,18 @@ struct LevelPC
         vec3s pos;
         int16 fov;
         int16 roll;
+
+        void write(FileStream &f) const
+        {
+            f.write(target.x);
+            f.write(target.y);
+            f.write(target.z);
+            f.write(pos.x);
+            f.write(pos.y);
+            f.write(pos.z);
+            f.write(fov);
+            f.write(roll);
+        }
     };
 
     struct SoundInfo
@@ -923,6 +1374,14 @@ struct LevelPC
         uint16 volume;
         uint16 chance;
         uint16 flags;
+
+        void write(FileStream &f) const
+        {
+            f.write(index);
+            f.write(volume);
+            f.write(chance);
+            f.write(flags);
+        }
     };
 
     enum NodeFlag
@@ -944,6 +1403,14 @@ struct LevelPC
     {
         uint16 flags;
         vec3s pos;
+
+        void write(FileStream &f)
+        {
+            f.write(flags);
+            f.write(pos.x);
+            f.write(pos.y);
+            f.write(pos.z);
+        }
     };
 
     int32 tilesCount;
@@ -1004,7 +1471,7 @@ struct LevelPC
     Box* boxes;
 
     int32 overlapsCount;
-    Overlap* overlaps;
+    uint16* overlaps;
 
     Zone zones[2];
 
@@ -1217,6 +1684,61 @@ struct LevelPC
         uint32 soundInfos;
         uint32 soundData;
         uint32 soundOffsets;
+
+        void write(FileStream &f) const
+        {
+            f.write(magic);
+            f.write(tilesCount);
+            f.write(roomsCount);
+            f.write(modelsCount);
+            f.write(meshesCount);
+            f.write(staticMeshesCount);
+            f.write(spriteSequencesCount);
+            f.write(soundSourcesCount);
+            f.write(boxesCount);
+            f.write(texturesCount);
+            f.write(itemsCount);
+            f.write(camerasCount);
+            f.write(cameraFramesCount);
+            f.write(palette);
+            f.write(lightmap);
+            f.write(tiles);
+            f.write(rooms);
+            f.write(floors);
+            f.write(meshData);
+            f.write(meshOffsets);
+            f.write(anims);
+            f.write(states);
+            f.write(ranges);
+            f.write(commands);
+            f.write(nodes);
+            f.write(frameData);
+            f.write(models);
+            f.write(staticMeshes);
+            f.write(objectTextures);
+            f.write(spriteTextures);
+            f.write(spriteSequences);
+            f.write(cameras);
+            f.write(soundSources);
+            f.write(boxes);
+            f.write(overlaps);
+
+            for (int32 i = 0; i < 2; i++)
+            {
+                for (int32 j = 0; j < 3; j++)
+                {
+                    f.write(zones[i][j]);
+                }
+            }
+
+            f.write(animTexData);
+            f.write(items);
+            f.write(cameraFrames);
+            f.write(soundMap);
+            f.write(soundInfos);
+            f.write(soundData);
+            f.write(soundOffsets);
+        }
     };
 
     Room::VertexComp roomVertices[MAX_ROOM_VERTICES];
@@ -1360,16 +1882,246 @@ struct LevelPC
         #undef SET_ROT
     }
 
+    int32 getModelIndex(int32 type)
+    {
+        for (int32 i = 0; i < modelsCount; i++)
+        {
+            if (models[i].type == type) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    template <typename T>
+    T* addElements(T* &a, int32 &count, int32 size)
+    {
+        T* ptr = new T[count + size];
+        memcpy(ptr, a, sizeof(a[0]) * count);
+        delete[] a;
+        a = ptr;
+        count += size;
+        return &a[count - size];
+    }
+
+    int32 getMeshTexture(uint16* meshPtr)
+    {
+        meshPtr += 3 + 1 + 1; // skip center, radius, flags
+        int16 vCount = *(int16*)meshPtr;
+        meshPtr += 1; // skip vCount
+        meshPtr += vCount * 3; // skip vertices
+        int16 nCount = *(int16*)meshPtr;
+        meshPtr += 1; // skip nCount
+        if (nCount > 0) {
+            meshPtr += nCount * 3; // skip normals
+        } else {
+            meshPtr -= nCount; // skip intensity
+        }
+        int16 rCount = *(int16*)meshPtr;
+        meshPtr += 1; // skip rCount
+        if (rCount > 0) {
+            meshPtr += 4; // skip indices
+            return (*(uint16*)meshPtr) & 0x07FF;
+        }
+        int16 tCount = *(int16*)meshPtr;
+        meshPtr += 1; // skip tCount
+        if (tCount > 0)
+        {
+            meshPtr += 3; // skip indices
+            return (*(uint16*)meshPtr) & 0x07FF;
+        }
+        // no textured quads or triangles
+        ASSERT(false);
+        return -1;
+    }
+
+    int32 getMaxTexture(int32 tile, int32 x, int32 y, int32 &minU, int32 &minV, int32 &maxU, int32 &maxV)
+    {
+        int32 index = -1;
+        int32 maxW = 0;
+        int32 maxH = 0;
+
+        for (int32 i = 0; i < objectTexturesCount; i++)
+        {
+            ObjectTexture *tex = objectTextures + i;
+
+            //if (!tex->isQuad)
+            //    continue;
+
+            if (tex->tile != tile)
+                continue;
+
+            int32 minX = MIN(MIN(tex->x0, tex->x1), tex->x2);
+            int32 minY = MIN(MIN(tex->y0, tex->y1), tex->y2);
+            int32 maxX = MAX(MAX(tex->x0, tex->x1), tex->x2);
+            int32 maxY = MAX(MAX(tex->y0, tex->y1), tex->y2);
+
+            if (tex->isQuad)
+            {
+                minX = MIN(minX, tex->x3);
+                minY = MIN(minY, tex->y3);
+                maxX = MAX(maxX, tex->x3);
+                maxY = MAX(maxY, tex->y3);
+            }
+
+            if (x >= minX && x <= maxX && y >= minY && y <= maxY)
+            {
+                int32 w = maxX - minX;
+                int32 h = maxY - minY;
+
+                if (w >= maxW && h >= maxH)
+                {
+                    index = i;
+                    maxW = w;
+                    maxH = h;
+
+                    minU = minX;
+                    minV = minY;
+                    maxU = maxX;
+                    maxV = maxY;
+                }
+            }
+        }
+
+        ASSERT(index >= 0);
+
+        return index;
+    }
+
+    void generateLODs()
+    {
+        struct Quad {
+            uint16 indices[4];
+            uint16 flags;
+        };
+
+        struct Mesh {
+            vec3s center;
+            int16 radius;
+            uint16 flags;
+            int16 vCount;
+            vec3s vertices[4];
+            int16 nCount;
+            int16 intensity[4];
+            int16 rCount;
+            Quad rFaces[2];
+            int16 tCount;
+            int16 crCount;
+            int16 ctCount;
+        };
+
+        struct AnimFrame {
+            MinMax box;
+            vec3s pos;
+            uint16 angles[2];
+        };
+
+        AnimFrame meshPlaneFrame;
+        meshPlaneFrame.box.minX = -512;
+        meshPlaneFrame.box.maxX = 512;
+        meshPlaneFrame.box.minY = -512;
+        meshPlaneFrame.box.maxY = -512;
+        meshPlaneFrame.box.minZ = -512;
+        meshPlaneFrame.box.maxZ = 512;
+
+        meshPlaneFrame.pos = vec3s(0, -512, 0);
+        meshPlaneFrame.angles[0] = meshPlaneFrame.angles[1] = 0;
+
+        Mesh meshPlane;
+        meshPlane.center = vec3s(-512, 0, 512);
+        meshPlane.radius = 727;
+        meshPlane.flags = 1;
+        meshPlane.vCount = 4;
+        meshPlane.vertices[0] = vec3s(-512, 0, -512);
+        meshPlane.vertices[1] = vec3s( 512, 0, -512);
+        meshPlane.vertices[2] = vec3s( 512, 0,  512);
+        meshPlane.vertices[3] = vec3s(-512, 0,  512);
+        meshPlane.nCount = -4;
+        meshPlane.intensity[0] = 3800;
+        meshPlane.intensity[1] = 3800;
+        meshPlane.intensity[2] = 3800;
+        meshPlane.intensity[3] = 3800;
+        meshPlane.rCount = 2;
+        meshPlane.rFaces[0].indices[0] = 3;
+        meshPlane.rFaces[0].indices[1] = 2;
+        meshPlane.rFaces[0].indices[2] = 1;
+        meshPlane.rFaces[0].indices[3] = 0;
+        meshPlane.rFaces[1].indices[0] = 0;
+        meshPlane.rFaces[1].indices[1] = 1;
+        meshPlane.rFaces[1].indices[2] = 2;
+        meshPlane.rFaces[1].indices[3] = 3;
+        meshPlane.tCount = 0;
+        meshPlane.crCount = 0;
+        meshPlane.ctCount = 0;
+
+        // trap floor lod
+        int32 index = getModelIndex(ITEM_TRAP_FLOOR);
+        
+        if (index > -1)
+        {
+            Model* model = addElements(models, modelsCount, 1);
+            *model = models[index];
+            model->type = ITEM_TRAP_FLOOR_LOD;
+
+            int32 texture = getMeshTexture((uint16*)((uint8*)meshData + meshOffsets[model->start]));
+            ObjectTexture* objTex = objectTextures + texture;
+
+            int32 minU, minV, maxU, maxV;
+
+            texture = getMaxTexture(objTex->tile, (objTex->x0 + objTex->x1 + objTex->x2) / 3, (objTex->y0 + objTex->y1 + objTex->y2) / 3, minU, minV, maxU, maxV);
+
+            objTex = addElements(objectTextures, objectTexturesCount, 1);
+            *objTex = objectTextures[texture];
+            objTex->x0 = minU;
+            objTex->y0 = minV;
+            objTex->x1 = maxU;
+            objTex->y1 = minV;
+            objTex->x2 = maxU;
+            objTex->y2 = maxV;
+            objTex->x3 = minU;
+            objTex->y3 = maxV;
+
+            meshPlane.rFaces[0].flags = objectTexturesCount - 1;
+            meshPlane.rFaces[1].flags = objectTexturesCount - 1;
+
+            uint32 *meshOffset = addElements(meshOffsets, meshOffsetsCount, 1);
+
+            uint16* mesh = addElements(meshData, meshDataSize, sizeof(meshPlane) / sizeof(uint16));
+            memcpy(mesh, &meshPlane, sizeof(meshPlane));
+
+            *meshOffset = (mesh - meshData) * sizeof(uint16);
+
+            uint16* frame = addElements(frameData, frameDataSize, sizeof(meshPlaneFrame) / sizeof(uint16));
+            memcpy(frame, &meshPlaneFrame, sizeof(meshPlaneFrame));
+
+            Animation* anim = addElements(anims, animsCount, 1);
+            memset(anim, 0, sizeof(anim[0]));
+            anim->frameRate = 1;
+            anim->frameOffset = (frame - frameData) << 1;
+
+            Node* node = (Node*)addElements(nodesData, nodesDataSize, sizeof(Node) / sizeof(uint32));
+            node->flags = 0;
+            node->pos.x = 0;
+            node->pos.y = 0;
+            node->pos.z = 0;
+
+            model->count = 1;
+            model->start = meshOffsetsCount - 1;
+            model->animIndex = animsCount - 1;
+            model->nodeIndex = (uint32*)node - nodesData;
+        }
+    }
+
     void convertGBA(const char* fileName)
     {
         FileStream f(fileName, true);
-        
+
         if (!f.isValid()) return;
 
         Header header;
         f.seek(sizeof(Header)); // will be rewritten at the end
 
-        header.magic = 0x31414247;
+        header.magic = 0x20414247;
         header.tilesCount = tilesCount;
         header.roomsCount = roomsCount;
         header.modelsCount = modelsCount;
@@ -1401,7 +2153,7 @@ struct LevelPC
             //fixLightmap(lightmap, pal, 6); // boots
             //fixLightmap(lightmap, pal, 14); // skin
 
-            f.write(pal);
+            f.write(pal, 256);
         }
 
         for (int32 i = 0; i < 32; i++) {
@@ -1411,10 +2163,10 @@ struct LevelPC
         fixHeadMask();
 
         header.lightmap = f.align4();
-        f.write(lightmap);
+        f.write(lightmap, 32 * 256);
 
         header.tiles = f.align4();
-        f.write(tiles, tilesCount);
+        f.write((uint8*)tiles, tilesCount * 256 * 256);
 
         header.rooms = f.align4();
         {
@@ -1464,27 +2216,30 @@ struct LevelPC
                 info.quads = f.getPos();
                 for (int32 i = 0; i < room->qCount; i++)
                 {
-                    Room::Quad q = room->quads[i];
+                    Quad q = room->quads[i];
                     q.indices[0] = addRoomVertex(room->vertices[q.indices[0]]);
                     q.indices[1] = addRoomVertex(room->vertices[q.indices[1]]);
                     q.indices[2] = addRoomVertex(room->vertices[q.indices[2]]);
                     q.indices[3] = addRoomVertex(room->vertices[q.indices[3]]);
-                    f.write(q);
+                    q.write(f);
                 }
 
                 info.triangles = f.getPos();
                 for (int32 i = 0; i < room->tCount; i++)
                 {
-                    Room::Triangle t = room->triangles[i];
+                    Triangle t = room->triangles[i];
                     t.indices[0] = addRoomVertex(room->vertices[t.indices[0]]);
                     t.indices[1] = addRoomVertex(room->vertices[t.indices[1]]);
                     t.indices[2] = addRoomVertex(room->vertices[t.indices[2]]);
-                    f.write(t);
+                    t.write(f);
                 }
 
                 info.vertices = f.getPos();
                 info.verticesCount = roomVerticesCount;
-                f.write(roomVertices, roomVerticesCount);
+                for (int32 i = 0; i < roomVerticesCount; i++)
+                {
+                    roomVertices[i].write(f);
+                }
 
                 info.sprites = f.getPos();
                 for (int32 i = 0; i < room->sCount; i++)
@@ -1501,14 +2256,14 @@ struct LevelPC
 
                     ASSERT(sprite->texture <= 255);
 
-                    f.write(comp);
+                    comp.write(f);
                 }
 
                 info.portals = f.getPos();
-                f.write(room->portals, room->pCount);
+                f.writeObj(room->portals, room->pCount);
 
                 info.sectors = f.getPos();
-                f.write(room->sectors, room->zSectors * room->xSectors);
+                f.writeObj(room->sectors, room->zSectors * room->xSectors);
             
                 info.lights = f.getPos();
                 for (int32 i = 0; i < room->lCount; i++)
@@ -1522,7 +2277,7 @@ struct LevelPC
                     comp.radius = light->radius >> 8;
                     comp.intensity = light->intensity >> 5;
 
-                    f.write(comp);
+                    comp.write(f);
                 }
 
                 info.meshes = f.getPos();
@@ -1541,27 +2296,158 @@ struct LevelPC
                     ASSERT(mesh->angleY % 0x4000 == 0);
                     ASSERT(mesh->angleY / 0x4000 + 2 >= 0);
 
-                    f.write(comp);
+                    comp.write(f);
                 }
             }
 
             int32 pos = f.getPos();
             f.setPos(header.rooms);
-            f.write(infoComp, roomsCount);
+            f.writeObj(infoComp, roomsCount);
             f.setPos(pos);
         }
 
         header.floors = f.align4();
-        f.write(floors, floorsCount);
+        f.writeObj(floors, floorsCount);
 
         header.meshData = f.align4();
+    #if 1
+        int32 mOffsets[2048];
+        for (int32 i = 0; i < 2048; i++) {
+            mOffsets[i] = -1;
+        }
+
+        for (int32 i = 0; i < meshOffsetsCount; i++)
+        {
+            if (mOffsets[i] != -1)
+                continue;
+
+            mOffsets[i] = f.align4() - header.meshData;
+
+            const uint8* ptr = (uint8*)meshData + meshOffsets[i];
+
+            vec3s center = *(vec3s*)ptr; ptr += sizeof(center);
+            int16 radius = *(int16*)ptr; ptr += sizeof(radius);
+            uint16 flags = *(uint16*)ptr; ptr += sizeof(flags);
+
+            int16 vCount = *(int16*)ptr; ptr += 2;
+            const vec3s* vertices = (vec3s*)ptr;
+            ptr += vCount * sizeof(vec3s);
+
+            const uint16* vIntensity = NULL;
+            const vec3s* vNormal = NULL;
+
+            int16 nCount = *(int16*)ptr; ptr += 2;
+            //const int16* normals = (int16*)ptr;
+            if (nCount > 0) { // normals
+                vNormal = (vec3s*)ptr;
+                ptr += nCount * 3 * sizeof(int16);
+            } else { // intensity
+                vIntensity = (uint16*)ptr;
+                ptr += vCount * sizeof(uint16);
+            }
+
+            int16     rCount = *(int16*)ptr; ptr += 2;
+            Quad*     rFaces = (Quad*)ptr; ptr += rCount * sizeof(Quad);
+
+            int16     tCount = *(int16*)ptr; ptr += 2;
+            Triangle* tFaces = (Triangle*)ptr; ptr += tCount * sizeof(Triangle);
+
+            int16     crCount = *(int16*)ptr; ptr += 2;
+            Quad*     crFaces = (Quad*)ptr; ptr += crCount * sizeof(Quad);
+
+            int16     ctCount = *(int16*)ptr; ptr += 2;
+            Triangle* ctFaces = (Triangle*)ptr; ptr += ctCount * sizeof(Triangle);
+
+            if (vIntensity) {
+                vCount = -vCount; // negate vCount -> use baked lighting instead of normals
+            }
+
+            f.write(center.x);
+            f.write(center.y);
+            f.write(center.z);
+            f.write(radius);
+            f.write(flags);
+            f.write(vCount);
+            f.write(rCount);
+            f.write(tCount);
+            f.write(crCount);
+            f.write(ctCount);
+
+            vCount = abs(vCount);
+
+            for (int32 j = 0; j < vCount; j++)
+            {
+                struct MeshVertexGBA {
+                    int16 x, y, z;
+                } v;
+
+                v.x = vertices[j].x;
+                v.y = vertices[j].y;
+                v.z = vertices[j].z;
+
+                f.write(v.x);
+                f.write(v.y);
+                f.write(v.z);
+            }
+
+            for (int32 j = 0; j < rCount; j++)
+            {
+                rFaces[j].write(f);
+            }
+
+            for (int32 j = 0; j < tCount; j++)
+            {
+                tFaces[j].write(f);
+            }
+
+            for (int32 j = 0; j < crCount; j++)
+            {
+                crFaces[j].write(f);
+            }
+
+            for (int32 j = 0; j < ctCount; j++)
+            {
+                ctFaces[j].write(f);
+            }
+
+            if (vNormal)
+            {
+                for (int32 j = 0; j < vCount; j++)
+                {
+                    f.write(vNormal[j].x);
+                    f.write(vNormal[j].y);
+                    f.write(vNormal[j].z);
+                }
+            }
+
+            if (vIntensity)
+            {
+                for (int32 j = 0; j < vCount; j++)
+                {
+                    f.write(vIntensity[j]);
+                }
+            }
+
+            for (int32 j = i + 1; j < meshOffsetsCount; j++)
+            {
+                if (meshOffsets[i] == meshOffsets[j])
+                {
+                    mOffsets[j] = mOffsets[i];
+                }
+            }
+        }
+
+        header.meshOffsets = f.align4();
+        f.write(mOffsets, meshOffsetsCount);
+    #else
         f.write(meshData, meshDataSize);
 
         header.meshOffsets = f.align4();
         f.write(meshOffsets, meshOffsetsCount);
+    #endif
 
         header.anims = f.align4();
-        f.write(anims, animsCount);
+        f.writeObj(anims, animsCount);
 
         header.states = f.align4();
         for (int32 i = 0; i < statesCount; i++)
@@ -1573,11 +2459,11 @@ struct LevelPC
             comp.rangesCount = uint8(state->rangesCount);
             comp.rangesStart = state->rangesStart;
 
-            f.write(comp);
+            comp.write(f);
         }
 
         header.ranges = f.align4();
-        f.write(ranges, rangesCount);
+        f.writeObj(ranges, rangesCount);
 
         header.commands = f.align4();
         f.write(commands, commandsCount);
@@ -1600,7 +2486,8 @@ struct LevelPC
             comp.pos.x = int16(node->pos.x);
             comp.pos.y = int16(node->pos.y);
             comp.pos.z = int16(node->pos.z);
-            f.write(comp);
+
+            comp.write(f);
         }
         //f.write(nodesData, nodesDataSize);
 
@@ -1621,7 +2508,7 @@ struct LevelPC
             comp.nodeIndex = model->nodeIndex / 4;
             comp.animIndex = model->animIndex;
 
-            f.write(comp);
+            comp.write(f);
         }
 
         header.staticMeshes = f.align4();
@@ -1636,7 +2523,7 @@ struct LevelPC
             comp.vbox = staticMesh->vbox;
             comp.cbox = staticMesh->cbox;
 
-            f.write(comp);
+            comp.write(f);
         }
 
         header.objectTextures = f.align4();
@@ -1646,7 +2533,7 @@ struct LevelPC
 
             ObjectTextureComp comp;
             comp.attribute = objectTexture->attribute;
-            comp.tile = objectTexture->tile;
+            comp.tile = objectTexture->tile & 0x3FFF;
             comp.uv0 = ((objectTexture->uv0 << 16) | (objectTexture->uv0 >> 16)) & 0xFF00FF00;
             comp.uv1 = ((objectTexture->uv1 << 16) | (objectTexture->uv1 >> 16)) & 0xFF00FF00;
             comp.uv2 = ((objectTexture->uv2 << 16) | (objectTexture->uv2 >> 16)) & 0xFF00FF00;
@@ -1658,7 +2545,7 @@ struct LevelPC
             fixObjectTexture(comp, i);
         #endif
 
-            f.write(comp);
+            comp.write(f);
         }
 
         header.spriteTextures = f.align4();
@@ -1677,19 +2564,19 @@ struct LevelPC
             comp.r = spriteTexture->r;
             comp.b = spriteTexture->b;
 
-            f.write(comp);
+            comp.write(f);
         }
 
-        f.write(spriteTextures, spriteTexturesCount);
+        f.writeObj(spriteTextures, spriteTexturesCount);
 
         header.spriteSequences = f.align4();
-        f.write(spriteSequences, spriteSequencesCount);
+        f.writeObj(spriteSequences, spriteSequencesCount);
 
         header.cameras = f.align4();
-        f.write(cameras, camerasCount);
+        f.writeObj(cameras, camerasCount);
 
         header.soundSources = f.align4();
-        f.write(soundSources, soundSourcesCount);
+        f.writeObj(soundSources, soundSourcesCount);
 
         header.boxes = f.align4();
         for (int32 i = 0; i < boxesCount; i++)
@@ -1704,7 +2591,7 @@ struct LevelPC
             comp.floor = box->floor;
             comp.overlap = box->overlap;
 
-            f.write(comp);
+            comp.write(f);
         }
 
         header.overlaps = f.align4();
@@ -1719,7 +2606,7 @@ struct LevelPC
             f.write(zones[i].ground2, boxesCount);
 
             header.zones[i][2] = f.align4();
-            f.write(zones[i].fly, boxesCount);      
+            f.write(zones[i].fly, boxesCount);
         }
 
         header.animTexData = f.align4();
@@ -1742,19 +2629,19 @@ struct LevelPC
 
             ASSERT((item->flags & ~(0x3F1F)) == 0);
 
-            f.write(comp);
+            comp.write(f);
         }
 
         header.cameraFrames = f.align4();
-        f.write(cameraFrames, cameraFramesCount);
+        f.writeObj(cameraFrames, cameraFramesCount);
 
         //f.writeArray(demoData, demoDataSize);
 
         header.soundMap = f.align4();
-        f.write(soundMap);
+        f.write(soundMap, 256);
 
         header.soundInfos = f.align4();
-        f.write(soundInfo, soundInfoCount);
+        f.writeObj(soundInfo, soundInfoCount);
 
         header.soundData = f.align4();
         f.write(soundData, soundDataSize);
@@ -1763,8 +2650,1227 @@ struct LevelPC
         f.write(soundOffsets, soundOffsetsCount);
 
         f.setPos(0);
-        f.write(header);
+        header.write(f);
     }
+
+// 3DO ========================================================================
+    #define MAX_TEXTURES 1536
+
+    #define TEX_FLIP_X      1
+    #define TEX_FLIP_Y      2
+    #define FACE_TEXTURE    0x07FF
+
+    struct Texture3DO {
+        int32 data;
+        int32 plut;
+        uint32 pre0;
+        uint32 pre1;
+        uint8 wShift;
+        uint8 hShift;
+        uint16 color;
+
+        // not in file
+        uint8* src;
+        int32 w;
+        int32 h;
+        uint16 flip;
+
+        void write(FileStream &f) const
+        {
+            f.write(data);
+            f.write(plut);
+            f.write(pre0);
+            f.write(pre1);
+            f.write(wShift);
+            f.write(hShift);
+            f.write(color);
+        }
+    } textures3DO[MAX_TEXTURES];
+
+    int32 spritesBaseIndex;
+
+    struct PLUT {
+        uint16 colors[16];
+    } PLUTs[MAX_TEXTURES];
+    int32 plutsCount;
+
+    uint32 nextPow2(uint32 x) {
+        x--;
+        x |= x >> 1;
+        x |= x >> 2;
+        x |= x >> 4;
+        x |= x >> 8;
+        x |= x >> 16;
+        x++;
+        return x;
+    }
+
+    uint32 shiftPow2(int32 x)
+    {
+        int32 count = 0;
+        while (x >>= 1) {
+            count++;
+        }
+        return count;
+    }
+
+    int32 addPalette(const PLUT &p)
+    {
+        for (int32 i = 0; i < plutsCount; i++)
+        {
+            if (memcmp(&PLUTs[i], &p, sizeof(PLUT)) == 0)
+            {
+                return sizeof(PLUT) * i;
+            }
+        }
+
+        PLUTs[plutsCount] = p;
+
+        return sizeof(PLUT) * plutsCount++;
+    }
+
+    #define FACE_CCW        0x2000
+    #define FACE_TEXTURE    0x07FF
+
+    void calcQuadFlip(Quad &q)
+    {
+        Texture3DO* tex = textures3DO + (q.flags & FACE_TEXTURE);
+        bool flip = false;
+
+        if (tex->flip & TEX_FLIP_X) {
+            swap(q.indices[0], q.indices[1]);
+            swap(q.indices[3], q.indices[2]);
+            flip = !flip;
+        }
+
+        if (tex->flip & TEX_FLIP_Y) {
+            swap(q.indices[0], q.indices[3]);
+            swap(q.indices[1], q.indices[2]);
+            flip = !flip;
+        }
+
+        if (flip) {
+            q.flags |= FACE_CCW;
+        }
+    }
+
+    void calcTriangleFlip(Triangle &t)
+    {
+        //
+    }
+
+    void convertTextures3DO(const char* fileName)
+    {
+        #define PRE1_WOFFSET_PREFETCH   2
+        #define PRE0_VCNT_PREFETCH      1
+        #define PRE0_VCNT_SHIFT         6
+        #define PRE0_BPP_4              3
+        #define PRE1_TLHPCNT_PREFETCH   1
+        #define PRE1_TLHPCNT_SHIFT      0
+        #define PRE1_TLLSB_PDC0         0x00001000
+        #define PRE1_WOFFSET8_SHIFT     24
+        #define PRE0_BGND               0x40000000
+
+        ASSERT(objectTexturesCount + spriteTexturesCount < MAX_TEXTURES);
+
+        plutsCount = 0;
+
+        FileStream f(fileName, true);
+
+        if (!f.isValid()) return;
+
+        f.bigEndian = true;
+
+    // reserve 4 bytes for the main palette (first 16 x PLUTs) offset
+        f.seek(4);
+
+    // convert palette to 15-bit and fix some color gradients
+        uint16 pal[256];
+
+        for (int32 i = 0; i < 256; i++)
+        {
+            uint8 b = palette.colors[i * 3 + 0];
+            uint8 g = palette.colors[i * 3 + 1];
+            uint8 r = palette.colors[i * 3 + 2];
+
+            pal[i] = (r >> 1) | ((g >> 1) << 5) | ((b >> 1) << 10);
+        }
+
+        pal[0] = 0;
+
+    // convert palette to 16 x PLUTs
+        {
+            for (int32 i = 0; i < 16; i++)
+            {
+                memcpy(PLUTs[i].colors, &pal[i * 16], 16 * sizeof(uint16));
+            }
+            plutsCount = 16;
+        }
+
+    // convert palette to 32-bit
+        uint32 pal32[256];
+        for (int32 i = 0; i < 256; i++)
+        {
+            uint16 p = pal[i];
+
+            uint8 r = (p & 31) << 3;
+            uint8 g = ((p >> 5) & 31) << 3;
+            uint8 b = ((p >> 10) & 31) << 3;
+
+            pal32[i] = r | (g << 8) | (b << 16);
+
+            if (pal32[i]) {
+                pal32[i] |= 0xFF000000;
+            }
+        }
+        pal32[0] = 0;
+
+        uint32* bitmap32 = new uint32[256 * 256];
+        uint32* bitmap32_tmp = new uint32[256 * 256];
+        uint8* bitmap8 = new uint8[256 * 256];
+        uint8* bitmap8_tmp = new uint8[256 * 256];
+
+        spritesBaseIndex = objectTexturesCount;
+
+        {
+            LevelPC::ObjectTexture* tmp = new LevelPC::ObjectTexture[objectTexturesCount + spriteTexturesCount];
+            memcpy(tmp, objectTextures, sizeof(LevelPC::ObjectTexture) * objectTexturesCount);
+
+            for (int32 i = 0; i < spriteTexturesCount; i++)
+            {
+                LevelPC::SpriteTexture* spriteTexture = spriteTextures + i; 
+                LevelPC::ObjectTexture* objectTexture = tmp + objectTexturesCount + i;
+
+                int32 w = spriteTexture->w >> 8;
+                int32 h = spriteTexture->h >> 8;
+
+                objectTexture->attribute = 1;
+                objectTexture->tile = spriteTexture->tile;
+                objectTexture->uv0 = 0;
+                objectTexture->uv1 = 0;
+                objectTexture->uv2 = 0;
+                objectTexture->uv3 = 0;
+                objectTexture->x0 = spriteTexture->u;
+                objectTexture->y0 = spriteTexture->v;
+                objectTexture->x1 = spriteTexture->u + w;
+                objectTexture->y1 = spriteTexture->v;
+                objectTexture->x2 = spriteTexture->u + w;
+                objectTexture->y2 = spriteTexture->v + h;
+                objectTexture->x3 = spriteTexture->u;
+                objectTexture->y3 = spriteTexture->v + h;
+            }
+
+            delete[] objectTextures;
+            objectTextures = tmp;
+
+            objectTexturesCount += spriteTexturesCount;
+        }
+
+        for (int32 i = 0; i < objectTexturesCount; i++)
+        {
+            const LevelPC::ObjectTexture* objectTexture = objectTextures + i;
+
+            int32 x0 = MIN(MIN(objectTexture->x0, objectTexture->x1), objectTexture->x2);
+            int32 y0 = MIN(MIN(objectTexture->y0, objectTexture->y1), objectTexture->y2);
+            int32 x1 = MAX(MAX(objectTexture->x0, objectTexture->x1), objectTexture->x2);
+            int32 y1 = MAX(MAX(objectTexture->y0, objectTexture->y1), objectTexture->y2);
+
+            textures3DO[i].flip = 0;
+
+            if (objectTexture->isQuad)
+            {
+                if (objectTexture->x0 > objectTexture->x1) textures3DO[i].flip |= TEX_FLIP_X;
+                if (objectTexture->y0 > objectTexture->y2) textures3DO[i].flip |= TEX_FLIP_Y;
+            }
+
+            int32 w = x1 - x0 + 1;
+            int32 h = y1 - y0 + 1;
+
+            textures3DO[i].src = tiles[objectTexture->tile & 0x3FFF].indices + 256 * y0 + x0;
+            textures3DO[i].w = w;
+            textures3DO[i].h = h;
+
+            { // check if the texture is already converted
+                int32 index = -1;
+
+                if (objectTextures[i].isQuad)
+                {
+                    for (int32 j = 0; j < i; j++)
+                    {
+                        if (objectTextures[j].isQuad && textures3DO[j].src == textures3DO[i].src)
+                        {
+                            // TODO can we reuse textures with the same src and width but smaller height?
+                            if ((textures3DO[j].w == textures3DO[i].w) && (textures3DO[j].h == textures3DO[i].h))
+                            {
+                                index = j;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (index != -1)
+                {
+                    uint8 flip = textures3DO[i].flip;
+                    textures3DO[i] = textures3DO[index];
+                    textures3DO[i].flip = flip; // flip flags may differ
+                    continue; // skip texture conversion
+                }
+            }
+
+            #if 0
+            if (!objectTexture->isQuad) // triangle->quad! 8)
+            {
+                if (1) { // test pattern
+                    uint32* src = bitmap32;
+
+                   for (int32 y = 0; y < h; y++)
+                    {
+                        for (int32 x = 0; x < w; x++)
+                        {
+                            *src++ += (x % 2) ? 0x000A0A0A : 0x00000000;
+                        }
+                    }
+                }
+                
+                uint32* src = bitmap32;
+                uint32* dst = bitmap32_tmp;
+
+                for (int32 y = 0; y < h; y++)
+                {
+                    for (int32 x = 0; x < w; x++)
+                    {
+
+                        objectTexture->x1 - objectTexture->x0
+
+
+                        
+                        float ty = float(y) / float(y);
+
+
+                        /*
+                        int32 px = 0;
+
+                        if (textures3DO[i].flip & TEX_FLIP_X)
+                        {
+                            if (textures3DO[i].flip & TEX_FLIP_Y)
+                            {
+                                px = int32(x * float(float(y) / float(h)));
+                            } else {
+                                px = int32(x * float(1.0f - float(y) / float(h)));
+                            }
+                        } else {
+                            if (textures3DO[i].flip & TEX_FLIP_Y)
+                            {
+                                px = int32((w - x - 1) * float(float(y) / float(h)));
+                            } else {
+                                px = int32((w - x - 1) * float(1.0f - float(y) / float(h)));
+                            }
+                        }
+
+                        *dst++ = src[px];
+                        */
+                    }
+                    src += w;
+                }
+
+                swap(bitmap32, bitmap32_tmp);
+
+                {
+                    char buf[128];
+                    sprintf(buf, "tex%d.bmp", i);
+                    saveBitmap(buf, (uint8*)bitmap32, w, h, 32);
+                }
+            }
+            #endif
+
+
+            { // copy tile to 32-bit image and calculate average tile color
+                uint8* src = textures3DO[i].src;
+                uint32* dst = bitmap32;
+
+                uint32 avgR = 0;
+                uint32 avgG = 0;
+                uint32 avgB = 0;
+
+                for (int32 y = 0; y < h; y++)
+                {
+                    for (int32 x = 0; x < w; x++)
+                    {
+                        uint32 index;
+
+                        if (!objectTexture->isQuad)
+                        {
+                            float u = float(x) / float(w - 1);
+                            float v = float(y) / float(h - 1);
+
+                            float px0 = objectTexture->x0;
+                            float py0 = objectTexture->y0;
+                            float px1 = objectTexture->x1;
+                            float py1 = objectTexture->y1;
+                            float px2 = objectTexture->x2;
+                            float py2 = objectTexture->y2;
+                            float px3 = objectTexture->x2;
+                            float py3 = objectTexture->y2;
+
+                            float px = (1.0f - u) * (1.0f - v) * px0 + u * (1.0f - v) * px1 + (1 - u) * v * px2 + u * v * px3;
+                            float py = (1.0f - u) * (1.0f - v) * py0 + u * (1.0f - v) * py1 + (1 - u) * v * py2 + u * v * py3;
+
+                            int32 ix = int32(px + 0.5) - x0;
+                            int32 iy = int32(py + 0.5) - y0;
+
+                            ASSERT(!(ix < 0 || ix >= w || iy < 0 || iy >= h));
+
+                            src = textures3DO[i].src + iy * 256 + ix;
+                        }
+
+                        uint32 p = pal32[*src++];
+                        *dst++ = p;
+
+                        uint32 A = p >> 24;
+                        if (A)
+                        {
+                            avgR += (p >> 16) & 0xFF;
+                            avgG += (p >> 8) & 0xFF;
+                            avgB += (p) & 0xFF;
+                        }
+                    }
+                    src += 256 - w;
+                }
+
+                avgR /= w * h;
+                avgG /= w * h;
+                avgB /= w * h;
+
+                textures3DO[i].color = (avgB >> 3) | ((avgG >> 3) << 5) | ((avgR >> 3) << 10);
+            }
+
+            { // resize to POT
+                int32 wp = nextPow2(w);
+                int32 hp = nextPow2(h);
+
+                if (wp != w) {
+                    wp /= 2;
+                }
+
+                if (hp != h) {
+                    hp /= 2;
+                }
+
+                ASSERT(wp != 0 && hp != 0);
+
+                if (w != wp || h != hp)
+                {
+                    //stbir_resize_uint8((uint8*)bitmap32, w, h, 0, (uint8*)bitmap32_tmp, wp, hp, 0, 4);
+                    stbir_resize_uint8_generic((uint8*)bitmap32, w, h, 0, (uint8*)bitmap32_tmp, wp, hp, 0, 4, 3, 0,
+                                                STBIR_EDGE_CLAMP, STBIR_FILTER_BOX, STBIR_COLORSPACE_LINEAR, NULL);
+                    swap(bitmap32, bitmap32_tmp);
+
+                    w = wp;
+                    h = hp;
+                }
+            }
+
+            /*{
+                char buf[128];
+                sprintf(buf, "tex%d.bmp", i);
+                saveBitmap(buf, (uint8*)bitmap32, w, h, 32);
+            }*/
+
+            int32 rowBytes = (((w * 4) + 31) >> 5) << 2;
+            if (rowBytes < 8) {
+                rowBytes = 8;
+            }
+            int32 rowWOFFSET = (rowBytes >> 2) - PRE1_WOFFSET_PREFETCH;
+
+            textures3DO[i].pre0 = ((h - PRE0_VCNT_PREFETCH) << PRE0_VCNT_SHIFT) | PRE0_BPP_4;
+            textures3DO[i].pre1 = ((w - PRE1_TLHPCNT_PREFETCH) << PRE1_TLHPCNT_SHIFT) | PRE1_TLLSB_PDC0 | (rowWOFFSET << PRE1_WOFFSET8_SHIFT);
+            textures3DO[i].wShift = 20 - shiftPow2(w);
+            textures3DO[i].hShift = 16 - shiftPow2(h);
+
+            if (objectTexture->attribute == 0) {
+                textures3DO[i].pre0 |= PRE0_BGND;
+            }
+
+            { // quantize to 16 colors
+                liq_attr *attr = liq_attr_create();
+                liq_image *image = liq_image_create_rgba(attr, bitmap32, w, h, 0);
+                liq_set_max_colors(attr, 16);
+
+                liq_result *res;
+                liq_image_quantize(image, attr, &res);
+
+                liq_write_remapped_image(res, image, bitmap8, 256 * 256);
+                const liq_palette *pal8 = liq_get_palette(res);
+
+                PLUT plut;
+
+                memset(&plut, 0, sizeof(plut));
+                for(int32 j = 0; j < pal8->count; j++)
+                {
+                    liq_color c = pal8->entries[j];
+                    if (c.a < 128) {
+                        plut.colors[j] = 0;
+                    } else {
+                        plut.colors[j] = (c.r >> 3) | ((c.g >> 3) << 5) | ((c.b >> 3) << 10);
+                    }
+                }
+
+            #if 0
+                int32 reindex[16];
+                for (int32 j = 0; j < 16; j++)
+                    reindex[j] = j;
+
+                for (int32 j = 0; j < 16; j++)
+                {
+                    for (int32 k = j + 1; k < 16; k++)
+                    {
+                        if (plut.colors[reindex[j]] > plut.colors[reindex[k]]) {
+                            swap(reindex[j], reindex[k]);
+                        }
+                    }
+                }
+
+                PLUT plut_opt;
+                for (int32 j = 0; j < 16; j++)
+                {
+                    plut_opt.colors[j] = plut.colors[reindex[j]];
+                }
+
+                int32 reindex_back[16];
+                for (int32 j = 0; j < 16; j++)
+                    reindex_back[reindex[j]] = j;
+
+                for (int32 j = 0; j < w * h; j++)
+                {
+                    bitmap8[j] = reindex_back[bitmap8[j]];
+                }
+
+                textures3DO[i].plut = addPalette(plut_opt);
+            #else
+                textures3DO[i].plut = addPalette(plut);
+            #endif
+
+                liq_result_destroy(res);
+                liq_image_destroy(image);
+                liq_attr_destroy(attr);
+            }
+
+            textures3DO[i].data = f.getPos();
+
+            if (rowBytes * 2 != w) // adjust row pitch
+            {
+                uint8* src = bitmap8;
+                uint8* dst = bitmap8_tmp;
+                memset(dst, 0, (rowBytes * 2) * h);
+
+                for (int32 y = 0; y < h; y++) {
+                    memcpy(dst, src, w);
+                    dst += rowBytes * 2;
+                    src += w;
+                }
+
+                swap(bitmap8, bitmap8_tmp);
+
+                w = rowBytes * 2;
+            }
+
+            { // encode to 4-bit image
+                uint8* src = bitmap8;
+                uint8* dst = bitmap8_tmp;
+                for (int32 y = 0; y < h; y++)
+                {
+                    for (int32 x = 0; x < w/2; x++, src += 2)
+                    {
+                        *dst++ = (src[0] << 4) | src[1];
+                    }
+                }
+
+            // write image
+                f.write(bitmap8_tmp, w * h / 2);
+            }
+        }
+        #if 0
+        {
+            LevelPC::ObjectTexture* tmp = new LevelPC::ObjectTexture[objectTexturesCount + 256];
+            memcpy(tmp, objectTextures, sizeof(LevelPC::ObjectTexture) * objectTexturesCount);
+
+            for (int32 i = 0; i < 256; i++)
+            {
+                int32 plut = i / 16;
+                int32 index = i % 16;
+
+                Texture3DO* tex = textures3DO + objectTexturesCount + i;
+
+                tex->flip = 0;
+                tex->w = 32;
+                tex->h = 32;
+                tex->wShift = shiftPow2(tex->w);
+                tex->hShift = shiftPow2(tex->h);
+                tex->color = PLUTs[plut].colors[index];
+
+                int32 rowBytes = (((tex->w * 4) + 31) >> 5) << 2;
+                if (rowBytes < 8) {
+                    rowBytes = 8;
+                }
+                int32 rowWOFFSET = (rowBytes >> 2) - PRE1_WOFFSET_PREFETCH;
+
+                tex->pre0 = ((tex->h - PRE0_VCNT_PREFETCH) << PRE0_VCNT_SHIFT) | PRE0_BPP_4;
+                tex->pre1 = ((tex->w - PRE1_TLHPCNT_PREFETCH) << PRE1_TLHPCNT_SHIFT) | PRE1_TLLSB_PDC0 | (rowWOFFSET << PRE1_WOFFSET8_SHIFT);
+
+                tex->plut = sizeof(PLUT) * plut;
+                tex->data = f.getPos();
+
+                int32 w = tex->w;
+
+                for (int32 j = 0; j < tex->w * tex->h; j++)
+                    bitmap8[j] = index;
+
+                if (rowBytes * 2 != tex->w) // adjust row pitch
+                {
+                    uint8* src = bitmap8;
+                    uint8* dst = bitmap8_tmp;
+                    memset(dst, 0, (rowBytes * 2) * tex->h);
+
+                    for (int32 y = 0; y < tex->h; y++) {
+                        memcpy(dst, src, tex->w);
+                        dst += rowBytes * 2;
+                        src += tex->w;
+                    }
+
+                    swap(bitmap8, bitmap8_tmp);
+
+                    w = rowBytes * 2;
+                }
+
+                { // encode to 4-bit image
+                    uint8* src = bitmap8;
+                    uint8* dst = bitmap8_tmp;
+                    for (int32 y = 0; y < tex->h; y++)
+                    {
+                        for (int32 x = 0; x < w/2; x++, src += 2)
+                        {
+                            *dst++ = (src[0] << 4) | src[1];
+                        }
+                    }
+
+                // write image
+                    f.write(bitmap8_tmp, w * tex->h / 2);
+                }
+            }
+
+            delete[] objectTextures;
+            objectTextures = tmp;
+
+            objectTexturesCount += 256;
+        }
+        #endif
+
+    // fix PLUT offsets
+        int32 plutsOffset = f.getPos();
+        for (int32 i = 0; i < objectTexturesCount; i++)
+        {
+            textures3DO[i].plut += plutsOffset;
+        }
+
+        uint32 paletteOffset = f.getPos();
+
+    // write PLUTs
+        f.write((uint16*)PLUTs, sizeof(PLUT) / 2 * plutsCount);
+
+    // calculate underwater PLUTs (blue tint = (0.5, 0.8, 0.8))
+        {
+            uint16* src = PLUTs[0].colors;
+            for (int32 i = 0; i < plutsCount * 16; i++)
+            {
+                uint16 p = *src;
+
+                uint32 b = (p & 31) << 3;
+                uint32 g = ((p >> 5) & 31) << 3;
+                uint32 r = ((p >> 10) & 31) << 3;
+
+                r = int32(r * 0.5f);
+                g = int32(g * 0.8f);
+                b = int32(b * 0.8f);
+
+                *src++ = (b >> 3) | ((g >> 3) << 5) | ((r >> 3) << 10);
+            }
+        }
+        f.write((uint16*)PLUTs, sizeof(PLUT) / 2 * plutsCount);
+
+    // write palette offset at the file start
+        f.setPos(0);
+        f.write(paletteOffset);
+
+        delete[] bitmap32;
+        delete[] bitmap32_tmp;
+        delete[] bitmap8;
+        delete[] bitmap8_tmp;
+    }
+
+    void convert3DO(const char* name)
+    {
+        char path[256];
+        sprintf(path, "../../3do/CD/data/%s.TEX", name);
+        convertTextures3DO(path);
+
+        sprintf(path, "../../3do/CD/data/%s.3DO", name);
+
+        FileStream f(path, true);
+
+        if (!f.isValid()) return;
+
+        f.bigEndian = true;
+
+        Header header;
+        f.seek(sizeof(Header)); // will be rewritten at the end
+
+        header.magic = 0x33444F20;
+        header.tilesCount = plutsCount;
+        header.roomsCount = roomsCount;
+        header.modelsCount = modelsCount;
+        header.meshesCount = meshOffsetsCount;
+        header.staticMeshesCount = staticMeshesCount;
+        header.spriteSequencesCount = spriteSequencesCount;
+        header.soundSourcesCount = soundSourcesCount;
+        header.boxesCount = boxesCount;
+        header.texturesCount = objectTexturesCount;
+        header.itemsCount = itemsCount;
+        header.camerasCount = camerasCount;
+        header.cameraFramesCount = cameraFramesCount;
+
+        header.palette = 0;
+        header.lightmap = 0;
+        
+        fixHeadMask();
+
+        header.rooms = f.align4();
+        {
+            f.seek(sizeof(Room::InfoComp) * roomsCount);
+
+            Room::InfoComp infoComp[255];
+
+            for (int32 i = 0; i < roomsCount; i++)
+            {
+                const LevelPC::Room* room = rooms + i;
+
+                Room::InfoComp &info = infoComp[i];
+
+                ASSERT(room->info.x % 256 == 0);
+                ASSERT(room->info.z % 256 == 0);
+                ASSERT(room->info.yBottom >= -32768 && room->info.yBottom <= 32767);
+                ASSERT(room->info.yTop >= -32768 && room->info.yTop <= 32767);
+                info.x = room->info.x / 256;
+                info.z = room->info.z / 256;
+                info.yBottom = room->info.yBottom;
+                info.yTop = room->info.yTop;
+
+                info.spritesCount = room->sCount;
+                info.quadsCount = room->qCount;
+                info.trianglesCount = room->tCount;
+                info.portalsCount = uint8(room->pCount);
+                info.lightsCount = uint8(room->lCount);
+                info.meshesCount = uint8(room->mCount);
+                info.ambient = room->ambient >> 5;
+                info.xSectors = uint8(room->xSectors);
+                info.zSectors = uint8(room->zSectors);
+                info.alternateRoom = uint8(room->alternateRoom);
+
+                info.flags = 0;
+                if (room->flags & 1) info.flags |= 1;
+                if (room->flags & 256) info.flags |= 2;
+
+                ASSERT((room->flags & ~257) == 0);
+                ASSERT(info.portalsCount == room->pCount);
+                ASSERT(info.lightsCount == room->lCount);
+                ASSERT(info.meshesCount == room->mCount);
+                ASSERT(info.xSectors == room->xSectors);
+                ASSERT(info.zSectors == room->zSectors);
+
+                roomVerticesCount = 0;
+
+                info.quads = f.align4();
+                for (int32 i = 0; i < room->qCount; i++)
+                {
+                    Quad q = room->quads[i];
+                    calcQuadFlip(q);
+                    q.indices[0] = addRoomVertex(room->vertices[q.indices[0]]);
+                    q.indices[1] = addRoomVertex(room->vertices[q.indices[1]]);
+                    q.indices[2] = addRoomVertex(room->vertices[q.indices[2]]);
+                    q.indices[3] = addRoomVertex(room->vertices[q.indices[3]]);
+
+                    q.write3DO(f);
+                }
+
+                info.triangles = f.align4();
+                for (int32 i = 0; i < room->tCount; i++)
+                {
+                    Triangle t = room->triangles[i];
+                    calcTriangleFlip(t);
+                    t.indices[0] = addRoomVertex(room->vertices[t.indices[0]]);
+                    t.indices[1] = addRoomVertex(room->vertices[t.indices[1]]);
+                    t.indices[2] = addRoomVertex(room->vertices[t.indices[2]]);
+
+                    t.write3DO(f);
+                }
+
+                info.vertices = f.align4();
+                info.verticesCount = roomVerticesCount;
+                for (int32 i = 0; i < roomVerticesCount; i++)
+                {
+                    roomVertices[i].write(f);
+                    /*
+                    // write vertex coords in fixed16:16 format
+                    int8 x = (roomVertices[i].x);// << 10);
+                    int8 y = (roomVertices[i].y);// <<  8);
+                    int8 z = (roomVertices[i].z);// << 10);
+                    uint8 g = (roomVertices[i].g);
+
+                    f.write(x);
+                    f.write(y);
+                    f.write(z);
+                    f.write(g);*/
+                }
+
+                info.sprites = f.align4();
+                for (int32 i = 0; i < room->sCount; i++)
+                {
+                    const Room::Sprite* sprite = room->sprites + i;
+                    const Room::Vertex* v = room->vertices + sprite->index;
+
+                    Room::SpriteComp comp;
+                    comp.x = v->pos.x;
+                    comp.y = v->pos.y;
+                    comp.z = v->pos.z;
+                    comp.g = v->lighting >> 5;
+                    comp.index = uint8(sprite->texture);
+
+                    ASSERT(sprite->texture <= 255);
+
+                    comp.write(f);
+                }
+
+                info.portals = f.align4();
+                for (int32 i = 0; i < room->pCount; i++)
+                {
+                    const Room::Portal* portal = room->portals + i;
+
+                    Room::PortalComp comp;
+                    
+                    comp.roomIndex = portal->roomIndex;
+
+                    static const struct {
+                        int32 x, y, z;
+                        int32 mask;
+                    } normals[9] = {
+                        { -1,  0,  0,  2 << 0 },
+                        {  1,  0,  0,  1 << 0 },
+                        {  0, -1,  0,  2 << 2 },
+                        {  0,  1,  0,  1 << 2 },
+                        {  0,  0, -1,  2 << 4 },
+                        {  0,  0,  1,  1 << 4 }
+                    };
+
+                    comp.normalMask = 255;
+                    for (int32 i = 0; i < 9; i++)
+                    {
+                        if (portal->normal.x == normals[i].x &&
+                            portal->normal.y == normals[i].y &&
+                            portal->normal.z == normals[i].z)
+                        {
+                            comp.normalMask = normals[i].mask;
+                            break;
+                        }
+                    }
+
+                    ASSERT(comp.normalMask != 255);
+
+                    for (int32 i = 0; i < 4; i++)
+                    {
+                        comp.vertices[i].x = portal->vertices[i].x;
+                        comp.vertices[i].y = portal->vertices[i].y;
+                        comp.vertices[i].z = portal->vertices[i].z;
+                    }
+
+                    comp.write(f);
+                }
+
+                info.sectors = f.align4();
+                f.writeObj(room->sectors, room->zSectors * room->xSectors);
+            
+                info.lights = f.align4();
+                for (int32 i = 0; i < room->lCount; i++)
+                {
+                    const Room::Light* light = room->lights + i;
+
+                    Room::LightComp comp;
+                    comp.pos.x = light->pos.x - room->info.x;
+                    comp.pos.y = light->pos.y;
+                    comp.pos.z = light->pos.z - room->info.z;
+                    comp.radius = light->radius >> 8;
+                    comp.intensity = light->intensity >> 5;
+
+                    comp.write(f);
+                }
+
+                info.meshes = f.align4();
+                for (int32 i = 0; i < room->mCount; i++)
+                {
+                    const Room::Mesh* mesh = room->meshes + i;
+
+                    Room::MeshComp comp;
+                    comp.pos.x = mesh->pos.x - room->info.x;
+                    comp.pos.y = mesh->pos.y;
+                    comp.pos.z = mesh->pos.z - room->info.z;
+                    comp.intensity = mesh->intensity >> 5;
+                    comp.flags = ((mesh->angleY / 0x4000 + 2) << 6) | mesh->id;
+
+                    ASSERT(mesh->id <= 63);
+                    ASSERT(mesh->angleY % 0x4000 == 0);
+                    ASSERT(mesh->angleY / 0x4000 + 2 >= 0);
+
+                    comp.write(f);
+                }
+            }
+
+            int32 pos = f.getPos();
+            f.setPos(header.rooms);
+            f.writeObj(infoComp, roomsCount);
+            f.setPos(pos);
+        }
+
+        header.floors = f.align4();
+        f.writeObj(floors, floorsCount);
+
+        header.meshData = f.align4();
+    #if 1
+        int32 mOffsets[2048];
+        for (int32 i = 0; i < 2048; i++) {
+            mOffsets[i] = -1;
+        }
+
+        for (int32 i = 0; i < meshOffsetsCount; i++)
+        {
+            if (mOffsets[i] != -1)
+                continue;
+
+            mOffsets[i] = f.align4() - header.meshData;
+
+            const uint8* ptr = (uint8*)meshData + meshOffsets[i];
+
+            vec3s center = *(vec3s*)ptr; ptr += sizeof(center);
+            int16 radius = *(int16*)ptr; ptr += sizeof(radius);
+            uint16 flags = *(uint16*)ptr; ptr += sizeof(flags);
+
+            int16 vCount = *(int16*)ptr; ptr += 2;
+            const vec3s* vertices = (vec3s*)ptr;
+            ptr += vCount * sizeof(vec3s);
+
+            const uint16* vIntensity = NULL;
+            const vec3s* vNormal = NULL;
+
+            int16 nCount = *(int16*)ptr; ptr += 2;
+            //const int16* normals = (int16*)ptr;
+            if (nCount > 0) { // normals
+                vNormal = (vec3s*)ptr;
+                ptr += nCount * 3 * sizeof(int16);
+            } else { // intensity
+                vIntensity = (uint16*)ptr;
+                ptr += vCount * sizeof(uint16);
+            }
+
+            int16     rCount = *(int16*)ptr; ptr += 2;
+            Quad*     rFaces = (Quad*)ptr; ptr += rCount * sizeof(Quad);
+
+            int16     tCount = *(int16*)ptr; ptr += 2;
+            Triangle* tFaces = (Triangle*)ptr; ptr += tCount * sizeof(Triangle);
+
+            int16     crCount = *(int16*)ptr; ptr += 2;
+            Quad*     crFaces = (Quad*)ptr; ptr += crCount * sizeof(Quad);
+
+            int16     ctCount = *(int16*)ptr; ptr += 2;
+            Triangle* ctFaces = (Triangle*)ptr; ptr += ctCount * sizeof(Triangle);
+
+            if (vIntensity) {
+                vCount = -vCount; // negate vCount -> use baked lighting instead of normals
+            }
+
+            f.write(center.x);
+            f.write(center.y);
+            f.write(center.z);
+            f.write(radius);
+            f.write(flags);
+            f.write(vCount);
+            f.write(rCount);
+            f.write(tCount);
+            f.write(crCount);
+            f.write(ctCount);
+
+            vCount = abs(vCount);
+
+            for (int32 j = 0; j < vCount; j++)
+            {
+                struct MeshVertex3DO {
+                    int16 y, x, _unused, z;
+                } v;
+
+                v.x = vertices[j].x << 2; // F16_SHIFT
+                v.y = vertices[j].y << 2; // F16_SHIFT
+                v.z = vertices[j].z << 2; // F16_SHIFT
+                v._unused = 0;
+
+                f.write(v.y);
+                f.write(v.x);
+                f.write(v._unused);
+                f.write(v.z);
+            }
+
+            for (int32 j = 0; j < rCount; j++)
+            {
+                calcQuadFlip(rFaces[j]);
+                rFaces[j].write3DO(f);
+            }
+
+            for (int32 j = 0; j < tCount; j++)
+            {
+                calcTriangleFlip(tFaces[j]);
+                tFaces[j].write3DO(f);
+            }
+
+            for (int32 j = 0; j < crCount; j++)
+            {
+                crFaces[j].write3DO(f);
+            }
+
+            for (int32 j = 0; j < ctCount; j++)
+            {
+                ctFaces[j].write3DO(f);
+            }
+
+            if (vNormal)
+            {
+                for (int32 j = 0; j < vCount; j++)
+                {
+                    f.write(vNormal[j].x);
+                    f.write(vNormal[j].y);
+                    f.write(vNormal[j].z);
+                }
+            }
+
+            if (vIntensity)
+            {
+                for (int32 j = 0; j < vCount; j++)
+                {
+                    f.write(vIntensity[j]);
+                }
+            }
+
+            for (int32 j = i + 1; j < meshOffsetsCount; j++)
+            {
+                if (meshOffsets[i] == meshOffsets[j])
+                {
+                    mOffsets[j] = mOffsets[i];
+                }
+            }
+        }
+
+        header.meshOffsets = f.align4();
+        f.write(mOffsets, meshOffsetsCount);
+    #else
+        f.write(meshData, meshDataSize);
+
+        header.meshOffsets = f.align4();
+        f.write(meshOffsets, meshOffsetsCount);
+    #endif
+
+
+        header.anims = f.align4();
+        f.writeObj(anims, animsCount);
+
+        header.states = f.align4();
+        for (int32 i = 0; i < statesCount; i++)
+        {
+            const LevelPC::AnimState* state = states + i;
+
+            LevelPC::AnimStateComp comp;
+            comp.state = uint8(state->state);
+            comp.rangesCount = uint8(state->rangesCount);
+            comp.rangesStart = state->rangesStart;
+
+            comp.write(f);
+        }
+
+        header.ranges = f.align4();
+        f.writeObj(ranges, rangesCount);
+
+        header.commands = f.align4();
+        f.write(commands, commandsCount);
+
+        header.nodes = f.align4();
+        for (int32 i = 0; i < nodesDataSize / 4; i++)
+        {
+            const Node* node = (Node*)(nodesData + i * 4);
+
+            ASSERT(node->pos.x > -32768);
+            ASSERT(node->pos.x <  32767);
+            ASSERT(node->pos.y > -32768);
+            ASSERT(node->pos.y <  32767);
+            ASSERT(node->pos.z > -32768);
+            ASSERT(node->pos.z <  32767);
+            ASSERT(node->flags < 0xFFFF);
+
+            LevelPC::NodeComp comp;
+            comp.flags = uint16(node->flags);
+            comp.pos.x = int16(node->pos.x);
+            comp.pos.y = int16(node->pos.y);
+            comp.pos.z = int16(node->pos.z);
+
+            comp.write(f);
+        }
+        //f.write(nodesData, nodesDataSize);
+
+        header.frameData = f.align4();
+        f.write(frameData, frameDataSize);
+        
+        static int32 maxMeshes = 0;
+
+        header.models = f.align4();
+        for (int32 i = 0; i < modelsCount; i++)
+        {
+            const LevelPC::Model* model = models + i;
+
+            LevelPC::ModelComp comp;
+            comp.type = uint8(model->type);
+            comp.count = uint8(model->count);
+            comp.start = model->start;
+            comp.nodeIndex = model->nodeIndex / 4;
+            comp.animIndex = model->animIndex;
+
+            comp.write(f);
+        }
+
+        header.staticMeshes = f.align4();
+        for (int32 i = 0; i < staticMeshesCount; i++)
+        {
+            const LevelPC::StaticMesh* staticMesh = staticMeshes + i;
+
+            LevelPC::StaticMeshComp comp;
+            comp.id = staticMesh->id;
+            comp.meshIndex = staticMesh->meshIndex;
+            comp.flags = staticMesh->flags;
+            comp.vbox = staticMesh->vbox;
+            comp.cbox = staticMesh->cbox;
+
+            comp.write(f);
+        }
+
+        header.objectTextures = f.align4();
+        for (int32 i = 0; i < objectTexturesCount; i++)
+        {
+            textures3DO[i].write(f);
+        }
+
+        header.spriteTextures = f.align4();
+        for (int32 i = 0; i < spriteTexturesCount; i++)
+        {
+            const LevelPC::SpriteTexture* spriteTexture = spriteTextures + i;
+
+            SpriteTexture3DO comp;
+            comp.texture = spritesBaseIndex + i;
+            comp.l = spriteTexture->l;
+            comp.t = spriteTexture->t;
+            comp.r = spriteTexture->r;
+            comp.b = spriteTexture->b;
+
+            comp.write(f);
+        }
+
+        f.writeObj(spriteTextures, spriteTexturesCount);
+
+        header.spriteSequences = f.align4();
+        f.writeObj(spriteSequences, spriteSequencesCount);
+
+        header.cameras = f.align4();
+        f.writeObj(cameras, camerasCount);
+
+        header.soundSources = f.align4();
+        f.writeObj(soundSources, soundSourcesCount);
+
+        header.boxes = f.align4();
+        for (int32 i = 0; i < boxesCount; i++)
+        {
+            const LevelPC::Box* box = boxes + i;
+
+            BoxComp comp;
+            comp.minX = box->minX / 1024;
+            comp.minZ = box->minZ / 1024;
+            comp.maxX = (box->maxX + 1) / 1024;
+            comp.maxZ = (box->maxZ + 1) / 1024;
+            comp.floor = box->floor;
+            comp.overlap = box->overlap;
+
+            comp.write(f);
+        }
+
+        header.overlaps = f.align4();
+        f.write(overlaps, overlapsCount);
+
+        for (int32 i = 0; i < 2; i++)
+        {
+            header.zones[i][0] = f.align4();
+            f.write(zones[i].ground1, boxesCount);
+
+            header.zones[i][1] = f.align4();
+            f.write(zones[i].ground2, boxesCount);
+
+            header.zones[i][2] = f.align4();
+            f.write(zones[i].fly, boxesCount);
+        }
+
+        header.animTexData = f.align4();
+        f.write(animTexData, animTexDataSize);
+
+        header.items = f.align4();
+        for (int32 i = 0; i < itemsCount; i++)
+        {
+            const LevelPC::Item* item = items + i;
+            const LevelPC::Room* room = rooms + item->roomIndex;
+
+            ItemComp comp;
+            comp.type = uint8(item->type);
+            comp.roomIndex = uint8(item->roomIndex);
+            comp.pos.x = int16(item->pos.x - room->info.x);
+            comp.pos.y = int16(item->pos.y);
+            comp.pos.z = int16(item->pos.z - room->info.z);
+            comp.intensity = item->intensity < 0 ? 0 : (item->intensity >> 5);
+            comp.flags = item->flags | ((item->angleY / 0x4000 + 2) << 14);
+
+            ASSERT((item->flags & ~(0x3F1F)) == 0);
+
+            comp.write(f);
+        }
+
+        header.cameraFrames = f.align4();
+        f.writeObj(cameraFrames, cameraFramesCount);
+
+        //f.writeArray(demoData, demoDataSize);
+
+        header.soundMap = f.align4();
+        f.write(soundMap, 256);
+
+        header.soundInfos = f.align4();
+        f.writeObj(soundInfo, soundInfoCount);
+
+        header.soundData = f.align4();
+        //f.write(soundData, soundDataSize);
+
+        header.soundOffsets = f.align4();
+        f.write(soundOffsets, soundOffsetsCount);
+
+        f.setPos(0);
+        header.write(f);
+    }
+
 };
 
 
@@ -2169,7 +4275,7 @@ struct WAD
                 return vCount - 1;
             }
 
-            void addQuad(const LevelPC::Room::Quad &q, const LevelPC::Room::Vertex* verts)
+            void addQuad(const LevelPC::Quad &q, const LevelPC::Room::Vertex* verts)
             {
                 Quad n;
                 n.flags = q.flags;
@@ -2180,7 +4286,7 @@ struct WAD
                 quads[qCount++] = n;
             }
 
-            void addTriangle(const LevelPC::Room::Triangle &t, const LevelPC::Room::Vertex* verts)
+            void addTriangle(const LevelPC::Triangle &t, const LevelPC::Room::Vertex* verts)
             {
                 Triangle n;
                 n.flags = t.flags;
@@ -2657,9 +4763,12 @@ int main()
         char path[64];
         sprintf(path, "levels/%s.PHD", levelNames[i]);
         levels[i] = new LevelPC(path);
+        levels[i]->generateLODs();
 
         sprintf(path, "../data/%s.PKD", levelNames[i]);
         levels[i]->convertGBA(path);
+
+        levels[i]->convert3DO(levelNames[i]);
     }
     return 0;
     WAD* wad = new WAD();

@@ -2,5 +2,15 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="libimagequant\libimagequant.c" />
+    <ClCompile Include="libimagequant\pam.c" />
+    <ClCompile Include="libimagequant\blur.c" />
+    <ClCompile Include="libimagequant\kmeans.c" />
+    <ClCompile Include="libimagequant\mediancut.c" />
+    <ClCompile Include="libimagequant\mempool.c" />
+    <ClCompile Include="libimagequant\nearest.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stb\stb_image_resize.h" />
   </ItemGroup>
 </Project>
