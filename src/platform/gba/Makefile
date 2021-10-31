@@ -22,8 +22,8 @@ include $(DEVKITARM)/gba_rules
 #---------------------------------------------------------------------------------
 TARGET		:= OpenLara
 BUILD		:= build
-SOURCES		:= .
-INCLUDES	:= include
+SOURCES		:= ../../fixed .
+INCLUDES	:= include . ../../fixed
 DATA		:= data
 MUSIC		:=
 LIBTONC		:= $(DEVKITPRO)/libtonc

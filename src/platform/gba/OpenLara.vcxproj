@@ -19,26 +19,26 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="common.cpp" />
+    <ClCompile Include="..\..\fixed\common.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClInclude Include="nav.h" />
     <ClCompile Include="render.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="camera.h" />
-    <ClInclude Include="common.h" />
-    <ClInclude Include="draw.h" />
-    <ClInclude Include="enemy.h" />
-    <ClInclude Include="game.h" />
-    <ClInclude Include="inventory.h" />
-    <ClInclude Include="item.h" />
-    <ClInclude Include="lara.h" />
-    <ClInclude Include="level.h" />
-    <ClInclude Include="object.h" />
+    <ClInclude Include="..\..\fixed\camera.h" />
+    <ClInclude Include="..\..\fixed\common.h" />
+    <ClInclude Include="..\..\fixed\draw.h" />
+    <ClInclude Include="..\..\fixed\enemy.h" />
+    <ClInclude Include="..\..\fixed\game.h" />
+    <ClInclude Include="..\..\fixed\inventory.h" />
+    <ClInclude Include="..\..\fixed\item.h" />
+    <ClInclude Include="..\..\fixed\lara.h" />
+    <ClInclude Include="..\..\fixed\level.h" />
+    <ClInclude Include="..\..\fixed\nav.h" />
+    <ClInclude Include="..\..\fixed\object.h" />
+    <ClInclude Include="..\..\fixed\room.h" />
+    <ClInclude Include="..\..\fixed\sound.h" />
     <ClInclude Include="rasterizer_mode13.h" />
     <ClInclude Include="rasterizer_mode4.h" />
-    <ClInclude Include="room.h" />
-    <ClInclude Include="sound.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -94,15 +94,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>..\..\fixed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>..\..\fixed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>..\..\fixed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>..\..\fixed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

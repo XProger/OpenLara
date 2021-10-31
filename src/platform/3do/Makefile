@@ -19,7 +19,7 @@ OPT      = -O2
 CFLAGS   = $(OPT) -bi -za1 -zas1 -wn -ff -fa -d __3DO__=1 -cpu ARM6
 CXXFLAGS = $(CFLAGS)
 ASFLAGS	 = -BI -i $(SDK)/include/3do
-INCPATH	 = -I $(SDK)/include/3do -I $(SDK)/include/ttl -I../gba
+INCPATH	 = -I $(SDK)/include/3do -I $(SDK)/include/ttl -I ../../fixed
 LIBPATH	 = $(SDK)/lib
 LDFLAGS	 = -aif -reloc -ro-base 0 -sym $(EXENAME).sym -libpath $(LIBPATH)
 STARTUP	 = $(LIBPATH)/cstartup.o
@@ -44,7 +44,6 @@ OBJ += $(SRC_S:%.s=build/%.s.o)
 OBJ += $(SRC_C:%.c=build/%.c.o)
 OBJ += $(SRC_CXX:%.cpp=build/%.cpp.o)
 OBJ += build/common.cpp.o
-OBJ += build/render.cpp.o
 
 all: clean launchme modbin banner iso run
 
@@ -76,11 +75,8 @@ build/%.c.o: %.c
 build/%.cpp.o: %.cpp
 	$(CXX) $(INCPATH) $(CXXFLAGS) -c $< -o $@
     
-build/common.cpp.o: ../gba/common.cpp
-	$(CXX) $(INCPATH) $(CXXFLAGS) -c ../gba/common.cpp -o build/common.cpp.o
-
-build/render.cpp.o: ../gba/render.cpp
-	$(CXX) $(INCPATH) $(CXXFLAGS) -c ../gba/render.cpp -o build/render.cpp.o
+build/common.cpp.o: ../../fixed/common.cpp
+	$(CXX) $(INCPATH) $(CXXFLAGS) -c ../../fixed/common.cpp -o build/common.cpp.o
     
 clean:
 	$(RM) -vf $(OBJ) $(EXENAME) $(EXENAME).sym $(ISONAME)
