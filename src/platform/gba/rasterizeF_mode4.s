@@ -113,7 +113,7 @@ rasterizeF_mode4_asm:
 
 .align_right:
     tst width, #1
-      beq .align_block
+      beq .scanline_block_2px
     ldrb pair, [tmp, width]
     subs width, #1              // width--
     lsl pair, #8
@@ -121,27 +121,10 @@ rasterizeF_mode4_asm:
     strh pair, [tmp, width]
       beq .scanline_end         // if (width == 0)
 
-.align_block:
-    // 8px alignment
-    lsr blocks, width, #1
-    and blocks, blocks, #3          // blocks = (width / 2) % 4
-    rsbs blocks, blocks, #2
-    add pc, blocks, lsl #2          // pc += (2 - blocks) * 4
-
-    strh index, [tmp], #2           // if (width % 4) == 3
-    strh index, [tmp], #2           // if (width % 4) == 2
-    strh index, [tmp], #2           // if (width % 4) == 1
-
-    lsrs blocks, width, #3          // blocks = (width / 2) / 4
-      beq .scanline_end             // if (blocks == 0) no 8px blocks
-
-.scanline_block_8px:
+.scanline_block_2px:
     strh index, [tmp], #2
-    strh index, [tmp], #2
-    strh index, [tmp], #2
-    strh index, [tmp], #2
-    subs blocks, #1
-      bne .scanline_block_8px
+    subs width, #2
+      bne .scanline_block_2px
 
 .scanline_end:
     add Lx, Ldx                     // Lx += Ldx
