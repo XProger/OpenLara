@@ -1,5 +1,8 @@
 const void* TRACKS_IMA;
-void* levelData;
+
+void* RAM_LVL;
+void* RAM_TEX;
+void* RAM_CEL;
 
 #include "game.h"
 
@@ -197,14 +200,11 @@ void* readFile(char* fileName, void* buffer, int32 bufferSize)
     if (DoIO(req, &params) >= 0)
     {
         int32 size = ds.ds_DeviceBlockCount * ds.ds_DeviceBlockSize;
-        if (ptr) {
-            if (bufferSize < size)
-            {
-                printf("not enough buffer size %d bytes required!\n", size);
-                ptr = NULL;
-            }
-        } else {
-            ptr = malloc(size);
+
+        if (bufferSize < size)
+        {
+            printf("not enough buffer size for %s. %d bytes required!\n", fileName, size);
+            ptr = NULL;
         }
 
         if (ptr != NULL)
@@ -217,13 +217,8 @@ void* readFile(char* fileName, void* buffer, int32 bufferSize)
             if (DoIO(req, &params) < 0)
             {
                 printf("can't get file content!\n");
-                if (!buffer) {
-                    free(ptr);
-                }
                 ptr = NULL;
             }
-        } else {
-            printf("can't allocate %d bytes!\n", size);
         }
     }
 
@@ -233,34 +228,12 @@ void* readFile(char* fileName, void* buffer, int32 bufferSize)
     return ptr;
 }
 
-void soundInit()
-{
-    // TODO
-}
-
-void checkRAM()
-{
-    for (int32 i = 1; i < 2 * 1024 * 1024; i += 16 * 1024)
-    {
-        void* ptr = malloc(i);
-        if (ptr == NULL) {
-            printf("RAM: %d kb\n", i / 1024 - 16);
-            break;
-        }
-        free(ptr);
-    }
-
-    MemInfo memInfoVRAM;
-    AvailMem(&memInfoVRAM, MEMTYPE_VRAM);
-    printf("VRAM: %d\n", memInfoVRAM.minfo_SysFree);
-}
-
-int32 gLevelID = 2;
+int32 gLevelID = 1;
 
 static const char* gLevelNames[] = {
     "GYM",
     "LEVEL1",
-    "LEVEL2",
+//    "LEVEL2",
 //    "LEVEL3A",
 //    "LEVEL3B",
 //    "LEVEL4",
@@ -276,24 +249,28 @@ static const char* gLevelNames[] = {
 //    "LEVEL10C"
 };
 
-void osLoadLevel(const char* name)
+void* osLoadLevel(const char* name)
 {
     char buf[32];
 
     sprintf(buf, "data/%s.3DO", name);
-    readFile(buf, levelData, MAX_RAM);
+    readFile(buf, RAM_LVL, MAX_RAM_LVL);
 
     sprintf(buf, "data/%s.TEX", name);
-    readFile(buf, VRAM_TEX, MAX_VRAM);
+    readFile(buf, RAM_TEX, MAX_RAM_TEX);
+
+    return RAM_LVL;
 }
 
 int main(int argc, char *argv[])
 {
     printf("OpenLara 3DO\n");
 
-    levelData = AllocMem(MAX_RAM, MEMTYPE_DMA);
-
-    //checkRAM();
+/*
+    MemInfo memInfoVRAM;
+    AvailMem(&memInfoVRAM, MEMTYPE_DMA);
+    printf("RAM: %d\n", memInfoVRAM.minfo_SysFree);
+*/
 
     uint32 lastFrame;
     uint32 frame;
@@ -304,7 +281,7 @@ int main(int argc, char *argv[])
     OpenGraphicsFolio();
     OpenAudioFolio();
     InitEventUtility(1, 0, LC_Observer);
-    CreateBasicDisplay(&screen, DI_TYPE_NTSC, 2);
+    CreateBasicDisplay(&screen, DI_TYPE_DEFAULT, 2);
 
     for (int32 i = 0; i < 2; i++)
     {
@@ -317,11 +294,17 @@ int main(int argc, char *argv[])
     irqVRAM = GetVRAMIOReq();
     irqTimer = GetTimerIOReq();
 
-    soundInit();
+    sndInit();
+
+    RAM_LVL = AllocMem(MAX_RAM_LVL, MEMTYPE_DMA | MEMTYPE_AUDIO);
+    RAM_TEX = AllocMem(MAX_RAM_TEX, MEMTYPE_VRAM | MEMTYPE_CEL);
+    RAM_CEL = AllocMem(MAX_RAM_CEL, MEMTYPE_CEL);
+
+    if (!RAM_LVL) printf("RAM_LVL failed!\n");
+    if (!RAM_TEX) printf("RAM_TEX failed!\n");
+    if (!RAM_CEL) printf("RAM_CEL failed!\n");
 
     game.init(gLevelNames[gLevelID]);
-
-    //checkRAM();
 
     GetVBLTime(irqVBL, NULL, &lastFrame);
     lastFrame /= 2;
@@ -338,6 +321,11 @@ int main(int argc, char *argv[])
 
         //GetVBLTime(irqVBL, NULL, &frame); // slower
         QueryGraphics(QUERYGRAF_TAG_FIELDCOUNT, &frame);
+
+        if (screen.sc_DisplayType != DI_TYPE_NTSC)
+        {
+            frame = frame * 6 / 5; // PAL fix
+        }
 
         if (frame/60 != lastSec) {
             lastSec = frame/60;

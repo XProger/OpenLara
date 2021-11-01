@@ -44,8 +44,6 @@ bool secondPalette;
 
 #define SHADOW_OPACITY  3   // 50%
 
-uint8* VRAM_TEX;
-
 extern Item screenItem;
 
 #define DUP16(value) value | (value << 16)
@@ -92,11 +90,8 @@ static const uint32 shadeTable[16] = {
 
 void renderInit()
 {
-    VRAM_TEX = (uint8*)AllocMem(MAX_VRAM, MEMTYPE_VRAM | MEMTYPE_CEL);
-
-    gPalette = (uint16*)VRAM_TEX;
-
-    gFaces = (Face*)AllocMem(MAX_FACES * sizeof(Face), MEMTYPE_CEL);
+    gPalette = (uint16*)RAM_TEX;
+    gFaces = (Face*)RAM_CEL;
 }
 
 void setViewport(const RectMinMax &vp)
@@ -112,7 +107,7 @@ void setViewport(const RectMinMax &vp)
 void setPaletteIndex(int32 index)
 {
     gPaletteOffset = index * level.tilesCount * sizeof(uint16) * 16;
-    gPalette = (uint16*)(VRAM_TEX + (*(uint32*)VRAM_TEX) + gPaletteOffset);
+    gPalette = (uint16*)((uint8*)RAM_TEX + (*(uint32*)RAM_TEX) + gPaletteOffset);
 }
 
 int32 rectIsVisible(const RectMinMax* rect)
@@ -220,8 +215,12 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
     return true;
 }
 
+const RoomVertex* gRoomVertices;
+
 void transformRoom(const RoomVertex* vertices, int32 vCount, bool underwater)
 {
+    gRoomVertices = vertices;
+
     int32 cx = cameraViewOffset.x << F16_SHIFT;
     int32 cy = cameraViewOffset.y << F16_SHIFT;
     int32 cz = cameraViewOffset.z << F16_SHIFT;
@@ -401,7 +400,29 @@ void faceAddRoomQuad(uint32 flags, const Index* indices, int32 startVertex32)
     uint32 i1 = (i01 & 0xFFFF);
     uint32 i2 = (i23 >> 16);
     uint32 i3 = (i23 & 0xFFFF);
+/*
+    uint32 normalMask = flags >> 16;
+    if (normalMask != 255) {
+        uint32 p = *(uint32*)(gRoomVertices + indices[0]);
 
+        uint32 axis;
+
+        int32 x = cameraViewOffset.x + ((p >> 24)         << 10);
+        if (x > 0) axis |= (2 << 0);
+        if (x < 0) axis |= (1 << 0);
+
+        int32 y = cameraViewOffset.y + (int8(p >> 16)     <<  8);
+        if (y > 0) axis |= (2 << 2);
+        if (y < 0) axis |= (1 << 2);
+
+        int32 z = cameraViewOffset.z + (((p >> 8) & 0xFF) << 10);
+        if (z > 0) axis |= (2 << 4);
+        if (z < 0) axis |= (1 << 4);
+
+        if (!(normalMask & axis))
+            return;
+    }
+*/
     uint8 c0 = gClip[i0];
     uint8 c1 = gClip[i1];
     uint8 c2 = gClip[i2];
@@ -424,6 +445,9 @@ void faceAddRoomQuad(uint32 flags, const Index* indices, int32 startVertex32)
     int32 depth = DEPTH_Q_MAX();
 
     Face* f = faceAdd(depth);
+
+    //int32 fade = flags >> (24 + 4);
+    //f->ccb_PIXC = shadeTable[fade];
 
     int32 fade = depth << OT_SHIFT;
     if (fade > FOG_MIN)
