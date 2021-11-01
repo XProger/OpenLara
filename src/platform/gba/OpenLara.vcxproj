@@ -22,6 +22,7 @@
     <ClCompile Include="..\..\fixed\common.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="render.cpp" />
+    <ClCompile Include="sound.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\fixed\camera.h" />
@@ -36,7 +37,6 @@
     <ClInclude Include="..\..\fixed\nav.h" />
     <ClInclude Include="..\..\fixed\object.h" />
     <ClInclude Include="..\..\fixed\room.h" />
-    <ClInclude Include="..\..\fixed\sound.h" />
     <ClInclude Include="rasterizer_mode13.h" />
     <ClInclude Include="rasterizer_mode4.h" />
   </ItemGroup>

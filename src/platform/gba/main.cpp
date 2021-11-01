@@ -3,8 +3,8 @@
     const void* levelData;
 #elif defined(__GBA__)
     #include "TRACKS_IMA.h"
-    #include "LEVEL2_PKD.h"
-    const void* levelData = LEVEL2_PKD;
+    #include "LEVEL1_PKD.h"
+    const void* levelData = LEVEL1_PKD;
 #elif defined(__TNS__)
     const void* levelData;
 #endif
@@ -299,10 +299,7 @@ int32 fpsCounter = 0;
     void osJoyVibrate(int32 index, int32 L, int32 R) {}
 #endif
 
-EWRAM_DATA ALIGN16 uint8 soundBufferA[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
-#ifdef USE_9BIT_SOUND
-EWRAM_DATA ALIGN16 uint8 soundBufferB[2 * SND_SAMPLES + 32]; // for 9-bit mixer support via Direct Mixer B channel
-#endif
+EWRAM_DATA ALIGN16 uint8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
 
 uint32 curSoundBuffer = 0;
 
@@ -311,8 +308,9 @@ HWAVEOUT waveOut;
 WAVEFORMATEX waveFmt = { WAVE_FORMAT_PCM, 1, SND_OUTPUT_FREQ, SND_OUTPUT_FREQ, 1, 8, sizeof(waveFmt) };
 WAVEHDR waveBuf[2];
 
-void soundInit() {
-    mixer.init();
+void soundInit()
+{
+    sndInit();
 
     if (waveOutOpen(&waveOut, WAVE_MAPPER, &waveFmt, (INT_PTR)hWnd, 0, CALLBACK_WINDOW) != MMSYSERR_NOERROR) {
         return;
@@ -322,16 +320,17 @@ void soundInit() {
     for (int i = 0; i < 2; i++) {
         WAVEHDR *waveHdr = waveBuf + i;
         waveHdr->dwBufferLength = SND_SAMPLES;
-        waveHdr->lpData = (LPSTR)(soundBufferA + i * SND_SAMPLES);
+        waveHdr->lpData = (LPSTR)(soundBuffer + i * SND_SAMPLES);
         waveOutPrepareHeader(waveOut, waveHdr, sizeof(WAVEHDR));
         waveOutWrite(waveOut, waveHdr, sizeof(WAVEHDR));
     }
 }
 
-void soundFill() {
+void soundFill()
+{
     WAVEHDR *waveHdr = waveBuf + curSoundBuffer;
     waveOutUnprepareHeader(waveOut, waveHdr, sizeof(WAVEHDR));
-    mixer.fill((uint8*)waveHdr->lpData, NULL, SND_SAMPLES);
+    sndFill((uint8*)waveHdr->lpData, SND_SAMPLES);
     waveOutPrepareHeader(waveOut, waveHdr, sizeof(WAVEHDR));
     waveOutWrite(waveOut, waveHdr, sizeof(WAVEHDR));
     curSoundBuffer ^= 1;
@@ -339,43 +338,24 @@ void soundFill() {
 #elif defined(__GBA__)
 void soundInit()
 {
-    mixer.init();
+    sndInit();
 
     REG_SOUNDCNT_X = SSTAT_ENABLE;
-#ifdef USE_9BIT_SOUND
-    REG_SOUNDCNT_H = SDS_ATMR0 | SDS_AL | SDS_AR | SDS_ARESET | SDS_A50 |
-                     SDS_BTMR0 | SDS_BL | SDS_BR | SDS_BRESET | SDS_B50;
-#else
     REG_SOUNDCNT_H = SDS_ATMR0 | SDS_AL | SDS_AR | SDS_ARESET | SDS_A100;
-#endif
     REG_TM0D = 65536 - (16777216 / SND_OUTPUT_FREQ);
     REG_TM0CNT = TM_ENABLE;
     REG_DMA1DAD = (u32)&REG_FIFO_A;
-#ifdef USE_9BIT_SOUND
-    REG_DMA2DAD = (u32)&REG_FIFO_B;
-#endif
 }
 
 void soundFill()
 {
     if (curSoundBuffer == 1) {
         REG_DMA1CNT = 0;
-        REG_DMA1SAD = (u32)soundBufferA;
+        REG_DMA1SAD = (u32)soundBuffer;
         REG_DMA1CNT = DMA_DST_FIXED | DMA_REPEAT | DMA_16 | DMA_AT_FIFO | DMA_ENABLE;
-    #ifdef USE_9BIT_SOUND
-        REG_DMA2CNT = 0;
-        REG_DMA2SAD = (u32)soundBufferB;
-        REG_DMA2CNT = DMA_DST_FIXED | DMA_REPEAT | DMA_16 | DMA_AT_FIFO | DMA_ENABLE;
-    #endif
     }
 
-    mixer.fill(soundBufferA + curSoundBuffer * SND_SAMPLES,
-               #ifdef USE_9BIT_SOUND
-                   soundBufferB + curSoundBuffer * SND_SAMPLES,
-               #else
-                   NULL,
-               #endif
-               SND_SAMPLES);
+    sndFill(soundBuffer + curSoundBuffer * SND_SAMPLES, SND_SAMPLES);
     curSoundBuffer ^= 1;
 }
 #endif
@@ -453,7 +433,7 @@ void vblank() {
 
 #endif
 
-int32 gLevelID = 2;
+int32 gLevelID = 1;
 
 static const char* gLevelNames[] = {
     "GYM",
@@ -474,10 +454,9 @@ static const char* gLevelNames[] = {
 //    "LEVEL10C"
 };
 
-void osLoadLevel(const char* name)
+void* osLoadLevel(const char* name)
 {
-    mixer.stopMusic();
-    mixer.stopSamples();
+    sndStop();
 
 #if defined(_WIN32) || defined(__TNS__) || defined(__DOS__)
     {
@@ -497,7 +476,7 @@ void osLoadLevel(const char* name)
         FILE *f = fopen(buf, "rb");
 
         if (!f)
-            return;
+            return NULL;
 
         {
             fseek(f, 0, SEEK_END);
@@ -516,7 +495,7 @@ void osLoadLevel(const char* name)
         {
             FILE *f = fopen("data/TRACKS.IMA", "rb");
             if (!f)
-                return;
+                return NULL;
 
             fseek(f, 0, SEEK_END);
             int32 size = ftell(f);
@@ -530,6 +509,7 @@ void osLoadLevel(const char* name)
         #endif
     }
 #endif
+    return (void*)levelData;
 }
 
 int main(void) {
@@ -605,7 +585,7 @@ int main(void) {
 
     fastAccessReg = 0x0E000020; // fast EWRAM
 
-    vu32* fastAccessMem = (vu32*)soundBufferA; // check EWRAM access
+    vu32* fastAccessMem = (vu32*)soundBuffer; // check EWRAM access
     // write
     for (int32 i = 0; i < 16; i++)
     {

@@ -2,7 +2,6 @@
 #define H_GAME
 
 #include "common.h"
-#include "sound.h"
 #include "room.h"
 #include "camera.h"
 #include "item.h"
@@ -31,9 +30,8 @@ struct Game
         animTexFrame = 0;
         dynSectorsCount = 0;
 
-        osLoadLevel(name);
-
-        loadLevel(levelData);
+        void* data = osLoadLevel(name);
+        loadLevel(data);
     }
 
     void loadLevel(const void* data)

@@ -1279,9 +1279,9 @@ void checkTrigger(const FloorData* fd, ItemObj* lara)
 
                 if (flags.mask == ITEM_FLAGS_MASK_ALL) {
                     flags.once |= FD_ONCE(data);
-                    musicPlay(track);
+                    sndPlayTrack(track);
                 } else {
-                    musicStop();
+                    sndStopTrack();
                 }
                 break;
             }
@@ -1295,7 +1295,7 @@ void checkTrigger(const FloorData* fd, ItemObj* lara)
                 if (gSaveGame.secrets & (1 << FD_ARGS(triggerCmd)))
                     break;
                 gSaveGame.secrets |= (1 << FD_ARGS(triggerCmd));
-                musicPlay(13);
+                sndPlayTrack(13);
                 break;
             }
 

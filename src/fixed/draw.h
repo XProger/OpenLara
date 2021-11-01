@@ -135,7 +135,7 @@ int32 getTextWidth(const char* text)
     int32 w = 0;
 
     char c;
-    while (c = *text++)
+    while ((c = *text++))
     {
         if (c == ' ') {
             w += 6;

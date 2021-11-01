@@ -2,7 +2,6 @@
 #define H_ITEM
 
 #include "common.h"
-#include "sound.h"
 #include "camera.h"
 #include "room.h"
 
@@ -28,11 +27,8 @@ int32 alignOffset(int32 a, int32 b)
     return -(a + 1);
 }
 
-Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
+void* soundPlay(int16 id, const vec3i &pos)
 {
-#ifdef __3DO__
-    return NULL;
-#endif
     // TODO gym
     // 0 -> 200
     // 4 -> 204
@@ -76,13 +72,7 @@ Mixer::Sample* soundPlay(int16 id, const vec3i &pos)
         index += (rand_draw() * b->flags.count) >> 15;
     }
 
-    const uint8 *data = level.soundData + level.soundOffsets[index];
-
-    int32 size;
-    memcpy(&size, data + 40, 4); // TODO preprocess and remove wave header
-    data += 44;
-
-    return mixer.playSample(data, size, volume, pitch, b->flags.mode);
+    return sndPlaySample(index, volume, pitch, b->flags.mode);
 }
 
 void soundStop(int16 id)
@@ -96,46 +86,8 @@ void soundStop(int16 id)
 
     for (int32 i = 0; i < b->flags.count; i++)
     {
-        int32 index = b->index + i;
-
-        const uint8 *data = level.soundData + level.soundOffsets[index];
-
-        int32 size;
-        memcpy(&size, data + 40, 4); // TODO preprocess and remove wave header
-        data += 44;
-
-        mixer.stopSample(data);
+        sndStopSample(b->index + i);
     }
-}
-
-void musicPlay(int32 track)
-{
-#ifdef __3DO__
-    return;
-#endif
-    if (track == 13) {
-        gCurTrack = 0;
-    }
-
-    if (track == gCurTrack)
-        return;
-
-    gCurTrack = track;
-
-    struct TrackInfo {
-        int32 offset;
-        int32 size;
-    } *info = (TrackInfo*)((uint8*)TRACKS_IMA + track * 8);
-
-    if (!info->size)
-        return;
-
-    mixer.playMusic((uint8*)TRACKS_IMA + info->offset, info->size);
-}
-
-void musicStop()
-{
-    mixer.stopMusic();
 }
 
 int32 ItemObj::getFrames(const AnimFrame* &frameA, const AnimFrame* &frameB, int32 &animFrameRate) const

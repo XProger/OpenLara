@@ -67,6 +67,7 @@ void readLevel_GBA(const uint8* data)
     for (int32 i = 0; i < level.modelsCount; i++)
     {
         const Model* model = level.models + i;
+        ASSERT(model->type < MAX_MODELS);
         models[model->type] = *model;
     }
     level.models = models;
@@ -120,9 +121,10 @@ void readLevel_GBA(const uint8* data)
     for (int32 i = 0; i < level.texturesCount; i++)
     {
         Texture* tex = level.textures + i;
-        tex->data += intptr_t(VRAM_TEX);
-        tex->plut += intptr_t(VRAM_TEX);
+        tex->data += intptr_t(RAM_TEX);
+        tex->plut += intptr_t(RAM_TEX);
     }
+    sndInitSamples();
 #endif
 }
 

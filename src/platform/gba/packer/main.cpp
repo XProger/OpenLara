@@ -34,6 +34,34 @@ inline void swap(T &a, T &b) {
     b = tmp;
 }
 
+void launchApp(const char* cmdline)
+{
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+
+    memset(&si, 0, sizeof(si));
+    memset(&pi, 0, sizeof(pi));
+    si.cb = sizeof(si);
+
+    CreateProcess(
+        NULL,
+        (char*)cmdline,
+        NULL,
+        NULL,
+        FALSE,
+        0,
+        NULL,
+        NULL,
+        &si,
+        &pi
+    );
+
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+}
+
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
@@ -303,6 +331,19 @@ struct FileStream
     {
         uint32 pos = getPos();
         uint32 aligned = (pos + 3) & ~3;
+
+        if (aligned != pos) {
+            static const uint32 zero = 0;
+            fwrite(&zero, 1, aligned - pos, f);
+        }
+
+        return aligned;
+    }
+
+    uint32 align16()
+    {
+        uint32 pos = getPos();
+        uint32 aligned = (pos + 15) & ~15;
 
         if (aligned != pos) {
             static const uint32 zero = 0;
@@ -600,8 +641,7 @@ struct LevelPC
     struct Quad3DO
     {
         uint16 indices[4];
-        uint16 flags;
-        uint16 _unused;
+        uint32 flags;
 
         void write(FileStream &f) const
         {
@@ -610,7 +650,6 @@ struct LevelPC
             f.write(indices[2]);
             f.write(indices[3]);
             f.write(flags);
-            f.write(_unused);
         }
     };
 
@@ -636,7 +675,6 @@ struct LevelPC
             comp.indices[2] = indices[2];
             comp.indices[3] = indices[3];
             comp.flags = flags;
-            comp._unused = 0;
             comp.write(f);
         }
     };
@@ -1373,14 +1411,16 @@ struct LevelPC
         uint16 index;
         uint16 volume;
         uint16 chance;
-        uint16 flags;
+        uint8 flagsA;
+        uint8 flagsB;
 
         void write(FileStream &f) const
         {
             f.write(index);
             f.write(volume);
             f.write(chance);
-            f.write(flags);
+            f.write(flagsA);
+            f.write(flagsB);
         }
     };
 
@@ -1653,6 +1693,8 @@ struct LevelPC
         uint16 itemsCount;
         uint16 camerasCount;
         uint16 cameraFramesCount;
+        uint16 soundOffsetsCount;
+        uint16 _reserved;
 
         uint32 palette;
         uint32 lightmap;
@@ -1700,6 +1742,9 @@ struct LevelPC
             f.write(itemsCount);
             f.write(camerasCount);
             f.write(cameraFramesCount);
+            f.write(soundOffsetsCount);
+            f.write(_reserved);
+
             f.write(palette);
             f.write(lightmap);
             f.write(tiles);
@@ -1744,13 +1789,13 @@ struct LevelPC
     Room::VertexComp roomVertices[MAX_ROOM_VERTICES];
     int32 roomVerticesCount;
 
-    int32 addRoomVertex(const Room::Vertex &v)
+    int32 addRoomVertex(const Room::Vertex &v, bool ignoreG = false)
     {
         Room::VertexComp comp;
         comp.x = v.pos.x / 1024;
         comp.y = v.pos.y / 256;
         comp.z = v.pos.z / 1024;
-        comp.g = v.lighting >> 5;
+        comp.g = ignoreG ? 0 : (v.lighting >> 5);
 
         for (int32 i = 0; i < roomVerticesCount; i++)
         {
@@ -2134,6 +2179,8 @@ struct LevelPC
         header.itemsCount = itemsCount;
         header.camerasCount = camerasCount;
         header.cameraFramesCount = cameraFramesCount;
+        header.soundOffsetsCount = soundOffsetsCount;
+        header._reserved = 0;
 
         header.palette = f.align4();
 
@@ -3338,6 +3385,8 @@ struct LevelPC
         header.itemsCount = itemsCount;
         header.camerasCount = camerasCount;
         header.cameraFramesCount = cameraFramesCount;
+        header.soundOffsetsCount = soundOffsetsCount;
+        header._reserved = 0;
 
         header.palette = 0;
         header.lightmap = 0;
@@ -3394,12 +3443,72 @@ struct LevelPC
                 {
                     Quad q = room->quads[i];
                     calcQuadFlip(q);
-                    q.indices[0] = addRoomVertex(room->vertices[q.indices[0]]);
-                    q.indices[1] = addRoomVertex(room->vertices[q.indices[1]]);
-                    q.indices[2] = addRoomVertex(room->vertices[q.indices[2]]);
-                    q.indices[3] = addRoomVertex(room->vertices[q.indices[3]]);
 
-                    q.write3DO(f);
+                    const Room::Vertex &v0 = room->vertices[q.indices[0]];
+                    const Room::Vertex &v1 = room->vertices[q.indices[1]];
+                    const Room::Vertex &v2 = room->vertices[q.indices[2]];
+                    const Room::Vertex &v3 = room->vertices[q.indices[3]];
+
+
+                    uint32 intensity = (v0.lighting + v1.lighting + v2.lighting + v3.lighting) >> (2 + 5);
+                    ASSERT(intensity <= 255);
+
+                    q.indices[0] = addRoomVertex(v0, true);
+                    q.indices[1] = addRoomVertex(v1, true);
+                    q.indices[2] = addRoomVertex(v2, true);
+                    q.indices[3] = addRoomVertex(v3, true);
+
+                    vec3i a, b, n;
+                    a.x = v1.pos.x - v0.pos.x;
+                    a.y = v1.pos.y - v0.pos.y;
+                    a.z = v1.pos.z - v0.pos.z;
+
+                    b.x = v2.pos.x - v0.pos.x;
+                    b.y = v2.pos.y - v0.pos.y;
+                    b.z = v2.pos.z - v0.pos.z;
+
+                    n.x = b.y * a.z - b.z * a.y;
+                    n.y = b.z * a.x - b.x * a.z;
+                    n.z = b.x * a.y - b.y * a.x;
+
+                    if (n.x < 0) n.x = -1;
+                    if (n.x > 0) n.x = +1;
+                    if (n.y < 0) n.y = -1;
+                    if (n.y > 0) n.y = +1;
+                    if (n.z < 0) n.z = -1;
+                    if (n.z > 0) n.z = +1;
+
+                    static const struct {
+                        int32 x, y, z;
+                        int32 mask;
+                    } normals[9] = {
+                        { -1,  0,  0,  2 << 0 },
+                        {  1,  0,  0,  1 << 0 },
+                        {  0, -1,  0,  2 << 2 },
+                        {  0,  1,  0,  1 << 2 },
+                        {  0,  0, -1,  2 << 4 },
+                        {  0,  0,  1,  1 << 4 }
+                    };
+
+                    uint32 normalMask = 255;
+                    for (int32 i = 0; i < 9; i++)
+                    {
+                        if (n.x == normals[i].x &&
+                            n.y == normals[i].y &&
+                            n.z == normals[i].z)
+                        {
+                            normalMask = normals[i].mask;
+                            break;
+                        }
+                    }
+
+                    Quad3DO comp;
+                    comp.indices[0] = q.indices[0];
+                    comp.indices[1] = q.indices[1];
+                    comp.indices[2] = q.indices[2];
+                    comp.indices[3] = q.indices[3];
+                    comp.flags = q.flags | (normalMask << 16) | (intensity << 24);
+                    comp.write(f);
                 }
 
                 info.triangles = f.align4();
@@ -3862,7 +3971,45 @@ struct LevelPC
         f.writeObj(soundInfo, soundInfoCount);
 
         header.soundData = f.align4();
-        //f.write(soundData, soundDataSize);
+
+        uint8* soundBuf = new uint8[2 * 1024 * 1024];
+
+        for (int32 i = 0; i < soundOffsetsCount; i++)
+        {
+            { // save wav to the temporary file
+                uint8* data = soundData + soundOffsets[i];
+                int32 size = *(int32*)(data + 4) + 8;
+
+                FILE* f = fopen("tmp.wav", "wb");
+                fwrite(data, 1, size, f);
+                fclose(f);
+            }
+
+            launchApp("C:\\Program Files\\ffmpeg\\ffmpeg.exe -y -i tmp.wav -ac 1 -ar 4000 -acodec pcm_s8 tmp.aiff");
+
+            int32 soundSize;
+            { // read converted aiff
+                FILE* f = fopen("tmp.aiff", "rb");
+                fseek(f, 0, SEEK_END);
+                soundSize = ftell(f);
+                fseek(f, 0, SEEK_SET);
+                fread(soundBuf, 1, soundSize, f);
+                fclose(f);
+            }
+
+        // update sound sample offset
+            soundOffsets[i] = f.align4() - header.soundData + 2;
+            
+            uint16 zero = 0;
+            f.write(zero);
+
+            //ASSERT(soundOffsets[i] % 16 == 0);
+
+        // write aiff sound data
+            f.write(soundBuf, soundSize);
+        }
+
+        delete[] soundBuf;
 
         header.soundOffsets = f.align4();
         f.write(soundOffsets, soundOffsetsCount);

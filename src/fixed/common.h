@@ -19,7 +19,6 @@
     #define MODE4
     #define USE_DIV_TABLE
     #define ROM_READ
-    //#define USE_9BIT_SOUND
 
     #include <tonc.h>
 #elif defined(__TNS__)
@@ -41,8 +40,13 @@
     #define USE_DIV_TABLE // TODO_3DO remove
     #define CPU_BIG_ENDIAN
 
-    #define MAX_RAM     (800 * 1024)
-    #define MAX_VRAM    (640 * 1024)
+    #define MAX_RAM_LVL (800 * 1024)
+    #define MAX_RAM_TEX (640 * 1024)
+    #define MAX_RAM_CEL (MAX_FACES * sizeof(CCB))
+
+    extern void* RAM_LVL;
+    extern void* RAM_TEX;
+    extern void* RAM_CEL;
 
     #include <displayutils.h>
     #include <debug.h>
@@ -126,6 +130,8 @@
     #define NAV_STEPS   1
 // the maximum of active enemies
     #define MAX_ENEMIES 3
+// set the maximum number of simultaneously played channels
+    #define SND_CHANNELS 4
 #endif
 
 #ifndef NAV_STEPS
@@ -222,7 +228,7 @@ X_INLINE int32 abs(int32 x) {
 extern int32 osGetSystemTimeMS();
 extern void osJoyVibrate(int32 index, int32 L, int32 R);
 extern void osSetPalette(const uint16* palette);
-extern void osLoadLevel(const char* name);
+extern void* osLoadLevel(const char* name);
 
 #ifdef PROFILING
     #define PROFILE_FRAME\
@@ -343,7 +349,11 @@ extern int32 fps;
 #define FIXED_SHIFT     14
 
 #define SND_MAX_DIST    (8 * 1024)
-#define SND_CHANNELS    6
+
+#ifndef SND_CHANNELS
+    #define SND_CHANNELS 6
+#endif
+
 #define SND_FIXED_SHIFT 8
 #define SND_VOL_SHIFT   6
 #define SND_PITCH_SHIFT 7
@@ -362,14 +372,8 @@ extern int32 fps;
     #define SND_SAMPLE_FREQ  22050
     #define SND_ENCODE(x)    (x)
     #define SND_DECODE(x)    ((x) - 128)
-
-    #ifdef USE_9BIT_SOUND
-        #define SND_MIN          -255
-        #define SND_MAX          254
-    #else
-        #define SND_MIN          -128
-        #define SND_MAX          127
-    #endif
+    #define SND_MIN          -128
+    #define SND_MAX          127
 #elif defined(__DOS__)
     #define SND_SAMPLES      1024
     #define SND_OUTPUT_FREQ  11025
@@ -580,10 +584,12 @@ struct Matrix
 };
 
 struct Quad {
+#ifdef __3DO__
+    Index  indices[4];
+    uint32 flags;
+#else
     Index  indices[4];
     uint16 flags;
-#ifdef __3DO__
-    uint16 _unused;
 #endif
 };
 
@@ -1689,6 +1695,12 @@ enum EffectType
     FX_TR1_FLICKER    = 16
 };
 
+enum SoundMode {
+    UNIQUE,
+    REPLAY,
+    LOOP
+};
+
 enum SoundID
 {
     SND_NO              = 2,
@@ -1866,6 +1878,8 @@ struct Level
     uint16 itemsCount;
     uint16 camerasCount;
     uint16 cameraFramesCount;
+    uint16 soundOffsetsCount;
+    uint16 _reserved;
 
     const uint16* palette;
     const uint8* lightmap;
@@ -1990,10 +2004,6 @@ extern ItemObj items[MAX_ITEMS];
 // level data
 extern bool enableClipping;
 extern bool enableMaxSort;
-
-#ifdef __3DO__
-extern uint8* VRAM_TEX;
-#endif
 
 template <class T>
 X_INLINE void swap(T &a, T &b) {
@@ -2162,9 +2172,16 @@ bool useSwitch(ItemObj* item, int32 timer);
 bool useKey(ItemObj* item, ItemObj* lara);
 bool usePickup(ItemObj* item);
 
-void musicPlay(int32 track);
-void musicStop();
 int32 doTutorial(ItemObj* lara, int32 track);
+
+void sndInit();
+void sndInitSamples();
+void sndFill(uint8* buffer, int32 count);
+void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode);
+void sndPlayTrack(int32 track);
+void sndStopTrack();
+void sndStopSample(int32 index);
+void sndStop();
 
 X_INLINE void dmaFill(void *dst, uint8 value, uint32 count)
 {
