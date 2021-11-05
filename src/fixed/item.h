@@ -50,7 +50,7 @@ void* soundPlay(int16 id, const vec3i &pos)
     
     int32 volume = b->volume - (phd_sqrt(dot(d, d)) << 2);
 
-    if (b->flags.gain) {
+    if (SI_GAIN(b->flags)) {
         volume -= rand_draw() >> 2;
     }
 
@@ -63,16 +63,16 @@ void* soundPlay(int16 id, const vec3i &pos)
 
     int32 pitch = 128;
 
-    if (b->flags.pitch) {
+    if (SI_PITCH(b->flags)) {
         pitch += ((rand_draw() * 13) >> 14) - 13;
     }
 
     int32 index = b->index;
-    if (b->flags.count > 1) {
-        index += (rand_draw() * b->flags.count) >> 15;
+    if (SI_COUNT(b->flags) > 1) {
+        index += (rand_draw() * SI_COUNT(b->flags)) >> 15;
     }
 
-    return sndPlaySample(index, volume, pitch, b->flags.mode);
+    return sndPlaySample(index, volume, pitch, SI_MODE(b->flags));
 }
 
 void soundStop(int16 id)
@@ -84,7 +84,7 @@ void soundStop(int16 id)
 
     const SoundInfo* b = level.soundsInfo + a;
 
-    for (int32 i = 0; i < b->flags.count; i++)
+    for (int32 i = 0; i < SI_COUNT(b->flags); i++)
     {
         sndStopSample(b->index + i);
     }

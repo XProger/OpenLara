@@ -265,12 +265,11 @@ void* osLoadLevel(const char* name)
 int main(int argc, char *argv[])
 {
     printf("OpenLara 3DO\n");
-
-/*
     MemInfo memInfoVRAM;
-    AvailMem(&memInfoVRAM, MEMTYPE_DMA);
-    printf("RAM: %d\n", memInfoVRAM.minfo_SysFree);
-*/
+    AvailMem(&memInfoVRAM, MEMTYPE_DRAM);
+    printf("DRAM: %d\n", memInfoVRAM.minfo_SysFree);
+    AvailMem(&memInfoVRAM, MEMTYPE_VRAM);
+    printf("VRAM: %d\n", memInfoVRAM.minfo_SysFree);
 
     uint32 lastFrame;
     uint32 frame;
@@ -296,9 +295,11 @@ int main(int argc, char *argv[])
 
     sndInit();
 
-    RAM_LVL = AllocMem(MAX_RAM_LVL, MEMTYPE_DMA | MEMTYPE_AUDIO);
-    RAM_TEX = AllocMem(MAX_RAM_TEX, MEMTYPE_VRAM | MEMTYPE_CEL);
-    RAM_CEL = AllocMem(MAX_RAM_CEL, MEMTYPE_CEL);
+    RAM_TEX = AllocMem(MAX_RAM_TEX, MEMTYPE_VRAM);
+
+    uint8* mem = (uint8*)AllocMem(MAX_RAM_LVL + MAX_RAM_CEL, MEMTYPE_DRAM);
+    RAM_LVL = mem;
+    RAM_CEL = mem + MAX_RAM_LVL;
 
     if (!RAM_LVL) printf("RAM_LVL failed!\n");
     if (!RAM_TEX) printf("RAM_TEX failed!\n");

@@ -1,13 +1,3 @@
-#
-# This is the application startup script, and should contain your
-# aliases, and anything else you need to prepare to run your title.
-#
-# After this script is run, the system will start $boot/LaunchMe
-#
-# The following command is intentionally left in.  After performing
-# your minmem testing, you can remove this command.
-#
-minmem
-
+#minmem
 # show CPU, DRAM, VRAM and DSP usage
 #$c/sysload

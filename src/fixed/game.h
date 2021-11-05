@@ -28,7 +28,6 @@ struct Game
         set_seed_draw(osGetSystemTimeMS() * 7);
 
         animTexFrame = 0;
-        dynSectorsCount = 0;
 
         void* data = osLoadLevel(name);
         loadLevel(data);
@@ -44,10 +43,6 @@ struct Game
         ItemObj::sFirstFree = NULL;
 
         gCurTrack = -1;
-
-    #ifdef ROM_READ
-        dynSectorsCount = 0;
-    #endif
 
         readLevel((uint8*)data);
 
@@ -114,8 +109,18 @@ struct Game
         drawInit();
 
     #ifdef __3DO__
-        //players[0]->angle.y += ANGLE_180;
-        //players[0]->pos.x += 1024;
+/*
+        if (gLevelID == 0)
+        {
+            players[0]->angle.y += ANGLE_180;
+            players[0]->pos.x += 1024;
+        }
+
+        if (gLevelID == 1)
+        {
+            players[0]->pos.z += 1024;
+        }
+*/
     #endif
     }
 

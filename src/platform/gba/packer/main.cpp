@@ -635,6 +635,34 @@ void fixTexCoord(uint32 uv0, uint32 &uv1)
 #define MAX_ITEMS           240
 #define MAX_NODES           32
 
+#define CLIP(x,lo,hi) \
+    if ( x < lo ) \
+    { \
+        x = lo; \
+    } \
+    else if ( x > hi ) \
+    { \
+        x = hi; \
+    }
+
+// ADPCM.h - Common ADPCM definitions
+static short gIndexDeltas[16] = {
+    -1,-1,-1,-1, 2, 4, 6, 8,
+    -1,-1,-1,-1, 2, 4, 6, 8
+};
+
+/*  DVI ADPCM step table */
+static short gStepSizes[89] = {
+    7,     8,     9,    10,    11,    12,    13,    14,    16,     17,    19,
+    21,    23,    25,    28,    31,    34,    37,    41,    45,     50,    55,
+    60,    66,    73,    80,    88,    97,   107,   118,   130,    143,   157,
+    173,   190,   209,   230,   253,   279,   307,   337,   371,    408,   449,
+    494,   544,   598,   658,   724,   796,   876,   963,  1060,   1166,  1282,
+    1411,  1552,  1707,  1878,  2066,  2272,  2499,  2749,  3024,   3327,  3660,
+    4026,  4428,  4871,  5358,  5894,  6484,  7132,  7845,  8630,   9493, 10442,
+11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623,  27086, 29794,
+32767  };
+
 #pragma pack(1)
 struct LevelPC
 {
@@ -1411,16 +1439,21 @@ struct LevelPC
         uint16 index;
         uint16 volume;
         uint16 chance;
-        uint8 flagsA;
-        uint8 flagsB;
+
+        union {
+            struct {
+                uint16 mode:2, count:4, unused:6, camera:1, pitch:1, gain:1, :1;
+            };
+
+            uint16 value;
+        } flags;
 
         void write(FileStream &f) const
         {
             f.write(index);
             f.write(volume);
             f.write(chance);
-            f.write(flagsA);
-            f.write(flagsB);
+            f.write(flags.value);
         }
     };
 
@@ -2721,6 +2754,7 @@ struct LevelPC
         int32 w;
         int32 h;
         uint16 flip;
+        bool mips;
 
         void write(FileStream &f) const
         {
@@ -2806,7 +2840,7 @@ struct LevelPC
         //
     }
 
-    void convertTextures3DO(const char* fileName)
+    int32 convertTextures3DO(const char* fileName)
     {
         #define PRE1_WOFFSET_PREFETCH   2
         #define PRE0_VCNT_PREFETCH      1
@@ -2824,7 +2858,7 @@ struct LevelPC
 
         FileStream f(fileName, true);
 
-        if (!f.isValid()) return;
+        if (!f.isValid()) return 0;
 
         f.bigEndian = true;
 
@@ -2923,6 +2957,7 @@ struct LevelPC
             int32 y1 = MAX(MAX(objectTexture->y0, objectTexture->y1), objectTexture->y2);
 
             textures3DO[i].flip = 0;
+            textures3DO[i].mips = false;
 
             if (objectTexture->isQuad)
             {
@@ -2965,72 +3000,6 @@ struct LevelPC
                 }
             }
 
-            #if 0
-            if (!objectTexture->isQuad) // triangle->quad! 8)
-            {
-                if (1) { // test pattern
-                    uint32* src = bitmap32;
-
-                   for (int32 y = 0; y < h; y++)
-                    {
-                        for (int32 x = 0; x < w; x++)
-                        {
-                            *src++ += (x % 2) ? 0x000A0A0A : 0x00000000;
-                        }
-                    }
-                }
-                
-                uint32* src = bitmap32;
-                uint32* dst = bitmap32_tmp;
-
-                for (int32 y = 0; y < h; y++)
-                {
-                    for (int32 x = 0; x < w; x++)
-                    {
-
-                        objectTexture->x1 - objectTexture->x0
-
-
-                        
-                        float ty = float(y) / float(y);
-
-
-                        /*
-                        int32 px = 0;
-
-                        if (textures3DO[i].flip & TEX_FLIP_X)
-                        {
-                            if (textures3DO[i].flip & TEX_FLIP_Y)
-                            {
-                                px = int32(x * float(float(y) / float(h)));
-                            } else {
-                                px = int32(x * float(1.0f - float(y) / float(h)));
-                            }
-                        } else {
-                            if (textures3DO[i].flip & TEX_FLIP_Y)
-                            {
-                                px = int32((w - x - 1) * float(float(y) / float(h)));
-                            } else {
-                                px = int32((w - x - 1) * float(1.0f - float(y) / float(h)));
-                            }
-                        }
-
-                        *dst++ = src[px];
-                        */
-                    }
-                    src += w;
-                }
-
-                swap(bitmap32, bitmap32_tmp);
-
-                {
-                    char buf[128];
-                    sprintf(buf, "tex%d.bmp", i);
-                    saveBitmap(buf, (uint8*)bitmap32, w, h, 32);
-                }
-            }
-            #endif
-
 
             { // copy tile to 32-bit image and calculate average tile color
                 uint8* src = textures3DO[i].src;
@@ -3044,8 +3013,6 @@ struct LevelPC
                 {
                     for (int32 x = 0; x < w; x++)
                     {
-                        uint32 index;
-
                         if (!objectTexture->isQuad)
                         {
                             float u = float(x) / float(w - 1);
@@ -3102,6 +3069,14 @@ struct LevelPC
 
                 if (hp != h) {
                     hp /= 2;
+                }
+
+                if (wp > 64) {
+                    wp = 64;
+                }
+
+                if (hp > 64) {
+                    hp = 64;
                 }
 
                 ASSERT(wp != 0 && hp != 0);
@@ -3163,40 +3138,7 @@ struct LevelPC
                     }
                 }
 
-            #if 0
-                int32 reindex[16];
-                for (int32 j = 0; j < 16; j++)
-                    reindex[j] = j;
-
-                for (int32 j = 0; j < 16; j++)
-                {
-                    for (int32 k = j + 1; k < 16; k++)
-                    {
-                        if (plut.colors[reindex[j]] > plut.colors[reindex[k]]) {
-                            swap(reindex[j], reindex[k]);
-                        }
-                    }
-                }
-
-                PLUT plut_opt;
-                for (int32 j = 0; j < 16; j++)
-                {
-                    plut_opt.colors[j] = plut.colors[reindex[j]];
-                }
-
-                int32 reindex_back[16];
-                for (int32 j = 0; j < 16; j++)
-                    reindex_back[reindex[j]] = j;
-
-                for (int32 j = 0; j < w * h; j++)
-                {
-                    bitmap8[j] = reindex_back[bitmap8[j]];
-                }
-
-                textures3DO[i].plut = addPalette(plut_opt);
-            #else
                 textures3DO[i].plut = addPalette(plut);
-            #endif
 
                 liq_result_destroy(res);
                 liq_image_destroy(image);
@@ -3237,81 +3179,6 @@ struct LevelPC
                 f.write(bitmap8_tmp, w * h / 2);
             }
         }
-        #if 0
-        {
-            LevelPC::ObjectTexture* tmp = new LevelPC::ObjectTexture[objectTexturesCount + 256];
-            memcpy(tmp, objectTextures, sizeof(LevelPC::ObjectTexture) * objectTexturesCount);
-
-            for (int32 i = 0; i < 256; i++)
-            {
-                int32 plut = i / 16;
-                int32 index = i % 16;
-
-                Texture3DO* tex = textures3DO + objectTexturesCount + i;
-
-                tex->flip = 0;
-                tex->w = 32;
-                tex->h = 32;
-                tex->wShift = shiftPow2(tex->w);
-                tex->hShift = shiftPow2(tex->h);
-                tex->color = PLUTs[plut].colors[index];
-
-                int32 rowBytes = (((tex->w * 4) + 31) >> 5) << 2;
-                if (rowBytes < 8) {
-                    rowBytes = 8;
-                }
-                int32 rowWOFFSET = (rowBytes >> 2) - PRE1_WOFFSET_PREFETCH;
-
-                tex->pre0 = ((tex->h - PRE0_VCNT_PREFETCH) << PRE0_VCNT_SHIFT) | PRE0_BPP_4;
-                tex->pre1 = ((tex->w - PRE1_TLHPCNT_PREFETCH) << PRE1_TLHPCNT_SHIFT) | PRE1_TLLSB_PDC0 | (rowWOFFSET << PRE1_WOFFSET8_SHIFT);
-
-                tex->plut = sizeof(PLUT) * plut;
-                tex->data = f.getPos();
-
-                int32 w = tex->w;
-
-                for (int32 j = 0; j < tex->w * tex->h; j++)
-                    bitmap8[j] = index;
-
-                if (rowBytes * 2 != tex->w) // adjust row pitch
-                {
-                    uint8* src = bitmap8;
-                    uint8* dst = bitmap8_tmp;
-                    memset(dst, 0, (rowBytes * 2) * tex->h);
-
-                    for (int32 y = 0; y < tex->h; y++) {
-                        memcpy(dst, src, tex->w);
-                        dst += rowBytes * 2;
-                        src += tex->w;
-                    }
-
-                    swap(bitmap8, bitmap8_tmp);
-
-                    w = rowBytes * 2;
-                }
-
-                { // encode to 4-bit image
-                    uint8* src = bitmap8;
-                    uint8* dst = bitmap8_tmp;
-                    for (int32 y = 0; y < tex->h; y++)
-                    {
-                        for (int32 x = 0; x < w/2; x++, src += 2)
-                        {
-                            *dst++ = (src[0] << 4) | src[1];
-                        }
-                    }
-
-                // write image
-                    f.write(bitmap8_tmp, w * tex->h / 2);
-                }
-            }
-
-            delete[] objectTextures;
-            objectTextures = tmp;
-
-            objectTexturesCount += 256;
-        }
-        #endif
 
     // fix PLUT offsets
         int32 plutsOffset = f.getPos();
@@ -3345,6 +3212,8 @@ struct LevelPC
         }
         f.write((uint16*)PLUTs, sizeof(PLUT) / 2 * plutsCount);
 
+        int32 texFileSize = f.getPos();
+
     // write palette offset at the file start
         f.setPos(0);
         f.write(paletteOffset);
@@ -3353,13 +3222,230 @@ struct LevelPC
         delete[] bitmap32_tmp;
         delete[] bitmap8;
         delete[] bitmap8_tmp;
+
+        return texFileSize;
+    }
+
+    // Intel DVI ADPCM (ADP4) encoder based on the original SoundHack code https://github.com/tomerbe/SoundHack
+    long lastEstimateL, stepSizeL, stepIndexL;
+    long lastEstimateR, stepSizeR, stepIndexR;
+
+    char EncodeDelta( long stepSize, long delta )
+    {
+        char encodedSample = 0;
+    
+        if ( delta < 0L )
+        {
+            encodedSample = 8;
+            delta = -delta;
+        }
+        if ( delta >= stepSize )
+        {
+            encodedSample |= 4;
+            delta -= stepSize;
+        }
+        stepSize = stepSize >> 1;
+        if ( delta >= stepSize )
+        {
+            encodedSample |= 2;
+            delta -= stepSize;
+        }
+        stepSize = stepSize >> 1;
+        if ( delta >= stepSize ) encodedSample |= 1;
+    
+        return ( encodedSample );
+    }
+
+    long DecodeDelta( long stepSize, char encodedSample )
+    {
+        long delta = 0;
+    
+        if( encodedSample & 4) delta = stepSize;
+        if( encodedSample & 2) delta += (stepSize >> 1);
+        if( encodedSample & 1) delta += (stepSize >> 2);
+        delta += (stepSize >> 3);
+        if (encodedSample & 8) delta = -delta;
+    
+        return( delta );
+    }
+
+    char ADDVIEncode(short shortOne, short shortTwo, long channels)
+    {
+        long            delta;
+        unsigned char    encodedSample, outputByte;
+
+        outputByte = 0;
+    
+    /* First sample or left sample to be packed in first nibble */
+    /* calculate delta */
+        delta = shortOne - lastEstimateL;
+        CLIP(delta, -32768L, 32767L);
+
+    /* encode delta relative to the current stepsize */
+        encodedSample = EncodeDelta(stepSizeL, delta);
+
+    /* pack first nibble */
+        outputByte = 0x00F0 & (encodedSample<<4);
+
+    /* decode ADPCM code value to reproduce delta and generate an estimated InputSample */
+        lastEstimateL += DecodeDelta(stepSizeL, encodedSample);
+        CLIP(lastEstimateL, -32768L, 32767L);
+
+    /* adapt stepsize */
+        stepIndexL += gIndexDeltas[encodedSample];
+        CLIP(stepIndexL, 0, 88);
+        stepSizeL = gStepSizes[stepIndexL];
+    
+        if(channels == 2L)
+        {
+    /* calculate delta for second sample */
+            delta = shortTwo - lastEstimateR;
+            CLIP(delta, -32768L, 32767L);
+
+    /* encode delta relative to the current stepsize */
+            encodedSample = EncodeDelta(stepSizeR, delta);
+
+    /* pack second nibble */
+            outputByte |= 0x000F & encodedSample;
+
+    /* decode ADPCM code value to reproduce delta and generate an estimated InputSample */
+            lastEstimateR += DecodeDelta(stepSizeR, encodedSample);
+            CLIP(lastEstimateR, -32768L, 32767L);
+
+    /* adapt stepsize */
+            stepIndexR += gIndexDeltas[encodedSample];
+            CLIP(stepIndexR, 0, 88);
+            stepSizeR = gStepSizes[stepIndexR];
+        }
+        else
+        {
+    /* calculate delta for second sample */
+            delta = shortTwo - lastEstimateL;
+            CLIP(delta, -32768L, 32767L);
+
+    /* encode delta relative to the current stepsize */
+            encodedSample = EncodeDelta(stepSizeL, delta);
+
+    /* pack second nibble */
+            outputByte |= 0x000F & encodedSample;
+
+    /* decode ADPCM code value to reproduce delta and generate an estimated InputSample */
+            lastEstimateL += DecodeDelta(stepSizeL, encodedSample);
+            CLIP(lastEstimateL, -32768L, 32767L);
+
+    /* adapt stepsize */
+            stepIndexL += gIndexDeltas[encodedSample];
+            CLIP(stepIndexL, 0, 88);
+            stepSizeL = gStepSizes[stepIndexL];
+        }
+        return(outputByte);
+    }
+
+
+    void BlockADDVIEncode(uint8 *buffer, short *blockL, short *blockR, long numSamples, long channels)
+    {
+        short shortOne, shortTwo;
+        long i, j;
+
+        lastEstimateL = lastEstimateR = 0L;
+        stepSizeL = stepSizeR = 7L;
+        stepIndexL = stepIndexR = 0L;
+        
+        for(i = j = 0; i < numSamples; i += 2, j++)
+        {
+            if(channels == 2)
+            {
+                shortOne = (blockL[j]);
+                shortTwo = (blockR[j]);
+            }
+            else
+            {
+                shortOne = (blockL[i]);
+                shortTwo = (blockL[i+1]);
+            }
+            buffer[j] = ADDVIEncode(shortOne, shortTwo, channels);
+        }
+    }
+
+    void getSample(const char* base, const char* prefix, int32 id, int32 sub, uint8* buffer, int32 &size)
+    {
+        size = 0;
+
+        char path[256];
+        sprintf(path, "%s\\%s%03d_%d.wav", base, prefix, id, sub);
+
+        FILE* f = fopen(path, "rb");
+
+        if (!f)
+        {
+            if (prefix[0] == '_') // try to open file without the prefix
+            {
+                sprintf(path, "%s\\%s%03d_%d.wav", base, "", id, sub);
+                f = fopen(path, "rb");
+                if (!f)
+                {
+                    printf("%s not found!\n", path);
+                    return;
+                }
+            } else {
+                printf("%s not found!\n", path);
+                return;
+            }
+        }
+
+        fseek(f, 12, SEEK_SET); // skip RIFF header
+
+        struct {
+            unsigned int id;
+            unsigned int size;
+        } chunk;
+
+        while (1)
+        {
+            fread(&chunk, sizeof(chunk), 1, f);
+            if (chunk.id == 0x61746164) // data
+            {
+                int numSamples = chunk.size / (1 * sizeof(short));
+                size = numSamples / 2; // 4 bits per sample
+
+                short* data = new short[chunk.size / sizeof(short)];
+
+                fread(data, 1, chunk.size, f);
+
+                BlockADDVIEncode(buffer, data, NULL, numSamples, 1); // mono block
+
+                delete[] data;
+
+                break;
+            } else {
+                fseek(f, chunk.size, SEEK_CUR);
+            }
+        }
+
+        fclose(f);
+    }
+
+    bool getSoundID(int32 index, int32 &id, int32 &sub)
+    {
+        for (int32 i = 0; i < 256; i++)
+        {
+            SoundInfo &s = soundInfo[soundMap[i]];
+            if (s.index <= index && s.index + s.flags.count > index)
+            {
+                id = i;
+                sub = index - s.index;
+                return true;
+            }        
+        }
+
+        return false;
     }
 
     void convert3DO(const char* name)
     {
         char path[256];
         sprintf(path, "../../3do/CD/data/%s.TEX", name);
-        convertTextures3DO(path);
+        int32 texFileSize = convertTextures3DO(path);
 
         sprintf(path, "../../3do/CD/data/%s.3DO", name);
 
@@ -3502,6 +3588,8 @@ struct LevelPC
                         }
                     }
 
+                    textures3DO[q.flags & FACE_TEXTURE].mips = true;
+
                     Quad3DO comp;
                     comp.indices[0] = q.indices[0];
                     comp.indices[1] = q.indices[1];
@@ -3520,6 +3608,8 @@ struct LevelPC
                     t.indices[1] = addRoomVertex(room->vertices[t.indices[1]]);
                     t.indices[2] = addRoomVertex(room->vertices[t.indices[2]]);
 
+                    textures3DO[t.flags & FACE_TEXTURE].mips = true;
+
                     t.write3DO(f);
                 }
 
@@ -3528,17 +3618,6 @@ struct LevelPC
                 for (int32 i = 0; i < roomVerticesCount; i++)
                 {
                     roomVertices[i].write(f);
-                    /*
-                    // write vertex coords in fixed16:16 format
-                    int8 x = (roomVertices[i].x);// << 10);
-                    int8 y = (roomVertices[i].y);// <<  8);
-                    int8 z = (roomVertices[i].z);// << 10);
-                    uint8 g = (roomVertices[i].g);
-
-                    f.write(x);
-                    f.write(y);
-                    f.write(z);
-                    f.write(g);*/
                 }
 
                 info.sprites = f.align4();
@@ -3877,6 +3956,16 @@ struct LevelPC
         for (int32 i = 0; i < objectTexturesCount; i++)
         {
             textures3DO[i].write(f);
+
+            if (textures3DO[i].mips) {
+                texFileSize += (textures3DO[i].w / 2) * (textures3DO[i].h / 2) / 2;
+            }
+        }
+
+        static int32 maxTexFileSize = 0;
+        if (texFileSize > maxTexFileSize) {
+            maxTexFileSize = texFileSize;
+            printf("texSize: %d\n", texFileSize);
         }
 
         header.spriteTextures = f.align4();
@@ -3974,39 +4063,26 @@ struct LevelPC
 
         uint8* soundBuf = new uint8[2 * 1024 * 1024];
 
+        bool isHome = strcmp(name, "GYM") == 0;
+
         for (int32 i = 0; i < soundOffsetsCount; i++)
         {
-            { // save wav to the temporary file
-                uint8* data = soundData + soundOffsets[i];
-                int32 size = *(int32*)(data + 4) + 8;
+            soundOffsets[i] = f.align4() - header.soundData;
 
-                FILE* f = fopen("tmp.wav", "wb");
-                fwrite(data, 1, size, f);
-                fclose(f);
+            int32 id, sub, size;
+            if (getSoundID(i, id, sub))
+            {
+                getSample("C:\\Projects\\OpenLara\\src\\platform\\gba\\packer\\sounds\\conv_3do", isHome ? "_" : "", id, sub, soundBuf, size);
+            } else {
+                ASSERT(false);
             }
 
-            launchApp("C:\\Program Files\\ffmpeg\\ffmpeg.exe -y -i tmp.wav -ac 1 -ar 4000 -acodec pcm_s8 tmp.aiff");
+            int32 numSamples = size * 2;
+            f.write(numSamples);
 
-            int32 soundSize;
-            { // read converted aiff
-                FILE* f = fopen("tmp.aiff", "rb");
-                fseek(f, 0, SEEK_END);
-                soundSize = ftell(f);
-                fseek(f, 0, SEEK_SET);
-                fread(soundBuf, 1, soundSize, f);
-                fclose(f);
+            if (size) {
+                f.write(soundBuf, size);
             }
-
-        // update sound sample offset
-            soundOffsets[i] = f.align4() - header.soundData + 2;
-            
-            uint16 zero = 0;
-            f.write(zero);
-
-            //ASSERT(soundOffsets[i] % 16 == 0);
-
-        // write aiff sound data
-            f.write(soundBuf, soundSize);
         }
 
         delete[] soundBuf;

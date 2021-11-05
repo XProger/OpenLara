@@ -130,6 +130,10 @@ void readLevel_GBA(const uint8* data)
 
 void readLevel(const uint8* data)
 {
+//#ifdef ROM_READ
+    dynSectorsCount = 0;
+//#endif
+
     readLevel_GBA(data);
 }
 

@@ -40,8 +40,8 @@
     #define USE_DIV_TABLE // TODO_3DO remove
     #define CPU_BIG_ENDIAN
 
-    #define MAX_RAM_LVL (800 * 1024)
-    #define MAX_RAM_TEX (640 * 1024)
+    #define MAX_RAM_LVL (32 * 1024 * 30) // 38 for LEVEL10C! >_<
+    #define MAX_RAM_TEX (16 * 1024 * 44)
     #define MAX_RAM_CEL (MAX_FACES * sizeof(CCB))
 
     extern void* RAM_LVL;
@@ -115,9 +115,9 @@
 // use IWRAM_CODE section that faster for matrix interpolation (GBA only)
     #define IWRAM_MATRIX_LERP
 // the maximum of active enemies
-    #define MAX_ENEMIES 3
+//    #define MAX_ENEMIES 3
 #endif
-    #define MAX_ENEMIES 3
+
 #ifdef __3DO__
 // hide dead enemies after a while to reduce the number of polygons on the screen
     #define HIDE_CORPSES (30*10) // 10 sec
@@ -406,7 +406,7 @@ extern int32 fps;
 #define MAX_BOXES           1024
 #define MAX_VERTICES        (5*1024)
 #define MAX_TEXTURES        1536
-#define MAX_FACES           2048
+#define MAX_FACES           1920
 #define MAX_ROOM_LIST       16
 #define MAX_PORTALS         16
 #define MAX_CAUSTICS        32
@@ -851,14 +851,18 @@ struct StaticMesh {
     AABBs cbox;
 };
 
+#define SI_MODE(x)      (x & 3)
+#define SI_COUNT(x)     ((x >> 2) & 15)
+#define SI_CAMERA(x)    ((x >> 12) & 1)
+#define SI_PITCH(x)     ((x >> 13) & 1)
+#define SI_GAIN(x)      ((x >> 14) & 1)
+
 struct SoundInfo
 {
     uint16 index;
     uint16 volume;
     uint16 chance;
-    struct {
-        uint16 mode:2, count:4, unused:6, camera:1, pitch:1, gain:1, :1;
-    } flags;
+    uint16 flags;
 };
 
 struct Anim {
