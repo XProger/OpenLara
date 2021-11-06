@@ -802,9 +802,7 @@ void drawRoom(const Room* room, Camera* camera)
 
     {
         PROFILE(CNT_ADD);
-        enableMaxSort = true;
         faceAddRoom(data.quads, info->quadsCount, data.triangles, info->trianglesCount, startVertex);
-        enableMaxSort = false;
     }
 
     matrixPop();

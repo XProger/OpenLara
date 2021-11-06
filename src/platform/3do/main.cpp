@@ -253,14 +253,16 @@ void* osLoadLevel(const char* name)
 {
     char buf[32];
 
-    sprintf(buf, "data/%s.3DO", name);
+    sprintf(buf, "data/%s.D", name);
     readFile(buf, RAM_LVL, MAX_RAM_LVL);
 
-    sprintf(buf, "data/%s.TEX", name);
+    sprintf(buf, "data/%s.V", name);
     readFile(buf, RAM_TEX, MAX_RAM_TEX);
 
     return RAM_LVL;
 }
+
+bool useMips = true;
 
 int main(int argc, char *argv[])
 {
@@ -297,15 +299,20 @@ int main(int argc, char *argv[])
 
     RAM_TEX = AllocMem(MAX_RAM_TEX, MEMTYPE_VRAM);
 
-    uint8* mem = (uint8*)AllocMem(MAX_RAM_LVL + MAX_RAM_CEL, MEMTYPE_DRAM);
-    RAM_LVL = mem;
-    RAM_CEL = mem + MAX_RAM_LVL;
+    uint8* memDRAM = (uint8*)AllocMem(MAX_RAM_LVL + MAX_RAM_CEL, MEMTYPE_DRAM);
+    RAM_LVL = memDRAM;
+    RAM_CEL = memDRAM + MAX_RAM_LVL;
 
     if (!RAM_LVL) printf("RAM_LVL failed!\n");
     if (!RAM_TEX) printf("RAM_TEX failed!\n");
     if (!RAM_CEL) printf("RAM_CEL failed!\n");
 
     game.init(gLevelNames[gLevelID]);
+
+    AvailMem(&memInfoVRAM, MEMTYPE_DRAM);
+    printf("DRAM: %d\n", memInfoVRAM.minfo_SysFree);
+    AvailMem(&memInfoVRAM, MEMTYPE_VRAM);
+    printf("VRAM: %d\n", memInfoVRAM.minfo_SysFree);
 
     GetVBLTime(irqVBL, NULL, &lastFrame);
     lastFrame /= 2;
@@ -338,9 +345,14 @@ int main(int argc, char *argv[])
 
         if ((keys & IK_SELECT) && !(oldKeys & IK_SELECT))
         {
-            gLevelID = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
-            game.startLevel(gLevelNames[gLevelID]);
-            lastFrame = frame - 1;
+            if (useMips) {
+                useMips = false;
+            } else {
+                useMips = true;
+//                gLevelID = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
+//                game.startLevel(gLevelNames[gLevelID]);
+//                lastFrame = frame - 1;
+            }
         }
 
 int32 updateTime = osGetSystemTimeMS();

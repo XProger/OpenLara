@@ -34,7 +34,6 @@ LIBS = \
 	$(LIBPATH)/filesystem.lib	\
 	$(LIBPATH)/graphics.lib		\
 	$(LIBPATH)/input.lib		\
-	$(LIBPATH)/exampleslib.lib	\
 
 SRC_S   = $(wildcard *.s)
 SRC_C   = $(wildcard *.c)

@@ -427,11 +427,13 @@ extern int32 fps;
 #define FACE_TRIANGLE   0x8000
 #define FACE_COLORED    0x4000
 #define FACE_CLIPPED    0x2000
-#define FACE_CCW        FACE_CLIPPED // 3DO only
 #define FACE_FLAT       0x1000
 #define FACE_SPRITE     0x0800
 #define FACE_SHADOW     (FACE_COLORED | FACE_FLAT | FACE_SPRITE)
 #define FACE_TEXTURE    0x07FF
+
+#define FACE_CCW        (1 << 31) // 3DO only
+#define FACE_MIP_SHIFT  11        // 3DO only
 
 #define NOT_ENEMY       -0x4000     // default hp for non enemies
 #define NO_ROOM         0xFF
@@ -583,7 +585,8 @@ struct Matrix
 #endif
 };
 
-struct Quad {
+struct Quad
+{
 #ifdef __3DO__
     Index  indices[4];
     uint32 flags;
@@ -593,12 +596,20 @@ struct Quad {
 #endif
 };
 
-struct Triangle {
+struct Triangle
+{
+#ifdef __3DO__
+    Index  indices[3];
+    uint16 _unused;
+    uint32 flags;
+#else
     Index  indices[3];
     uint16 flags;
+#endif
 };
 
-struct RectMinMax {
+struct RectMinMax
+{
     int32 x0;
     int32 y0;
     int32 x1;
@@ -2007,7 +2018,6 @@ extern ItemObj items[MAX_ITEMS];
 
 // level data
 extern bool enableClipping;
-extern bool enableMaxSort;
 
 template <class T>
 X_INLINE void swap(T &a, T &b) {

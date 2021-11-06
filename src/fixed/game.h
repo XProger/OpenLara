@@ -109,18 +109,8 @@ struct Game
         drawInit();
 
     #ifdef __3DO__
-/*
-        if (gLevelID == 0)
-        {
-            players[0]->angle.y += ANGLE_180;
-            players[0]->pos.x += 1024;
-        }
-
-        if (gLevelID == 1)
-        {
-            players[0]->pos.z += 1024;
-        }
-*/
+        //players[0]->angle.y += ANGLE_180;
+        //players[0]->pos.x += 1024;
     #endif
     }
 

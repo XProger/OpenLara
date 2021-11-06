@@ -11,6 +11,8 @@ struct Channel
     Item frequency;
     Item amplitude;
 
+    Item playing; // TODO
+
     void setPitch(uint32 value)
     {
         TweakKnob(frequency, value);
@@ -66,6 +68,15 @@ void sndInit()
 
 void sndInitSamples()
 {
+    for (int32 i = 0; i < SND_CHANNELS; i++)
+    {
+        StopInstrument(channels[i].sample, NULL);
+        if (channels[i].attach) {
+            DetachSample(channels[i].attach);
+        }
+        channels[i].playing = NULL;
+    }
+
     for (int32 i = 0; i < level.soundOffsetsCount; i++)
     {
         uint8* data = (uint8*)level.soundData + level.soundOffsets[i];
@@ -86,6 +97,27 @@ int32 idx = 0;
 
 void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode)
 {
+    if (mode == UNIQUE || mode == REPLAY)
+    {
+        for (int32 i = 0; i < SND_CHANNELS; i++)
+        {
+            if (channels[i].playing != samples[index])
+                continue;
+
+            channels[i].setVolume(0x7FFF * volume >> SND_VOL_SHIFT);
+            channels[i].setPitch(0x2000 * pitch >> SND_PITCH_SHIFT);
+
+            //if (mode == REPLAY) TODO
+            {
+                StopInstrument(channels[i].sample, NULL);
+                StartInstrument(channels[i].sample, NULL);
+            }
+
+            return (void*)channels[i].sample;
+        }
+    }
+ 
+    // TODO
     idx = (idx + 1) % SND_CHANNELS;
 
     StopInstrument(channels[idx].sample, NULL);
@@ -94,6 +126,8 @@ void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode)
     }
 
     channels[idx].attach = AttachSample(channels[idx].sample, samples[index], NULL);
+    channels[idx].playing = samples[index];
+
     StartInstrument(channels[idx].sample, NULL);
 
     channels[idx].setVolume(0x7FFF * volume >> SND_VOL_SHIFT);
