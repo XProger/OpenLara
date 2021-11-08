@@ -1,4 +1,5 @@
 #include "common.h"
+#include <soundplayer.h>
 
 Item sndMixer;
 
@@ -6,27 +7,98 @@ struct Channel
 {
     Item gainL;
     Item gainR;
-    Item sample;
+    Item sampler;
     Item attach;
     Item frequency;
     Item amplitude;
 
-    Item playing; // TODO
+    int32 index;
+    bool playing;
 
     void setPitch(uint32 value)
     {
-        TweakKnob(frequency, value);
+        if (frequency >= 0) {
+            TweakKnob(frequency, value);
+        }
     }
 
     void setVolume(uint32 value)
     {
-        TweakKnob(amplitude, value);
+        if (amplitude >= 0) {
+            TweakKnob(amplitude, value);
+        }
     }
 };
 
-Channel channels[SND_CHANNELS];
+struct SampleData
+{
+    Item data;
+    int32 size;
+};
 
-Item samples[SND_SAMPLES];
+Channel channels[SND_CHANNELS]; // [sample, sample, sample, music]
+SampleData samples[MAX_SAMPLES];
+
+#define MUSIC_CHANNEL (SND_CHANNELS - 1)
+
+Item musicThread;
+SPPlayer* musicPlayer;
+SPSound* music;
+uint32 musicSignal;
+int32 musicTrack;
+
+void musicProc()
+{
+    OpenAudioFolio();
+
+    musicSignal = AllocSignal(0);
+
+    void* buffers[SND_BUFFERS];
+    for (int32 i = 0; i < SND_BUFFERS; i++)
+    {
+        buffers[i] = (uint8*)RAM_SND + i * SND_BUFFER_SIZE;
+    }
+
+    spCreatePlayer(&musicPlayer, channels[MUSIC_CHANNEL].sampler, SND_BUFFERS, SND_BUFFER_SIZE, buffers);
+
+    int32 signalMask = spGetPlayerSignalMask(musicPlayer);
+
+    while (1)
+    {
+        WaitSignal(musicSignal);
+
+        channels[MUSIC_CHANNEL].playing = true;
+
+        int32 track = musicTrack;
+        {
+            char path[32];
+            sprintf(path, "audio/%d.aifc", track);
+
+            spAddSoundFile(&music, musicPlayer, path);
+        }
+
+        spStartReading(music, SP_MARKER_NAME_BEGIN);
+
+        spStartPlayingVA(musicPlayer, 
+            AF_TAG_AMPLITUDE, 0x7FFF,
+            TAG_END);
+
+        while (spGetPlayerStatus(musicPlayer) & SP_STATUS_F_BUFFER_ACTIVE)
+        {
+            int32 signal = WaitSignal(signalMask);
+            if (spService(musicPlayer, signal) < 0)
+                break;
+
+            if (track != musicTrack) {
+                spStop(musicPlayer);
+            }
+        }
+
+        spRemoveSound(music);
+        channels[MUSIC_CHANNEL].playing = false;
+    }
+}
+
 
 void sndInit()
 {
@@ -44,106 +116,175 @@ void sndInit()
 
     for (int32 i = 0; i < SND_CHANNELS; i++)
     {
+        Channel* ch = channels + i;
+
         LGainName[8] = '0' + i;
         RGainName[9] = '0' + i;
         InputName[5] = '0' + i;
 
-        channels[i].gainL = GrabKnob(sndMixer, LGainName);
-        channels[i].gainR = GrabKnob(sndMixer, RGainName);
+        ch->gainL = GrabKnob(sndMixer, LGainName);
+        ch->gainR = GrabKnob(sndMixer, RGainName);
 
-        TweakKnob(channels[i].gainL, 255 << 6);
-        TweakKnob(channels[i].gainR, 255 << 6);
+        if (i == MUSIC_CHANNEL) {
+            ch->sampler = LoadInstrument("dcsqxdhalfmono.dsp", 0, 100);
+            ConnectInstruments(ch->sampler, "Output", sndMixer, InputName);
+        } else {
+            ch->sampler = LoadInstrument("adpcmvarmono.dsp", 0, 100);
+            ConnectInstruments(ch->sampler, "Output", sndMixer, InputName);
+        }
 
-        channels[i].sample = LoadInstrument("adpcmvarmono.dsp", 0, 100);
-        channels[i].frequency = GrabKnob(channels[i].sample, "Frequency");
-        channels[i].amplitude = GrabKnob(channels[i].sample, "Amplitude");
-        ConnectInstruments(channels[i].sample, "Output", sndMixer, InputName);
+        if (ch->sampler < 0)
+            printf("FUCK!\n");
 
-        channels[i].setVolume(0x7FFF);
-        channels[i].setPitch(0x2000);
+        ch->frequency = GrabKnob(ch->sampler, "Frequency");
+        ch->amplitude = GrabKnob(ch->sampler, "Amplitude");
+        ch->setVolume(0x7FFF);
+        ch->setPitch(0x2000);
+
+        TweakKnob(ch->gainL, 255 << 6);
+        TweakKnob(ch->gainR, 255 << 6);
+
+        ch->index = -1;
+        ch->playing = false;
     }
 
     StartInstrument(sndMixer, NULL);
+
+    musicThread = CreateThread("music", 180, musicProc, 4096);
 }
 
 void sndInitSamples()
 {
-    for (int32 i = 0; i < SND_CHANNELS; i++)
-    {
-        StopInstrument(channels[i].sample, NULL);
-        if (channels[i].attach) {
-            DetachSample(channels[i].attach);
-        }
-        channels[i].playing = NULL;
-    }
-
     for (int32 i = 0; i < level.soundOffsetsCount; i++)
     {
         uint8* data = (uint8*)level.soundData + level.soundOffsets[i];
+        int32 frames = *(uint32*)data;
 
-        samples[i] = CreateSampleVA(
-            AF_TAG_FRAMES, *(uint32*)data,
+        samples[i].size = frames >> 1;
+        samples[i].data = CreateSampleVA(
+            AF_TAG_FRAMES, frames,
             AF_TAG_ADDRESS, (uint8*)data + 4,
             AF_TAG_CHANNELS, 1,
             AF_TAG_WIDTH, 2,
             AF_TAG_COMPRESSIONTYPE, ID_ADP4,
             AF_TAG_COMPRESSIONRATIO, 4,
-            TAG_END
-        );
+            TAG_END);
     }
 }
 
-int32 idx = 0;
+void sndFreeSamples()
+{
+    if (!level.soundOffsetsCount)
+        return;
+
+    for (int32 i = 0; i < SND_CHANNELS - 1; i++)
+    {
+        Channel* ch = channels + i;
+
+        if (ch->index < 0)
+            continue;
+
+        StopInstrument(ch->sampler, NULL);
+        DetachSample(ch->attach);
+
+        ch->index = -1;
+        ch->playing = false;
+    }
+
+    for (int32 i = 0; i < level.soundOffsetsCount; i++)
+    {
+        UnloadSample(samples[i].data);
+    }
+}
 
 void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode)
 {
-    if (mode == UNIQUE || mode == REPLAY)
+    volume = volume * 0x7FFF >> SND_VOL_SHIFT;
+    pitch = pitch * 0x2000 >> SND_PITCH_SHIFT;
+
+// update playing status
+    for (int32 i = 0; i < SND_CHANNELS; i++)
     {
-        for (int32 i = 0; i < SND_CHANNELS; i++)
+        Channel* ch = channels + i;
+        if (!ch->playing)
+            continue;
+
+        int32 pos = WhereAttachment(ch->attach);
+        if (pos == -1 || pos >= samples[ch->index].size)
         {
-            if (channels[i].playing != samples[index])
-                continue;
-
-            channels[i].setVolume(0x7FFF * volume >> SND_VOL_SHIFT);
-            channels[i].setPitch(0x2000 * pitch >> SND_PITCH_SHIFT);
-
-            //if (mode == REPLAY) TODO
-            {
-                StopInstrument(channels[i].sample, NULL);
-                StartInstrument(channels[i].sample, NULL);
-            }
-
-            return (void*)channels[i].sample;
+            ch->playing = false;
         }
     }
- 
-    // TODO
-    idx = (idx + 1) % SND_CHANNELS;
 
-    StopInstrument(channels[idx].sample, NULL);
-    if (channels[idx].attach) {
-        DetachSample(channels[idx].attach);
+// get existing channel
+    if (mode == UNIQUE || mode == REPLAY)
+    {
+        for (int32 i = 0; i < SND_CHANNELS - 1; i++)
+        {
+            Channel* ch = channels + i;
+
+            if (ch->index != index)
+                continue;
+
+            ch->setVolume(volume);
+            ch->setPitch(pitch);
+
+            if (!ch->playing || mode == REPLAY) 
+            {
+                ch->playing = true;
+                StartInstrument(ch->sampler, NULL);
+            }
+
+            return (void*)ch->sampler;
+        }
     }
 
-    channels[idx].attach = AttachSample(channels[idx].sample, samples[index], NULL);
-    channels[idx].playing = samples[index];
+// get free channel
+    for (int32 i = 0; i < SND_CHANNELS - 1; i++)
+    {
+        Channel* ch = channels + i;
 
-    StartInstrument(channels[idx].sample, NULL);
+        if (ch->playing)
+            continue;
 
-    channels[idx].setVolume(0x7FFF * volume >> SND_VOL_SHIFT);
-    channels[idx].setPitch(0x2000 * pitch >> SND_PITCH_SHIFT);
+        if (ch->index >= 0)
+        {
+            StopInstrument(ch->sampler, NULL);
+            DetachSample(ch->attach);
+        }
 
-    return (void*)channels[idx].sample;
+        ch->setVolume(volume);
+        ch->setPitch(pitch);
+        ch->attach = AttachSample(ch->sampler, samples[index].data, NULL);
+        ch->index = index;
+        ch->playing = true;
+
+        StartInstrument(ch->sampler, NULL);
+
+        return (void*)ch->sampler;
+    }
+
+    printf("MAX_CHANNELS!\n");
+    return NULL;
 }
 
 void sndPlayTrack(int32 track)
 {
+    musicTrack = track;
 
+    if (track >= 0) {
+        SendSignal(musicThread, musicSignal);
+    }
 }
 
 void sndStopTrack()
 {
+    sndPlayTrack(-1);
+}
 
+bool sndTrackIsPlaying()
+{
+    return channels[MUSIC_CHANNEL].playing;
 }
 
 void sndStopSample(int32 index)
@@ -153,5 +294,5 @@ void sndStopSample(int32 index)
 
 void sndStop()
 {
-
+    sndStopTrack();
 }

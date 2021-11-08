@@ -151,7 +151,7 @@ const AABBs& ItemObj::getBoundingBox(bool lerp) const
     if (!frameDelta)
         return frameA->box;
 
-    int32 d = FixedInvU(frameRate) * frameDelta;
+    int32 d = GET_FRAME_T(frameDelta, frameRate);
 
     #define COMP_LERP(COMP) tmpBox.COMP = frameA->box.COMP + ((frameB->box.COMP - frameA->box.COMP) * d >> 16);
 

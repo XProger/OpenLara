@@ -29,8 +29,12 @@ struct Game
 
         animTexFrame = 0;
 
+        sndFreeSamples();
+
         void* data = osLoadLevel(name);
         loadLevel(data);
+
+        sndInitSamples();
     }
 
     void loadLevel(const void* data)
@@ -131,6 +135,14 @@ struct Game
         rooms[roomIndex].add(lara);
     }
 
+    int32 getAmbientTrack() // TODO
+    {
+        extern int32 gLevelID;
+        if (gLevelID == 0)
+            return -1;
+        return 5;
+    }
+
     void updateItems()
     {
         ItemObj* item = ItemObj::sFirstActive;
@@ -167,6 +179,10 @@ struct Game
 
         if (frames > MAX_UPDATE_FRAMES) {
             frames = MAX_UPDATE_FRAMES;
+        }
+
+        if (!sndTrackIsPlaying()) {
+            sndPlayTrack(getAmbientTrack());
         }
 
         for (int32 i = 0; i < frames; i++)

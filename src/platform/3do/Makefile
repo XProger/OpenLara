@@ -31,6 +31,7 @@ LIBS = \
 	$(LIBPATH)/lib3do.lib		\
 	$(LIBPATH)/operamath.lib	\
 	$(LIBPATH)/audio.lib		\
+	$(LIBPATH)/music.lib		\
 	$(LIBPATH)/filesystem.lib	\
 	$(LIBPATH)/graphics.lib		\
 	$(LIBPATH)/input.lib		\

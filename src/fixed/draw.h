@@ -369,7 +369,7 @@ void drawNodesLerp(const ItemObj* item, const AnimFrame* frameA, const AnimFrame
     const uint32* anglesB = (uint32*)(frameB->angles + 1);
     const int16* extraAngles = (int16*)item->extra;
 
-    int32 t = FixedInvU(frameRate) * frameDelta;
+    int32 t = GET_FRAME_T(frameDelta, frameRate);
 
     vec3s posLerp;
     posLerp.x = frameA->pos.x + ((frameB->pos.x - frameA->pos.x) * t >> 16);
@@ -579,7 +579,7 @@ void drawLaraNodesLerp(const ItemObj* lara, const AnimFrame* frameA, const AnimF
 
     matrixPush();
     { // JOINT_HIPS
-        int32 t = FixedInvU(frameRate) * frameDelta;
+        int32 t = GET_FRAME_T(frameDelta, frameRate);
 
         vec3s posLerp;
         posLerp.x = frameA->pos.x + ((frameB->pos.x - frameA->pos.x) * t >> 16);

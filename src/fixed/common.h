@@ -37,16 +37,25 @@
     #include <mem.h>
 #elif defined(__3DO__)
     #define MODEHW
-    #define USE_DIV_TABLE // TODO_3DO remove
+    #define USE_DIV_TABLE // 4k of DRAM
     #define CPU_BIG_ENDIAN
 
-    #define MAX_RAM_LVL (32 * 1024 * 30) // 38 for LEVEL10C! >_<
-    #define MAX_RAM_TEX (16 * 1024 * 44)
-    #define MAX_RAM_CEL (MAX_FACES * sizeof(CCB))
+    #define BLOCK_SIZE_DRAM     (32 * 1024)
+    #define BLOCK_SIZE_VRAM     (16 * 1024)
+    #define BLOCK_SIZE_CD       (2 * 1024)
+
+    #define SND_BUFFER_SIZE     (4 * BLOCK_SIZE_CD)
+    #define SND_BUFFERS         4
+
+    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 29) // 38 for LEVEL10C! >_<
+    #define MAX_RAM_TEX         (BLOCK_SIZE_VRAM * 44)
+    #define MAX_RAM_CEL         (MAX_FACES * sizeof(CCB))
+    #define MAX_RAM_SND         (SND_BUFFERS * SND_BUFFER_SIZE)
 
     extern void* RAM_LVL;
     extern void* RAM_TEX;
     extern void* RAM_CEL;
+    extern void* RAM_SND;
 
     #include <displayutils.h>
     #include <debug.h>
@@ -412,6 +421,7 @@ extern int32 fps;
 #define MAX_CAUSTICS        32
 #define MAX_RAND_TABLE      32
 #define MAX_DYN_SECTORS     (1024*3)
+#define MAX_SAMPLES         180
 
 #define FOV_SHIFT       3
 #define FOG_SHIFT       1
@@ -471,11 +481,14 @@ extern int32 fps;
 #define DP33(ax,ay,az,bx,by,bz)     (ax * bx + ay * by + az * bz)
 
 #ifdef USE_DIV_TABLE
-#define DIV_TABLE_SIZE  1024
-#define FixedInvS(x)    ((x < 0) ? -divTable[abs(x)] : divTable[x])
-#define FixedInvU(x)    divTable[x]
+    #define DIV_TABLE_SIZE   1024
+    #define FixedInvS(x)     ((x < 0) ? -divTable[abs(x)] : divTable[x])
+    #define FixedInvU(x)     divTable[x]
+    extern divTableInt divTable[DIV_TABLE_SIZE];
 
-extern divTableInt divTable[DIV_TABLE_SIZE];
+    #define GET_FRAME_T(x,n) (FixedInvU(n) * x)
+#else
+    #define GET_FRAME_T(x,n) ((x << 16) / n)
 #endif
 
 #define OT_SHIFT        4
@@ -2190,9 +2203,11 @@ int32 doTutorial(ItemObj* lara, int32 track);
 
 void sndInit();
 void sndInitSamples();
+void sndFreeSamples();
 void sndFill(uint8* buffer, int32 count);
 void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode);
 void sndPlayTrack(int32 track);
+bool sndTrackIsPlaying();
 void sndStopTrack();
 void sndStopSample(int32 index);
 void sndStop();

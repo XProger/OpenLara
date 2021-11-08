@@ -3,6 +3,7 @@ const void* TRACKS_IMA;
 void* RAM_LVL;
 void* RAM_TEX;
 void* RAM_CEL;
+void* RAM_SND;
 
 #include "game.h"
 
@@ -182,13 +183,10 @@ void* readFile(char* fileName, void* buffer, int32 bufferSize)
         return NULL;
     }
 
-    Item req;
-    IOReq* reqp;
     IOInfo params;
     DeviceStatus ds;
 
-    req = CreateIOReq(NULL, 0, f, 0);
-    reqp = (IOReq*)LookupItem(req);
+    Item req = CreateIOReq(NULL, 0, f, 0);
     memset(&params, 0, sizeof(IOInfo));
     memset(&ds, 0, sizeof(DeviceStatus));
     params.ioi_Command = CMD_STATUS;
@@ -262,8 +260,6 @@ void* osLoadLevel(const char* name)
     return RAM_LVL;
 }
 
-bool useMips = true;
-
 int main(int argc, char *argv[])
 {
     printf("OpenLara 3DO\n");
@@ -286,7 +282,7 @@ int main(int argc, char *argv[])
 
     for (int32 i = 0; i < 2; i++)
     {
-        SetCEControl(screen.sc_BitmapItems[i], 0xFFFFFFFF, ASCALL);
+        //SetCEControl(screen.sc_BitmapItems[i], 0xFFFFFFFF, ASCALL); // -5 ms but perf spikes and total blackout :(
         //DisableHAVG(screen.sc_BitmapItems[i]);
         //DisableVAVG(screen.sc_BitmapItems[i]);
     }
@@ -295,17 +291,18 @@ int main(int argc, char *argv[])
     irqVRAM = GetVRAMIOReq();
     irqTimer = GetTimerIOReq();
 
-    sndInit();
+    uint8* memVRAM = (uint8*)AllocMem(MAX_RAM_TEX, MEMTYPE_VRAM);
+    uint8* memDRAM = (uint8*)AllocMem(MAX_RAM_LVL + MAX_RAM_CEL + MAX_RAM_SND, MEMTYPE_DRAM);
 
-    RAM_TEX = AllocMem(MAX_RAM_TEX, MEMTYPE_VRAM);
+    if (!memVRAM) printf("VRAM failed!\n");
+    if (!memDRAM) printf("DRAM failed!\n");
 
-    uint8* memDRAM = (uint8*)AllocMem(MAX_RAM_LVL + MAX_RAM_CEL, MEMTYPE_DRAM);
+    RAM_TEX = memVRAM;
     RAM_LVL = memDRAM;
     RAM_CEL = memDRAM + MAX_RAM_LVL;
+    RAM_SND = memDRAM + MAX_RAM_LVL + MAX_RAM_CEL;
 
-    if (!RAM_LVL) printf("RAM_LVL failed!\n");
-    if (!RAM_TEX) printf("RAM_TEX failed!\n");
-    if (!RAM_CEL) printf("RAM_CEL failed!\n");
+    sndInit();
 
     game.init(gLevelNames[gLevelID]);
 
@@ -345,14 +342,9 @@ int main(int argc, char *argv[])
 
         if ((keys & IK_SELECT) && !(oldKeys & IK_SELECT))
         {
-            if (useMips) {
-                useMips = false;
-            } else {
-                useMips = true;
-//                gLevelID = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
-//                game.startLevel(gLevelNames[gLevelID]);
-//                lastFrame = frame - 1;
-            }
+            gLevelID = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
+            game.startLevel(gLevelNames[gLevelID]);
+            lastFrame = frame - 1;
         }
 
 int32 updateTime = osGetSystemTimeMS();

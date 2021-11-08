@@ -124,7 +124,6 @@ void readLevel_GBA(const uint8* data)
         tex->data += intptr_t(RAM_TEX);
         tex->plut += intptr_t(RAM_TEX);
     }
-    sndInitSamples();
 #endif
 }
 

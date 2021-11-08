@@ -414,8 +414,6 @@ X_INLINE void ccbSetColor(Face* face, uint32 flags)
     face->ccb_SourcePtr = (CelData*)&gPalette[flags & 0xFF];
 }
 
-extern bool useMips;
-
 X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices, int32 startVertex32)
 {
     uint32 i01 = startVertex32 + ((uint32*)indices)[0];
@@ -480,7 +478,6 @@ X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices, int32 startVer
     f->ccb_PIXC = shadeTable[intensity >> 3];
 
     uint32 texIndex = flags;
-    if (useMips)
     if (depth > (MIP_DIST >> OT_SHIFT)) {
         texIndex >>= FACE_MIP_SHIFT;
     }
@@ -557,7 +554,6 @@ X_INLINE void faceAddRoomTriangle(uint32 flags, const Index* indices, int32 star
     f->ccb_PIXC = shadeTable[intensity >> 3];
 
     uint32 texIndex = flags;
-    if (useMips)
     if (depth > (MIP_DIST >> OT_SHIFT)) {
         texIndex >>= FACE_MIP_SHIFT;
     }
