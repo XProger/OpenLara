@@ -3190,6 +3190,9 @@ struct Lara : ItemObj
             R.useBasis = L.useBasis = false;
             R.animIndex = L.animIndex = 0;
             R.frameIndex = L.frameIndex = 0;
+        #ifdef __3DO__
+            extraL->goalWeapon = extraL->weapon = (extraL->weapon + 1) % WEAPON_MAX;
+        #endif
         }
     }
 

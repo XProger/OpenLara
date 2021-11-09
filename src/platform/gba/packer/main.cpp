@@ -2878,28 +2878,29 @@ struct LevelPC
     struct Texture3DO {
         int32 data;
         int32 plut;
-        uint32 pre0;
-        uint32 pre1;
         uint8 wShift;
         uint8 hShift;
-        int16 mip;
+        uint16 color;
+        uint32 _unused;
 
         // not in file
-        uint16 color;
+        uint32 pre0;
+        uint32 pre1;
         uint8* src;
         int32 w;
         int32 h;
         uint16 flip;
+        int16 mip;
 
         void write(FileStream &f) const
         {
+            uint32 unused = 0;
             f.write(data);
             f.write(plut);
-            f.write(pre0);
-            f.write(pre1);
             f.write(wShift);
             f.write(hShift);
-            f.write(mip);
+            f.write(color);
+            f.write(unused);
         }
     } textures3DO[MAX_TEXTURES];
 
@@ -2982,6 +2983,8 @@ struct LevelPC
         #define PRE1_TLLSB_PDC0         0x00001000
         #define PRE1_WOFFSET8_SHIFT     24
         #define PRE0_BGND               0x40000000
+        #define PRE0_LINEAR             0x00000010
+        #define PRE0_BPP_16             0x00000006
 
         ASSERT(objectTexturesCount + spriteTexturesCount < MAX_TEXTURES);
 
@@ -3305,6 +3308,8 @@ struct LevelPC
 
             // write image
                 textures3DO[i].data = f.getPos();
+                f.write(textures3DO[i].pre0);
+                f.write(textures3DO[i].pre1);
                 f.write(bitmap8_tmp, rowBytes * h);
             }
 
@@ -3405,6 +3410,8 @@ struct LevelPC
 
             // write image
                 mip->data = f.getPos();
+                f.write(mip->pre0);
+                f.write(mip->pre1);
                 f.write(bitmap8_tmp, rowBytes * h);
             }
         }
@@ -3643,6 +3650,9 @@ struct LevelPC
                     calcQuadFlip(comp);
                 // add intensity
                     comp.flags |= (intensity << (FACE_MIP_SHIFT + FACE_MIP_SHIFT));
+                    if (textures3DO[comp.flags & FACE_TEXTURE].pre0 & PRE0_BGND) {
+                        comp.flags |= 1 << (8 + FACE_MIP_SHIFT + FACE_MIP_SHIFT); // set opaque flag
+                    }
                 // add mip level
                     Texture3DO* tex = textures3DO + (comp.flags & FACE_TEXTURE);
                     if (tex->mip != -1) {
@@ -3677,6 +3687,9 @@ struct LevelPC
                     comp.flags = t.flags;
                 // add intensity
                     comp.flags |= (intensity << (FACE_MIP_SHIFT + FACE_MIP_SHIFT));
+                    if (textures3DO[comp.flags & FACE_TEXTURE].pre0 & PRE0_BGND) {
+                        comp.flags |= 1 << (8 + FACE_MIP_SHIFT + FACE_MIP_SHIFT); // set opaque flag
+                    }
                 // add mip level
                     Texture3DO* tex = textures3DO + (comp.flags & FACE_TEXTURE);
                     if (tex->mip != -1) {
@@ -3895,6 +3908,9 @@ struct LevelPC
                 comp.indices[2] = q.indices[2];
                 comp.indices[3] = q.indices[3];
                 comp.flags = q.flags;
+                if (textures3DO[comp.flags & FACE_TEXTURE].pre0 & PRE0_BGND) {
+                    comp.flags |= 1 << (8 + FACE_MIP_SHIFT + FACE_MIP_SHIFT); // set opaque flag
+                }
                 calcQuadFlip(comp);
                 comp.write(f);
             }
@@ -3909,6 +3925,9 @@ struct LevelPC
                 comp.indices[2] = t.indices[2];
                 comp._unused = 0;
                 comp.flags = t.flags;
+                if (textures3DO[comp.flags & FACE_TEXTURE].pre0 & PRE0_BGND) {
+                    comp.flags |= 1 << (8 + FACE_MIP_SHIFT + FACE_MIP_SHIFT); // set opaque flag
+                }
                 comp.write(f);
             }
 

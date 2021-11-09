@@ -226,12 +226,12 @@ void* readFile(char* fileName, void* buffer, int32 bufferSize)
     return ptr;
 }
 
-int32 gLevelID = 1;
+int32 gLevelID = 0;
 
 static const char* gLevelNames[] = {
     "GYM",
     "LEVEL1",
-//    "LEVEL2",
+    "LEVEL2",
 //    "LEVEL3A",
 //    "LEVEL3B",
 //    "LEVEL4",
@@ -345,6 +345,18 @@ int main(int argc, char *argv[])
             gLevelID = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
             game.startLevel(gLevelNames[gLevelID]);
             lastFrame = frame - 1;
+        }
+
+        if ((keys & IK_A) && (keys & IK_C)) // respawn
+        {
+            Lara* lara = players[0];
+            if (lara->health <= 0)
+            {
+                lara->health = LARA_MAX_HEALTH;
+                lara->oxygen = LARA_MAX_OXYGEN;
+                lara->animSet(Lara::ANIM_STAND, true, 0);
+                //game.resetLara(0, lara->room - rooms, lara->pos, lara->angle.y);
+            }
         }
 
 int32 updateTime = osGetSystemTimeMS();

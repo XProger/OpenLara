@@ -47,7 +47,7 @@
     #define SND_BUFFER_SIZE     (4 * BLOCK_SIZE_CD)
     #define SND_BUFFERS         4
 
-    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 29) // 38 for LEVEL10C! >_<
+    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 30) // 38 for LEVEL10C! >_<
     #define MAX_RAM_TEX         (BLOCK_SIZE_VRAM * 44)
     #define MAX_RAM_CEL         (MAX_FACES * sizeof(CCB))
     #define MAX_RAM_SND         (SND_BUFFERS * SND_BUFFER_SIZE)
@@ -413,7 +413,7 @@ extern int32 fps;
 #define MAX_STATIC_MESHES   50
 #define MAX_CAMERAS         16
 #define MAX_BOXES           1024
-#define MAX_VERTICES        (5*1024)
+#define MAX_VERTICES        (3*1024)
 #define MAX_TEXTURES        1536
 #define MAX_FACES           1920
 #define MAX_ROOM_LIST       16
@@ -930,11 +930,10 @@ struct Texture
 #ifdef __3DO__
     uint8* data;
     uint8* plut;
-    uint32 pre0;
-    uint32 pre1;
-    uint8 wShift;
-    uint8 hShift;
-    uint16 flip;
+    uint8  wShift;
+    uint8  hShift;
+    uint16 color;
+    uint32 _unused;
 #else
     uint16 attribute;
     uint16 tile;
@@ -2174,13 +2173,13 @@ void transform(vec3i* points, int32 count);
 bool transformBoxRect(const AABBs* box, RectMinMax* rect);
 void transformRoom(const RoomVertex* vertices, int32 vCount, bool underwater);
 void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal);
-void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex32);
-void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex32);
+void faceAddQuad(uint32 flags, const Index* indices);
+void faceAddTriangle(uint32 flags, const Index* indices);
 void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz);
 void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index);
 void faceAddGlyph(int32 vx, int32 vy, int32 index);
-void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount, int32 startVertex);
-void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount, int32 startVertex);
+void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount);
+void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount);
 void flush();
 
 void drawInit();

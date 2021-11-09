@@ -213,8 +213,6 @@ void drawMesh(int32 meshIndex)
         ptr += vCount * sizeof(uint16);
     }
 
-    int32 startVertex = gVerticesCount;
-
     if (MAX_VERTICES - gVerticesCount < vCount)
         return;
 
@@ -228,7 +226,7 @@ void drawMesh(int32 meshIndex)
 
     {
         PROFILE(CNT_ADD);
-        faceAddMesh(rFaces, crFaces, tFaces, ctFaces, mesh->rCount, mesh->crCount, mesh->tCount, mesh->ctCount, startVertex);
+        faceAddMesh(rFaces, crFaces, tFaces, ctFaces, mesh->rCount, mesh->crCount, mesh->tCount, mesh->ctCount);
     }
 }
 
@@ -749,8 +747,6 @@ void drawRoom(const Room* room, Camera* camera)
 {
     setViewport(room->clip);
 
-    int32 startVertex = gVerticesCount;
-
     const RoomInfo* info = room->info;
     const RoomData& data = room->data;
 
@@ -802,7 +798,7 @@ void drawRoom(const Room* room, Camera* camera)
 
     {
         PROFILE(CNT_ADD);
-        faceAddRoom(data.quads, info->quadsCount, data.triangles, info->trianglesCount, startVertex);
+        faceAddRoom(data.quads, info->quadsCount, data.triangles, info->trianglesCount);
     }
 
     matrixPop();

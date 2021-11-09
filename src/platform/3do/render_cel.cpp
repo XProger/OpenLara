@@ -20,6 +20,9 @@ int32 gFacesCount;
 Vertex gVertices[MAX_VERTICES];
 uint8  gClip[MAX_VERTICES];
 
+Vertex* gVerticesBase = NULL;
+uint8*  gClipBase = NULL;
+
 Face* gFaces; // MAX_FACES
 Face* otFacesHead[OT_SIZE];
 Face* otFacesTail[OT_SIZE];
@@ -116,6 +119,15 @@ void renderInit()
         face->ccb_PRE0 = PRE0_BGND | PRE0_LINEAR | PRE0_BPP_16;
         face->ccb_PRE1 = PRE1_TLLSB_PDC0;
     }
+
+    gVerticesBase = gVertices;
+    gClipBase = gClip;
+}
+
+void resetBase()
+{
+    gVerticesBase = gVertices + gVerticesCount;
+    gClipBase = gClip + gVerticesCount;
 }
 
 void setViewport(const RectMinMax &vp)
@@ -245,13 +257,15 @@ const RoomVertex* gRoomVertices;
 
 void transformRoom(const RoomVertex* vertices, int32 vCount, bool underwater)
 {
+    resetBase();
+
     gRoomVertices = vertices;
 
     int32 cx = cameraViewOffset.x << F16_SHIFT;
     int32 cy = cameraViewOffset.y << F16_SHIFT;
     int32 cz = cameraViewOffset.z << F16_SHIFT;
 
-    Vertex* res = &gVertices[gVerticesCount];
+    Vertex* res = gVerticesBase;
 
     // use one aligned LDR instead of LDRB x3
     uint32 *v32 = (uint32*)vertices;
@@ -264,15 +278,15 @@ void transformRoom(const RoomVertex* vertices, int32 vCount, bool underwater)
         res->z = cz + (((p >> 8) & 0xFF) << (10 + F16_SHIFT));
     }
 
-    transform((vec3i*)&gVertices[gVerticesCount], vCount);
+    transform((vec3i*)gVerticesBase, vCount);
 
     int32 x0 = viewportRel.x0;
     int32 y0 = viewportRel.y0;
     int32 x1 = viewportRel.x1;
     int32 y1 = viewportRel.y1;
 
-    res = &gVertices[gVerticesCount];
-    uint8* clip = &gClip[gVerticesCount];
+    res = gVerticesBase;
+    uint8* clip = gClipBase;
 
     for (int32 i = 0; i < vCount; i++, res++, clip++)
     {
@@ -295,6 +309,8 @@ void transformRoom(const RoomVertex* vertices, int32 vCount, bool underwater)
 
 void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal)
 {
+    resetBase();
+
     Matrix &m = matrixGet();
 
     // TODO_3DO normalize 3x3 interpolated matrix or get cameraViewOffset for the general case somehow
@@ -303,7 +319,7 @@ void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vInte
     int32 cy = Dot3_F16(*(vec3f16*)&m.e03, *(vec3f16*)&m.e01) >> DOT_SHIFT; // dot(pos, up)
     int32 cz = Dot3_F16(*(vec3f16*)&m.e03, *(vec3f16*)&m.e02) >> DOT_SHIFT; // dot(pos, dir)
 
-    Vertex* res = &gVertices[gVerticesCount];
+    Vertex* res = gVerticesBase;
 
     uint32 *v32 = (uint32*)vertices;
 
@@ -318,25 +334,8 @@ void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vInte
         res->z = cz + int16(p);
     }
 
-    transform((vec3i*)&gVertices[gVerticesCount], vCount);
+    transform((vec3i*)gVerticesBase, vCount);
 
-    int32 x0 = viewportRel.x0;
-    int32 y0 = viewportRel.y0;
-    int32 x1 = viewportRel.x1;
-    int32 y1 = viewportRel.y1;
-/*
-    res = &gVertices[gVerticesCount];
-    uint8* clip = &gClip[gVerticesCount];
-
-    for (int32 i = 0; i < vCount; i++, res++, clip++)
-    {
-        if (res->z < (VIEW_MIN_F >> FIXED_SHIFT) || res->z >= (VIEW_MAX_F >> FIXED_SHIFT)) {
-            *clip = 32;
-        } else {
-            *clip = enableClipping ? classify(res, x0, y0, x1, y1) : 0;
-        }
-    }
-*/
     gVerticesCount += vCount;
 }
 
@@ -408,20 +407,20 @@ X_INLINE void ccbSetColor(uint32 flags, Face* face)
     face->ccb_SourcePtr = (CelData*)&gPalette[flags & 0xFF];
 }
 
-X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices, int32 startVertex32)
+X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices)
 {
-    uint32 i01 = startVertex32 + ((uint32*)indices)[0];
-    uint32 i23 = startVertex32 + ((uint32*)indices)[1];
+    uint32 i01 = ((uint32*)indices)[0];
+    uint32 i23 = ((uint32*)indices)[1];
 
     uint32 i0 = (i01 >> 16);
     uint32 i1 = (i01 & 0xFFFF);
     uint32 i2 = (i23 >> 16);
     uint32 i3 = (i23 & 0xFFFF);
 
-    uint8 c0 = gClip[i0];
-    uint8 c1 = gClip[i1];
-    uint8 c2 = gClip[i2];
-    uint8 c3 = gClip[i3];
+    uint8 c0 = gClipBase[i0];
+    uint8 c1 = gClipBase[i1];
+    uint8 c2 = gClipBase[i2];
+    uint8 c3 = gClipBase[i3];
 
     if (c0 & c1 & c2 & c3)
         return;
@@ -429,10 +428,10 @@ X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices, int32 startVer
     if (c0 == 32 || c1 == 32 || c2 == 32 || c3 == 32)
         return;
 
-    const Vertex* v0 = gVertices + i0;
-    const Vertex* v1 = gVertices + i1;
-    const Vertex* v2 = gVertices + i2;
-    const Vertex* v3 = gVertices + i3;
+    const Vertex* v0 = gVerticesBase + i0;
+    const Vertex* v1 = gVerticesBase + i1;
+    const Vertex* v2 = gVerticesBase + i2;
+    const Vertex* v3 = gVerticesBase + i3;
 
     if (checkBackface(v0, v1, v2) == !(flags & FACE_CCW))
         return;
@@ -488,18 +487,18 @@ X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices, int32 startVer
     f->ccb_HDDY = (hdy1 - hdy0) >> hs;
 }
 
-X_INLINE void faceAddRoomTriangle(uint32 flags, const Index* indices, int32 startVertex32)
+X_INLINE void faceAddRoomTriangle(uint32 flags, const Index* indices)
 {
-    uint32 i01 = ((uint32*)indices)[0] + startVertex32;
-    uint32 i23 = ((uint32*)indices)[1] + startVertex32;
+    uint32 i01 = ((uint32*)indices)[0];
+    uint32 i23 = ((uint32*)indices)[1];
 
     uint32 i0 = (i01 >> 16);
     uint32 i1 = (i01 & 0xFFFF);
     uint32 i2 = (i23 >> 16);
 
-    uint8 c0 = gClip[i0];
-    uint8 c1 = gClip[i1];
-    uint8 c2 = gClip[i2];
+    uint8 c0 = gClipBase[i0];
+    uint8 c1 = gClipBase[i1];
+    uint8 c2 = gClipBase[i2];
 
     if (c0 & c1 & c2)
         return;
@@ -507,9 +506,9 @@ X_INLINE void faceAddRoomTriangle(uint32 flags, const Index* indices, int32 star
     if (c0 == 32 || c1 == 32 || c2 == 32)
         return;
 
-    const Vertex* v0 = gVertices + i0;
-    const Vertex* v1 = gVertices + i1;
-    const Vertex* v2 = gVertices + i2;
+    const Vertex* v0 = gVerticesBase + i0;
+    const Vertex* v1 = gVerticesBase + i1;
+    const Vertex* v2 = gVerticesBase + i2;
 
     if (checkBackface(v0, v1, v2))
         return;
@@ -561,20 +560,20 @@ X_INLINE void faceAddRoomTriangle(uint32 flags, const Index* indices, int32 star
     f->ccb_HDDY = -hdy0 >> hs;
 }
 
-X_INLINE void faceAddMeshQuad(uint32 flags, const Index* indices, int32 startVertex32, uint32 shade)
+X_INLINE void faceAddMeshQuad(uint32 flags, const Index* indices, uint32 shade)
 {
-    uint32 i01 = startVertex32 + ((uint32*)indices)[0];
-    uint32 i23 = startVertex32 + ((uint32*)indices)[1];
+    uint32 i01 = ((uint32*)indices)[0];
+    uint32 i23 = ((uint32*)indices)[1];
 
     uint32 i0 = (i01 >> 16);
     uint32 i1 = (i01 & 0xFFFF);
     uint32 i2 = (i23 >> 16);
     uint32 i3 = (i23 & 0xFFFF);
 
-    const Vertex* v0 = gVertices + i0;
-    const Vertex* v1 = gVertices + i1;
-    const Vertex* v2 = gVertices + i2;
-    const Vertex* v3 = gVertices + i3;
+    const Vertex* v0 = gVerticesBase + i0;
+    const Vertex* v1 = gVerticesBase + i1;
+    const Vertex* v2 = gVerticesBase + i2;
+    const Vertex* v3 = gVerticesBase + i3;
 
     if (checkBackface(v0, v1, v2) == !(flags & FACE_CCW))
         return;
@@ -619,18 +618,18 @@ X_INLINE void faceAddMeshQuad(uint32 flags, const Index* indices, int32 startVer
     f->ccb_HDDY = (hdy1 - hdy0) >> hs;
 }
 
-X_INLINE void faceAddMeshTriangle(uint32 flags, const Index* indices, int32 startVertex32, uint32 shade)
+X_INLINE void faceAddMeshTriangle(uint32 flags, const Index* indices, uint32 shade)
 {
-    uint32 i01 = ((uint32*)indices)[0] + startVertex32;
-    uint32 i23 = ((uint32*)indices)[1] + startVertex32;
+    uint32 i01 = ((uint32*)indices)[0];
+    uint32 i23 = ((uint32*)indices)[1];
 
     uint32 i0 = (i01 >> 16);
     uint32 i1 = (i01 & 0xFFFF);
     uint32 i2 = (i23 >> 16);
 
-    const Vertex* v0 = gVertices + i0;
-    const Vertex* v1 = gVertices + i1;
-    const Vertex* v2 = gVertices + i2;
+    const Vertex* v0 = gVerticesBase + i0;
+    const Vertex* v1 = gVerticesBase + i1;
+    const Vertex* v2 = gVerticesBase + i2;
 
     if (checkBackface(v0, v1, v2))
         return;
@@ -671,20 +670,20 @@ X_INLINE void faceAddMeshTriangle(uint32 flags, const Index* indices, int32 star
     f->ccb_HDDY = -hdy0 >> hs;
 }
 
-X_INLINE void faceAddMeshQuadFlat(uint32 flags, const Index* indices, int32 startVertex32, uint32 shade)
+X_INLINE void faceAddMeshQuadFlat(uint32 flags, const Index* indices, uint32 shade)
 {
-    uint32 i01 = startVertex32 + ((uint32*)indices)[0];
-    uint32 i23 = startVertex32 + ((uint32*)indices)[1];
+    uint32 i01 = ((uint32*)indices)[0];
+    uint32 i23 = ((uint32*)indices)[1];
 
     uint32 i0 = (i01 >> 16);
     uint32 i1 = (i01 & 0xFFFF);
     uint32 i2 = (i23 >> 16);
     uint32 i3 = (i23 & 0xFFFF);
 
-    const Vertex* v0 = gVertices + i0;
-    const Vertex* v1 = gVertices + i1;
-    const Vertex* v2 = gVertices + i2;
-    const Vertex* v3 = gVertices + i3;
+    const Vertex* v0 = gVerticesBase + i0;
+    const Vertex* v1 = gVerticesBase + i1;
+    const Vertex* v2 = gVerticesBase + i2;
+    const Vertex* v3 = gVerticesBase + i3;
 
     if (checkBackface(v0, v1, v2))
         return;
@@ -724,18 +723,18 @@ X_INLINE void faceAddMeshQuadFlat(uint32 flags, const Index* indices, int32 star
     f->ccb_HDDY = (hdy1 - hdy0);
 }
 
-X_INLINE void faceAddMeshTriangleFlat(uint32 flags, const Index* indices, int32 startVertex32, uint32 shade)
+X_INLINE void faceAddMeshTriangleFlat(uint32 flags, const Index* indices, uint32 shade)
 {
-    uint32 i01 = ((uint32*)indices)[0] + startVertex32;
-    uint32 i23 = ((uint32*)indices)[1] + startVertex32;
+    uint32 i01 = ((uint32*)indices)[0];
+    uint32 i23 = ((uint32*)indices)[1];
 
     uint32 i0 = (i01 >> 16);
     uint32 i1 = (i01 & 0xFFFF);
     uint32 i2 = (i23 >> 16);
 
-    const Vertex* v0 = gVertices + i0;
-    const Vertex* v1 = gVertices + i1;
-    const Vertex* v2 = gVertices + i2;
+    const Vertex* v0 = gVerticesBase + i0;
+    const Vertex* v1 = gVerticesBase + i1;
+    const Vertex* v2 = gVerticesBase + i2;
 
     if (checkBackface(v0, v1, v2))
         return;
@@ -792,8 +791,6 @@ void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz)
         { 0, x - sx2, 0, z + sz  }  // 7
     };
 
-    int32 startVertex32 = gVerticesCount | (gVerticesCount << 16);
-
     transformMesh(v, 8, NULL, NULL);
 
     static const Index indices[] = {
@@ -802,9 +799,9 @@ void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz)
         6, 3, 4, 5
     };
 
-    faceAddMeshQuadFlat(0, indices + 0, startVertex32, SHADE_SHADOW);
-    faceAddMeshQuadFlat(0, indices + 4, startVertex32, SHADE_SHADOW);
-    faceAddMeshQuadFlat(0, indices + 8, startVertex32, SHADE_SHADOW);
+    faceAddMeshQuadFlat(0, indices + 0, SHADE_SHADOW);
+    faceAddMeshQuadFlat(0, indices + 4, SHADE_SHADOW);
+    faceAddMeshQuadFlat(0, indices + 8, SHADE_SHADOW);
 }
 
 void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
@@ -894,23 +891,19 @@ void faceAddGlyph(int32 vx, int32 vy, int32 index)
     f->ccb_HDDY = 0;
 }
 
-void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount, int32 startVertex)
+void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount)
 {
-    startVertex |= startVertex << 16;
-
     for (int32 i = 0; i < qCount; i++, quads++) {
-        faceAddRoomQuad(quads->flags, quads->indices, startVertex);
+        faceAddRoomQuad(quads->flags, quads->indices);
     }
 
     for (int32 i = 0; i < tCount; i++, triangles++) {
-        faceAddRoomTriangle(triangles->flags, triangles->indices, startVertex);
+        faceAddRoomTriangle(triangles->flags, triangles->indices);
     }
 }
 
-void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount, int32 startVertex)
+void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount)
 {
-    startVertex |= startVertex << 16;
-
     uint32 shade;
     if (lightAmbient > 4096) {
         shade = shadeTable[lightAmbient >> 8];
@@ -919,19 +912,19 @@ void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces
     }
 
     for (int32 i = 0; i < rCount; i++) {
-        faceAddMeshQuad(rFaces[i].flags, rFaces[i].indices, startVertex, shade);
+        faceAddMeshQuad(rFaces[i].flags, rFaces[i].indices, shade);
     }
 
     for (int32 i = 0; i < tCount; i++) {
-        faceAddMeshTriangle(tFaces[i].flags, tFaces[i].indices, startVertex, shade);
+        faceAddMeshTriangle(tFaces[i].flags, tFaces[i].indices, shade);
     }
 
     for (int32 i = 0; i < crCount; i++) {
-        faceAddMeshQuadFlat(crFaces[i].flags, crFaces[i].indices, startVertex, shade);
+        faceAddMeshQuadFlat(crFaces[i].flags, crFaces[i].indices, shade);
     }
 
     for (int32 i = 0; i < ctCount; i++) {
-        faceAddMeshTriangleFlat(ctFaces[i].flags, ctFaces[i].indices, startVertex, shade);
+        faceAddMeshTriangleFlat(ctFaces[i].flags, ctFaces[i].indices, shade);
     }
 }
 
@@ -984,6 +977,8 @@ void flush()
 
     gVerticesCount = 0;
     gFacesCount = 0;
+
+    resetBase();
 }
 
 void clear()
