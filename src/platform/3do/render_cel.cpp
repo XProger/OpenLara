@@ -124,7 +124,7 @@ void renderInit()
     gClipBase = gClip;
 }
 
-void resetBase()
+X_INLINE void resetBase()
 {
     gVerticesBase = gVertices + gVerticesCount;
     gClipBase = gClip + gVerticesCount;
@@ -433,7 +433,7 @@ X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices)
     const Vertex* v2 = gVerticesBase + i2;
     const Vertex* v3 = gVerticesBase + i3;
 
-    if (checkBackface(v0, v1, v2) == !(flags & FACE_CCW))
+    if (checkBackface(v0, v1, v3) == !(flags & FACE_CCW))
         return;
 
     int32 depth = DEPTH_Q_MAX();
@@ -560,22 +560,19 @@ X_INLINE void faceAddRoomTriangle(uint32 flags, const Index* indices)
     f->ccb_HDDY = -hdy0 >> hs;
 }
 
-X_INLINE void faceAddMeshQuad(uint32 flags, const Index* indices, uint32 shade)
+X_INLINE void faceAddMeshQuad(uint32 flags, uint32 indices, uint32 shade)
 {
-    uint32 i01 = ((uint32*)indices)[0];
-    uint32 i23 = ((uint32*)indices)[1];
-
-    uint32 i0 = (i01 >> 16);
-    uint32 i1 = (i01 & 0xFFFF);
-    uint32 i2 = (i23 >> 16);
-    uint32 i3 = (i23 & 0xFFFF);
+    uint32 i0 = indices & 0xFF; indices >>= 8;
+    uint32 i1 = indices & 0xFF; indices >>= 8;
+    uint32 i2 = indices & 0xFF; indices >>= 8;
+    uint32 i3 = indices;
 
     const Vertex* v0 = gVerticesBase + i0;
     const Vertex* v1 = gVerticesBase + i1;
     const Vertex* v2 = gVerticesBase + i2;
     const Vertex* v3 = gVerticesBase + i3;
 
-    if (checkBackface(v0, v1, v2) == !(flags & FACE_CCW))
+    if (checkBackface(v0, v1, v3) == !(flags & FACE_CCW)) // TODO (hdx0 * vdy0 - vdx0 * hdy0) <= 0
         return;
 
     int32 depth = DEPTH_Q_AVG();
@@ -618,14 +615,11 @@ X_INLINE void faceAddMeshQuad(uint32 flags, const Index* indices, uint32 shade)
     f->ccb_HDDY = (hdy1 - hdy0) >> hs;
 }
 
-X_INLINE void faceAddMeshTriangle(uint32 flags, const Index* indices, uint32 shade)
+X_INLINE void faceAddMeshTriangle(uint32 flags, uint32 indices, uint32 shade)
 {
-    uint32 i01 = ((uint32*)indices)[0];
-    uint32 i23 = ((uint32*)indices)[1];
-
-    uint32 i0 = (i01 >> 16);
-    uint32 i1 = (i01 & 0xFFFF);
-    uint32 i2 = (i23 >> 16);
+    uint32 i0 = indices & 0xFF; indices >>= 8;
+    uint32 i1 = indices & 0xFF; indices >>= 8;
+    uint32 i2 = indices;
 
     const Vertex* v0 = gVerticesBase + i0;
     const Vertex* v1 = gVerticesBase + i1;
@@ -670,22 +664,19 @@ X_INLINE void faceAddMeshTriangle(uint32 flags, const Index* indices, uint32 sha
     f->ccb_HDDY = -hdy0 >> hs;
 }
 
-X_INLINE void faceAddMeshQuadFlat(uint32 flags, const Index* indices, uint32 shade)
+X_INLINE void faceAddMeshQuadFlat(uint32 flags, uint32 indices, uint32 shade)
 {
-    uint32 i01 = ((uint32*)indices)[0];
-    uint32 i23 = ((uint32*)indices)[1];
-
-    uint32 i0 = (i01 >> 16);
-    uint32 i1 = (i01 & 0xFFFF);
-    uint32 i2 = (i23 >> 16);
-    uint32 i3 = (i23 & 0xFFFF);
+    uint32 i0 = indices & 0xFF; indices >>= 8;
+    uint32 i1 = indices & 0xFF; indices >>= 8;
+    uint32 i2 = indices & 0xFF; indices >>= 8;
+    uint32 i3 = indices;
 
     const Vertex* v0 = gVerticesBase + i0;
     const Vertex* v1 = gVerticesBase + i1;
     const Vertex* v2 = gVerticesBase + i2;
     const Vertex* v3 = gVerticesBase + i3;
 
-    if (checkBackface(v0, v1, v2))
+    if (checkBackface(v0, v1, v3))
         return;
 
     int32 depth = DEPTH_Q_AVG();
@@ -723,14 +714,11 @@ X_INLINE void faceAddMeshQuadFlat(uint32 flags, const Index* indices, uint32 sha
     f->ccb_HDDY = (hdy1 - hdy0);
 }
 
-X_INLINE void faceAddMeshTriangleFlat(uint32 flags, const Index* indices, uint32 shade)
+X_INLINE void faceAddMeshTriangleFlat(uint32 flags, uint32 indices, uint32 shade)
 {
-    uint32 i01 = ((uint32*)indices)[0];
-    uint32 i23 = ((uint32*)indices)[1];
-
-    uint32 i0 = (i01 >> 16);
-    uint32 i1 = (i01 & 0xFFFF);
-    uint32 i2 = (i23 >> 16);
+    uint32 i0 = indices & 0xFF; indices >>= 8;
+    uint32 i1 = indices & 0xFF; indices >>= 8;
+    uint32 i2 = indices;
 
     const Vertex* v0 = gVerticesBase + i0;
     const Vertex* v1 = gVerticesBase + i1;
@@ -793,15 +781,9 @@ void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz)
 
     transformMesh(v, 8, NULL, NULL);
 
-    static const Index indices[] = {
-        0, 1, 2, 7,
-        7, 2, 3, 6,
-        6, 3, 4, 5
-    };
-
-    faceAddMeshQuadFlat(0, indices + 0, SHADE_SHADOW);
-    faceAddMeshQuadFlat(0, indices + 4, SHADE_SHADOW);
-    faceAddMeshQuadFlat(0, indices + 8, SHADE_SHADOW);
+    faceAddMeshQuadFlat(0, (0 | (1 << 8) | (2 << 16) | (7 << 24)), SHADE_SHADOW);
+    faceAddMeshQuadFlat(0, (7 | (2 << 8) | (3 << 16) | (6 << 24)), SHADE_SHADOW);
+    faceAddMeshQuadFlat(0, (6 | (3 << 8) | (4 << 16) | (5 << 24)), SHADE_SHADOW);
 }
 
 void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
@@ -891,7 +873,7 @@ void faceAddGlyph(int32 vx, int32 vy, int32 index)
     f->ccb_HDDY = 0;
 }
 
-void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount)
+void faceAddRoom(const RoomQuad* quads, int32 qCount, const RoomTriangle* triangles, int32 tCount)
 {
     for (int32 i = 0; i < qCount; i++, quads++) {
         faceAddRoomQuad(quads->flags, quads->indices);
@@ -902,7 +884,7 @@ void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int
     }
 }
 
-void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount)
+void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTriangle* tFaces, const MeshTriangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount)
 {
     uint32 shade;
     if (lightAmbient > 4096) {

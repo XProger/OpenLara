@@ -6,7 +6,7 @@ RectMinMax viewport;
 vec3i cameraViewPos;
 vec3i cameraViewOffset;
 Matrix matrixStack[MAX_MATRICES];
-int32 matrixStackIndex = 0;
+Matrix* matrixPtr = matrixStack;
 
 const FloorData* gLastFloorData;
 FloorData gLastFloorSlant;

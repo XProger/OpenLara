@@ -189,22 +189,22 @@ void drawMesh(int32 meshIndex)
     const MeshVertex* vertices = (MeshVertex*)ptr;
     ptr += vCount * sizeof(vertices[0]);
 
-    Quad* rFaces = (Quad*)ptr;
-    ptr += mesh->rCount * sizeof(Quad);
+    MeshQuad* rFaces = (MeshQuad*)ptr;
+    ptr += mesh->rCount * sizeof(MeshQuad);
 
-    Triangle* tFaces = (Triangle*)ptr;
-    ptr += mesh->tCount * sizeof(Triangle);
+    MeshTriangle* tFaces = (MeshTriangle*)ptr;
+    ptr += mesh->tCount * sizeof(MeshTriangle);
 
-    Quad* crFaces = (Quad*)ptr;
-    ptr += mesh->crCount * sizeof(Quad);
+    MeshQuad* crFaces = (MeshQuad*)ptr;
+    ptr += mesh->crCount * sizeof(MeshQuad);
 
-    Triangle* ctFaces = (Triangle*)ptr;
-    ptr += mesh->ctCount * sizeof(Triangle);
+    MeshTriangle* ctFaces = (MeshTriangle*)ptr;
+    ptr += mesh->ctCount * sizeof(MeshTriangle);
 
     const uint16* vIntensity = NULL;
     const vec3s* vNormal = NULL;
 
-    //const int16* normals = (int16*)ptr;
+#ifndef __3DO__
     if (hasNormals) { // normals
         vNormal = (vec3s*)ptr;
         ptr += vCount * sizeof(vec3s);
@@ -212,6 +212,7 @@ void drawMesh(int32 meshIndex)
         vIntensity = (uint16*)ptr;
         ptr += vCount * sizeof(uint16);
     }
+#endif
 
     if (MAX_VERTICES - gVerticesCount < vCount)
         return;

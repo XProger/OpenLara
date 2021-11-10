@@ -260,6 +260,16 @@ void* osLoadLevel(const char* name)
     return RAM_LVL;
 }
 
+uint32 frame;
+uint32 lastFrame;
+
+int32 reqNextLevel = -1;
+
+void nextLevel()
+{
+    reqNextLevel = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
+}
+
 int main(int argc, char *argv[])
 {
     printf("OpenLara 3DO\n");
@@ -269,8 +279,6 @@ int main(int argc, char *argv[])
     AvailMem(&memInfoVRAM, MEMTYPE_VRAM);
     printf("VRAM: %d\n", memInfoVRAM.minfo_SysFree);
 
-    uint32 lastFrame;
-    uint32 frame;
     uint32 lastSec = 0;
     uint32 frameIndex = 0;
 
@@ -342,7 +350,13 @@ int main(int argc, char *argv[])
 
         if ((keys & IK_SELECT) && !(oldKeys & IK_SELECT))
         {
-            gLevelID = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
+            nextLevel();
+        }
+
+        if (reqNextLevel > -1)
+        {
+            gLevelID = reqNextLevel;
+            reqNextLevel = -1;
             game.startLevel(gLevelNames[gLevelID]);
             lastFrame = frame - 1;
         }

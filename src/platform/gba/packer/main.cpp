@@ -638,10 +638,15 @@ void fixTexCoord(uint32 uv0, uint32 &uv1)
 
 #define TEX_FLIP_X      1
 #define TEX_FLIP_Y      2
-#define FACE_TEXTURE    0x07FF
-
 #define TEX_ATTR_AKILL  0x0001
 #define TEX_ATTR_MIPS   0x8000
+
+// 3DO face flags
+// 1:ccw, 1:opaque, 8:intensity, 11:mipTexIndex, 11:texIndex
+#define FACE_MIP_SHIFT  11
+#define FACE_TEXTURE    ((1 << FACE_MIP_SHIFT) - 1)
+#define FACE_OPAQUE     (1 << 30)
+#define FACE_CCW        (1 << 31)
 
 #define CLIP(x,lo,hi) \
     if ( x < lo ) \
@@ -804,7 +809,7 @@ void BlockADDVIEncode(uint8 *buffer, short *samples, long numSamples, long chann
 #pragma pack(1)
 struct LevelPC
 {
-    struct Quad3DO
+    struct RoomQuad3DO
     {
         uint16 indices[4];
         uint32 flags;
@@ -815,6 +820,21 @@ struct LevelPC
             f.write(indices[1]);
             f.write(indices[2]);
             f.write(indices[3]);
+            f.write(flags);
+        }
+    };
+
+    struct MeshQuad3DO
+    {
+        uint8  indices[4];
+        uint32 flags;
+
+        void write(FileStream &f) const
+        {
+            f.write(indices[3]);
+            f.write(indices[2]);
+            f.write(indices[1]);
+            f.write(indices[0]);
             f.write(flags);
         }
     };
@@ -834,7 +854,7 @@ struct LevelPC
         }
     };
 
-    struct Triangle3DO
+    struct RoomTriangle3DO
     {
         uint16 indices[3];
         uint16 _unused;
@@ -846,6 +866,23 @@ struct LevelPC
             f.write(indices[1]);
             f.write(indices[2]);
             f.write(_unused);
+            f.write(flags);
+        }
+    };
+
+    struct MeshTriangle3DO
+    {
+        uint8  indices[3];
+        uint8  _unused;
+        uint32 flags;
+
+        void write(FileStream &f) const
+        {
+            uint8 unused = 0;
+            f.write(unused);
+            f.write(indices[2]);
+            f.write(indices[1]);
+            f.write(indices[0]);
             f.write(flags);
         }
     };
@@ -2946,11 +2983,8 @@ struct LevelPC
         return sizeof(PLUT) * plutsCount++;
     }
 
-    #define FACE_CCW        (1 << 31)
-    #define FACE_MIP_SHIFT  11
-    #define FACE_TEXTURE    ((1 << FACE_MIP_SHIFT) - 1)
-
-    void calcQuadFlip(Quad3DO &q)
+    template <typename T>
+    void calcQuadFlip(T &q)
     {
         Texture3DO* tex = textures3DO + (q.flags & FACE_TEXTURE);
         bool flip = false;
@@ -3640,7 +3674,7 @@ struct LevelPC
                     q.indices[2] = addRoomVertex(v2, true);
                     q.indices[3] = addRoomVertex(v3, true);
 
-                    Quad3DO comp;
+                    RoomQuad3DO comp;
                     comp.indices[0] = q.indices[0];
                     comp.indices[1] = q.indices[1];
                     comp.indices[2] = q.indices[2];
@@ -3651,7 +3685,7 @@ struct LevelPC
                 // add intensity
                     comp.flags |= (intensity << (FACE_MIP_SHIFT + FACE_MIP_SHIFT));
                     if (textures3DO[comp.flags & FACE_TEXTURE].pre0 & PRE0_BGND) {
-                        comp.flags |= 1 << (8 + FACE_MIP_SHIFT + FACE_MIP_SHIFT); // set opaque flag
+                        comp.flags |= FACE_OPAQUE; // set opaque flag
                     }
                 // add mip level
                     Texture3DO* tex = textures3DO + (comp.flags & FACE_TEXTURE);
@@ -3679,7 +3713,7 @@ struct LevelPC
                     t.indices[1] = addRoomVertex(v1, true);
                     t.indices[2] = addRoomVertex(v2, true);
 
-                    Triangle3DO comp;
+                    RoomTriangle3DO comp;
                     comp.indices[0] = t.indices[0];
                     comp.indices[1] = t.indices[1];
                     comp.indices[2] = t.indices[2];
@@ -3688,7 +3722,7 @@ struct LevelPC
                 // add intensity
                     comp.flags |= (intensity << (FACE_MIP_SHIFT + FACE_MIP_SHIFT));
                     if (textures3DO[comp.flags & FACE_TEXTURE].pre0 & PRE0_BGND) {
-                        comp.flags |= 1 << (8 + FACE_MIP_SHIFT + FACE_MIP_SHIFT); // set opaque flag
+                        comp.flags |= FACE_OPAQUE; // set opaque flag
                     }
                 // add mip level
                     Texture3DO* tex = textures3DO + (comp.flags & FACE_TEXTURE);
@@ -3902,14 +3936,19 @@ struct LevelPC
             {
                 Quad q = rFaces[j];
 
-                Quad3DO comp;
+                ASSERT(q.indices[0] < 256);
+                ASSERT(q.indices[1] < 256);
+                ASSERT(q.indices[2] < 256);
+                ASSERT(q.indices[3] < 256);
+
+                MeshQuad3DO comp;
                 comp.indices[0] = q.indices[0];
                 comp.indices[1] = q.indices[1];
                 comp.indices[2] = q.indices[2];
                 comp.indices[3] = q.indices[3];
                 comp.flags = q.flags;
                 if (textures3DO[comp.flags & FACE_TEXTURE].pre0 & PRE0_BGND) {
-                    comp.flags |= 1 << (8 + FACE_MIP_SHIFT + FACE_MIP_SHIFT); // set opaque flag
+                    comp.flags |= FACE_OPAQUE; // set opaque flag
                 }
                 calcQuadFlip(comp);
                 comp.write(f);
@@ -3919,14 +3958,18 @@ struct LevelPC
             {
                 Triangle t = tFaces[j];
 
-                Triangle3DO comp;
+                ASSERT(t.indices[0] < 256);
+                ASSERT(t.indices[1] < 256);
+                ASSERT(t.indices[2] < 256);
+
+                MeshTriangle3DO comp;
                 comp.indices[0] = t.indices[0];
                 comp.indices[1] = t.indices[1];
                 comp.indices[2] = t.indices[2];
                 comp._unused = 0;
                 comp.flags = t.flags;
                 if (textures3DO[comp.flags & FACE_TEXTURE].pre0 & PRE0_BGND) {
-                    comp.flags |= 1 << (8 + FACE_MIP_SHIFT + FACE_MIP_SHIFT); // set opaque flag
+                    comp.flags |= FACE_OPAQUE; // set opaque flag
                 }
                 comp.write(f);
             }
@@ -3935,7 +3978,12 @@ struct LevelPC
             {
                 Quad q = crFaces[j];
 
-                Quad3DO comp;
+                ASSERT(q.indices[0] < 256);
+                ASSERT(q.indices[1] < 256);
+                ASSERT(q.indices[2] < 256);
+                ASSERT(q.indices[3] < 256);
+
+                MeshQuad3DO comp;
                 comp.indices[0] = q.indices[0];
                 comp.indices[1] = q.indices[1];
                 comp.indices[2] = q.indices[2];
@@ -3948,16 +3996,19 @@ struct LevelPC
             {
                 Triangle t = ctFaces[j];
 
-                Triangle3DO comp;
+                ASSERT(t.indices[0] < 256);
+                ASSERT(t.indices[1] < 256);
+                ASSERT(t.indices[2] < 256);
+
+                MeshTriangle3DO comp;
                 comp.indices[0] = t.indices[0];
                 comp.indices[1] = t.indices[1];
                 comp.indices[2] = t.indices[2];
                 comp._unused = 0;
                 comp.flags = t.flags;
                 comp.write(f);
-
             }
-
+        /*
             if (vNormal)
             {
                 for (int32 j = 0; j < vCount; j++)
@@ -3975,6 +4026,7 @@ struct LevelPC
                     f.write(vIntensity[j]);
                 }
             }
+        */
 
             for (int32 j = i + 1; j < meshOffsetsCount; j++)
             {
@@ -4258,12 +4310,13 @@ struct LevelPC
 
 };
 
-
 #define COLOR_THRESHOLD_SQ (8 * 8)
 
 const char* levelNames[] = {
 #if 0
-    "GYM"
+    "GYM",
+    "LEVEL1",
+    "LEVEL2",
 #else
     "TITLE",
     "GYM",
@@ -5217,7 +5270,7 @@ void convertTracks3DO(const char* inDir, const char* outDir)
 int main()
 {
     //pack_tracks("tracks/conv_demo/*.ima"); return 0;
-    /*
+
     for (int32 i = 0; i < MAX_LEVELS; i++)
     {
         char path[64];
@@ -5230,8 +5283,8 @@ int main()
 
         levels[i]->convert3DO(levelNames[i]);
     }
-    */
-    convertTracks3DO("C:\\Projects\\OpenLara\\src\\platform\\gba\\packer\\tracks\\orig\\*", "C:\\Projects\\OpenLara\\src\\platform\\3do\\tracks");
+
+//    convertTracks3DO("C:\\Projects\\OpenLara\\src\\platform\\gba\\packer\\tracks\\orig\\*", "C:\\Projects\\OpenLara\\src\\platform\\3do\\tracks");
 
     return 0;
     WAD* wad = new WAD();

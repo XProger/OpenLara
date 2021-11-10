@@ -598,7 +598,7 @@ struct Matrix
 #endif
 };
 
-struct Quad
+struct RoomQuad
 {
 #ifdef __3DO__
     Index  indices[4];
@@ -609,11 +609,33 @@ struct Quad
 #endif
 };
 
-struct Triangle
+struct MeshQuad
+{
+#ifdef __3DO__
+    uint32 indices;
+    uint32 flags;
+#else
+    Index  indices[4];
+    uint16 flags;
+#endif
+};
+
+struct RoomTriangle
 {
 #ifdef __3DO__
     Index  indices[3];
     uint16 _unused;
+    uint32 flags;
+#else
+    Index  indices[3];
+    uint16 flags;
+#endif
+};
+
+struct MeshTriangle
+{
+#ifdef __3DO__
+    uint32 indices;
     uint32 flags;
 #else
     Index  indices[3];
@@ -758,8 +780,8 @@ struct ItemObj;
 
 struct RoomData
 {
-    const Quad* quads;
-    const Triangle* triangles;
+    const RoomQuad* quads;
+    const RoomTriangle* triangles;
     const RoomVertex* vertices;
     const RoomSprite* sprites;
     const Portal* portals;
@@ -2013,8 +2035,8 @@ extern AABBi frustumAABB;
 extern RectMinMax viewport;
 extern vec3i cameraViewPos;
 extern vec3i cameraViewOffset;
+extern Matrix* matrixPtr;
 extern Matrix matrixStack[MAX_MATRICES];
-extern int32 matrixStackIndex;
 extern int32 gVerticesCount;
 extern int32 gFacesCount;
 
@@ -2110,21 +2132,18 @@ vec3i boxPushOut(const AABBs &a, const AABBs &b);
 
 X_INLINE Matrix& matrixGet()
 {
-    return matrixStack[matrixStackIndex];
+    return *matrixPtr;
 }
 
 X_INLINE void matrixPush()
 {
-    ASSERT(matrixStackIndex < MAX_MATRICES - 1);
-    Matrix &a = matrixStack[matrixStackIndex++];
-    Matrix &b = matrixStack[matrixStackIndex];
-    memcpy(&b, &a, sizeof(Matrix));
+    memcpy(matrixPtr + 1, matrixPtr, sizeof(Matrix));
+    matrixPtr++;
 }
 
 X_INLINE void matrixPop()
 {
-    ASSERT(matrixStackIndex > 0);
-    matrixStackIndex--;
+    matrixPtr--;
 }
 
 X_INLINE void matrixSetBasis(Matrix &dst, const Matrix &src)
@@ -2178,8 +2197,8 @@ void faceAddTriangle(uint32 flags, const Index* indices);
 void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz);
 void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index);
 void faceAddGlyph(int32 vx, int32 vy, int32 index);
-void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount);
-void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount);
+void faceAddRoom(const RoomQuad* quads, int32 qCount, const RoomTriangle* triangles, int32 tCount);
+void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTriangle* tFaces, const MeshTriangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount);
 void flush();
 
 void drawInit();
@@ -2197,6 +2216,8 @@ Lara* getLara(const vec3i &pos);
 bool useSwitch(ItemObj* item, int32 timer);
 bool useKey(ItemObj* item, ItemObj* lara);
 bool usePickup(ItemObj* item);
+
+void nextLevel();
 
 int32 doTutorial(ItemObj* lara, int32 track);
 
