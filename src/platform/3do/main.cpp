@@ -379,7 +379,7 @@ updateTime = osGetSystemTimeMS() - updateTime;
 
         lastFrame = frame;
 
-        screenItem = screen.sc_BitmapItems[screenPage];
+        screenItem = screen.sc_ScreenItems[screenPage];
 
 int32 renderTime = osGetSystemTimeMS();
         game.render();

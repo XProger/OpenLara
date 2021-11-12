@@ -2928,17 +2928,24 @@ struct LevelPC
         int32 h;
         uint16 flip;
         int16 mip;
+        uint8* image;
 
         void write(FileStream &f) const
         {
-            uint32 unused = 0;
             f.write(data);
             f.write(plut);
-            f.write(wShift);
-            f.write(hShift);
-            f.write(color);
-            f.write(unused);
+            uint32 shift = wShift | (hShift << 8);
+            f.write(shift);
         }
+
+        bool cmp(const Texture3DO &t)
+        {
+            if (wShift != t.wShift || hShift != t.hShift || plut != t.plut)
+                return false;
+
+            return memcmp(image, t.image, (1 << (20 - wShift)) * (1 << (16 - hShift)) / 2) == 0;
+        }
+
     } textures3DO[MAX_TEXTURES];
 
     int32 spritesBaseIndex;
@@ -3117,6 +3124,8 @@ struct LevelPC
 
         int32 mipIndex = objectTexturesCount;
 
+        int32 dupSize = 0;
+
         for (int32 i = 0; i < objectTexturesCount; i++)
         {
             const LevelPC::ObjectTexture* objectTexture = objectTextures + i;
@@ -3252,7 +3261,6 @@ struct LevelPC
 
                 if (w != wp || h != hp)
                 {
-                    //stbir_resize_uint8((uint8*)bitmap32, w, h, 0, (uint8*)bitmap32_tmp, wp, hp, 0, 4);
                     stbir_resize_uint8_generic((uint8*)bitmap32, w, h, 0, (uint8*)bitmap32_tmp, wp, hp, 0, 4, 3, 0,
                                                 STBIR_EDGE_CLAMP, STBIR_FILTER_BOX, STBIR_COLORSPACE_LINEAR, NULL);
                     swap(bitmap32, bitmap32_tmp);
@@ -3330,8 +3338,10 @@ struct LevelPC
             }
 
             { // encode to 4-bit image
+                textures3DO[i].image = new uint8[rowBytes * h];
+
                 uint8* src = bitmap8;
-                uint8* dst = bitmap8_tmp;
+                uint8* dst = textures3DO[i].image;
                 for (int32 y = 0; y < h; y++)
                 {
                     for (int32 x = 0; x < rowBytes; x++, src += 2)
@@ -3340,11 +3350,29 @@ struct LevelPC
                     }
                 }
 
+                textures3DO[i].data = 0;
+/*
+                for (int32 j = 0; j < i; j++)
+                {
+                    if (textures3DO[i].cmp(textures3DO[j]))
+                    {
+                        textures3DO[i].data = textures3DO[j].data;
+
+                        //ASSERT((objectTextures[i].attribute & TEX_ATTR_MIPS) == (objectTextures[j].attribute & TEX_ATTR_MIPS));
+
+                        dupSize += rowBytes * h;
+                        break;
+                    }
+                }
+                */
             // write image
-                textures3DO[i].data = f.getPos();
-                f.write(textures3DO[i].pre0);
-                f.write(textures3DO[i].pre1);
-                f.write(bitmap8_tmp, rowBytes * h);
+                if (!textures3DO[i].data) {
+                    textures3DO[i].data = f.getPos();
+
+                    f.write(textures3DO[i].pre0);
+                    f.write(textures3DO[i].pre1);
+                    f.write(textures3DO[i].image, rowBytes * h);
+                }
             }
 
         // generate mip level
@@ -3364,7 +3392,6 @@ struct LevelPC
             ASSERT(h > 0);
 
             {
-                //stbir_resize_uint8((uint8*)bitmap32, w, h, 0, (uint8*)bitmap32_tmp, wp, hp, 0, 4);
                 stbir_resize_uint8_generic((uint8*)bitmap32, w << 1, h << 1, 0, (uint8*)bitmap32_tmp, w, h, 0, 4, 3, 0,
                                             STBIR_EDGE_CLAMP, STBIR_FILTER_BOX, STBIR_COLORSPACE_LINEAR, NULL);
                 swap(bitmap32, bitmap32_tmp);
@@ -3452,6 +3479,9 @@ struct LevelPC
 
         objectTexturesCount = mipIndex;
 
+        printf("duplicate size: %d\n", dupSize);
+
+
     // fix PLUT offsets
         int32 plutsOffset = f.getPos();
         for (int32 i = 0; i < objectTexturesCount; i++)
@@ -3500,6 +3530,7 @@ struct LevelPC
 
     void getSample(const char* base, const char* prefix, int32 id, int32 sub, uint8* buffer, int32 &size)
     {
+        // 57 == 38?
         size = 0;
 
         char path[256];
@@ -3850,7 +3881,7 @@ struct LevelPC
         f.writeObj(floors, floorsCount);
 
         header.meshData = f.align4();
-    #if 1
+
         int32 mOffsets[2048];
         for (int32 i = 0; i < 2048; i++) {
             mOffsets[i] = -1;
@@ -4039,13 +4070,6 @@ struct LevelPC
 
         header.meshOffsets = f.align4();
         f.write(mOffsets, meshOffsetsCount);
-    #else
-        f.write(meshData, meshDataSize);
-
-        header.meshOffsets = f.align4();
-        f.write(meshOffsets, meshOffsetsCount);
-    #endif
-
 
         header.anims = f.align4();
         f.writeObj(anims, animsCount);
@@ -4315,8 +4339,6 @@ struct LevelPC
 const char* levelNames[] = {
 #if 0
     "GYM",
-    "LEVEL1",
-    "LEVEL2",
 #else
     "TITLE",
     "GYM",

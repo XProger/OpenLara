@@ -383,6 +383,7 @@ void Camera::update()
 
 void Camera::prepareFrustum()
 {
+#ifndef MODEHW
     matrixSetIdentity();
     matrixRotateYXZ(angle.x, angle.y, angle.z);
 
@@ -425,16 +426,19 @@ void Camera::prepareFrustum()
     frustumBase.maxY += view.pos.y + 1024;
     frustumBase.minZ += view.pos.z - 1024;
     frustumBase.maxZ += view.pos.z + 1024;
+#endif
 }
 
 void Camera::updateFrustum(int32 offsetX, int32 offsetY, int32 offsetZ)
 {
+#ifndef MODEHW
     frustumAABB.minX = frustumBase.minX - offsetX;
     frustumAABB.maxX = frustumBase.maxX - offsetX;
     frustumAABB.minY = frustumBase.minY - offsetY;
     frustumAABB.maxY = frustumBase.maxY - offsetY;
     frustumAABB.minZ = frustumBase.minZ - offsetZ;
     frustumAABB.maxZ = frustumBase.maxZ - offsetZ;
+#endif
 }
 
 void Camera::toCombat()

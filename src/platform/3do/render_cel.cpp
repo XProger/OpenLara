@@ -2,7 +2,7 @@
 
 struct Vertex
 {
-    int32 x, y, z;
+    int32 x, y, z; // for rooms z = (depth << CLIP_SHIFT) | ClipFlags
 };
 
 uint16* gPalette;
@@ -18,10 +18,7 @@ int32 gVerticesCount;
 int32 gFacesCount;
 
 Vertex gVertices[MAX_VERTICES];
-uint8  gClip[MAX_VERTICES];
-
 Vertex* gVerticesBase = NULL;
-uint8*  gClipBase = NULL;
 
 Face* gFaces; // MAX_FACES
 Face* otFacesHead[OT_SIZE];
@@ -121,13 +118,11 @@ void renderInit()
     }
 
     gVerticesBase = gVertices;
-    gClipBase = gClip;
 }
 
 X_INLINE void resetBase()
 {
     gVerticesBase = gVertices + gVerticesCount;
-    gClipBase = gClip + gVerticesCount;
 }
 
 void setViewport(const RectMinMax &vp)
@@ -176,12 +171,23 @@ X_INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c)
            (c->x - a->x) * (b->y - a->y) <= 0;
 }
 
+enum ClipFlags {
+    CLIP_SHIFT  = 8,
+    CLIP_MASK   = (1 << CLIP_SHIFT) - 1,
+    CLIP_LEFT   = 1 << 0,
+    CLIP_RIGHT  = 1 << 1,
+    CLIP_TOP    = 1 << 2,
+    CLIP_BOTTOM = 1 << 3,
+    CLIP_FAR    = 1 << 4,
+    CLIP_NEAR   = 1 << 5
+};
+
 X_INLINE int32 classify(const Vertex* v, int32 x0, int32 y0, int32 x1, int32 y1)
 {
-    return (v->x < x0 ? 1 : 0) |
-           (v->x > x1 ? 2 : 0) |
-           (v->y < y0 ? 4 : 0) |
-           (v->y > y1 ? 8 : 0);
+    return (v->x < x0 ? CLIP_LEFT   : 0) |
+           (v->x > x1 ? CLIP_RIGHT  : 0) |
+           (v->y < y0 ? CLIP_TOP    : 0) |
+           (v->y > y1 ? CLIP_BOTTOM : 0);
 }
 
 void transform(vec3i* points, int32 count)
@@ -286,18 +292,15 @@ void transformRoom(const RoomVertex* vertices, int32 vCount, bool underwater)
     int32 y1 = viewportRel.y1;
 
     res = gVerticesBase;
-    uint8* clip = gClipBase;
 
-    for (int32 i = 0; i < vCount; i++, res++, clip++)
+    for (int32 i = 0; i < vCount; i++, res++)
     {
         if (res->z < (VIEW_MIN_F >> FIXED_SHIFT)) {
-            res->z = (VIEW_MIN_F >> FIXED_SHIFT);
-            *clip = 32;
+            res->z = ((VIEW_MIN_F >> FIXED_SHIFT) << CLIP_SHIFT) | CLIP_NEAR;
         } else if (res->z >= (VIEW_MAX_F >> FIXED_SHIFT)) {
-            res->z = (VIEW_MAX_F >> FIXED_SHIFT);
-            *clip = 16;
+            res->z = ((VIEW_MAX_F >> FIXED_SHIFT) << CLIP_SHIFT) | CLIP_FAR;
         } else {
-            *clip = classify(res, x0, y0, x1, y1);
+            res->z = (res->z << CLIP_SHIFT) | classify(res, x0, y0, x1, y1);
         }
     }
 
@@ -319,15 +322,13 @@ void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vInte
     int32 cy = Dot3_F16(*(vec3f16*)&m.e03, *(vec3f16*)&m.e01) >> DOT_SHIFT; // dot(pos, up)
     int32 cz = Dot3_F16(*(vec3f16*)&m.e03, *(vec3f16*)&m.e02) >> DOT_SHIFT; // dot(pos, dir)
 
-    Vertex* res = gVerticesBase;
-
     uint32 *v32 = (uint32*)vertices;
 
+    Vertex* res = gVerticesBase;
     for (int32 i = 0; i < vCount; i++, res++)
     {
         // << F16_SHIFT should be already applied
         uint32 p = *v32++;
-        //p += cxy;
         res->x = cx + int16(p);
         res->y = cy + int16(p >> 16);
         p = *v32++;
@@ -339,10 +340,10 @@ void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vInte
     gVerticesCount += vCount;
 }
 
-#define DEPTH_T_AVG() ((v0->z + v1->z + v2->z + v2->z) >> (2 + OT_SHIFT))
-#define DEPTH_T_MAX() (X_MAX(v0->z, X_MAX(v1->z, v2->z)) >> OT_SHIFT)
-#define DEPTH_Q_AVG() ((v0->z + v1->z + v2->z + v3->z) >> (2 + OT_SHIFT))
-#define DEPTH_Q_MAX() (X_MAX(v0->z, X_MAX(v1->z, X_MAX(v2->z, v3->z))) >> OT_SHIFT)
+#define DEPTH_T_AVG(z0,z1,z2)    ((z0 + z1 + z2 + z2) >> (2 + OT_SHIFT))
+#define DEPTH_Q_AVG(z0,z1,z2,z3) ((z0 + z1 + z2 + z3) >> (2 + OT_SHIFT))
+#define DEPTH_T_MAX(z0,z1,z2)    (X_MAX(z0, X_MAX(z1, z2)) >> (CLIP_SHIFT + OT_SHIFT))
+#define DEPTH_Q_MAX(z0,z1,z2,z3) (X_MAX(z0, X_MAX(z1, X_MAX(z2, z3))) >> (CLIP_SHIFT + OT_SHIFT))
 
 X_INLINE Face* faceAdd(int32 depth)
 {
@@ -407,54 +408,8 @@ X_INLINE void ccbSetColor(uint32 flags, Face* face)
     face->ccb_SourcePtr = (CelData*)&gPalette[flags & 0xFF];
 }
 
-X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices)
+X_INLINE void ccbMap4(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, const Vertex* v3, uint32 shift)
 {
-    uint32 i01 = ((uint32*)indices)[0];
-    uint32 i23 = ((uint32*)indices)[1];
-
-    uint32 i0 = (i01 >> 16);
-    uint32 i1 = (i01 & 0xFFFF);
-    uint32 i2 = (i23 >> 16);
-    uint32 i3 = (i23 & 0xFFFF);
-
-    uint8 c0 = gClipBase[i0];
-    uint8 c1 = gClipBase[i1];
-    uint8 c2 = gClipBase[i2];
-    uint8 c3 = gClipBase[i3];
-
-    if (c0 & c1 & c2 & c3)
-        return;
-
-    if (c0 == 32 || c1 == 32 || c2 == 32 || c3 == 32)
-        return;
-
-    const Vertex* v0 = gVerticesBase + i0;
-    const Vertex* v1 = gVerticesBase + i1;
-    const Vertex* v2 = gVerticesBase + i2;
-    const Vertex* v3 = gVerticesBase + i3;
-
-    if (checkBackface(v0, v1, v3) == !(flags & FACE_CCW))
-        return;
-
-    int32 depth = DEPTH_Q_MAX();
-
-    Face* f = faceAdd(depth);
-
-    uint32 intensity = (flags >> (FACE_MIP_SHIFT + FACE_MIP_SHIFT)) & 0xFF;
-    if (depth > (FOG_MIN >> OT_SHIFT)) {
-        intensity += (depth - (FOG_MIN >> OT_SHIFT)) >> 1;
-        intensity = X_MIN(intensity, 255);
-    }
-
-    f->ccb_PIXC = shadeTable[intensity >> 3];
-
-    uint32 texIndex = flags;
-    if (depth > (MIP_DIST >> OT_SHIFT)) {
-        texIndex >>= FACE_MIP_SHIFT;
-    }
-    const Texture* texture = level.textures + (texIndex & FACE_TEXTURE);
-    ccbSetTexture(flags, f, texture);
-
     int32 x0 = v0->x;
     int32 y0 = v0->y;
     int32 x1 = v1->x;
@@ -464,8 +419,8 @@ X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices)
     int32 x3 = v3->x;
     int32 y3 = v3->y;
 
-    int32 ws = texture->wShift;
-    int32 hs = texture->hShift;
+    uint32 ws = shift & 0xFF;
+    uint32 hs = shift >> 8;
 
     int32 hdx0 = (x1 - x0) << ws;
     int32 hdy0 = (y1 - y0) << ws;
@@ -487,6 +442,87 @@ X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices)
     f->ccb_HDDY = (hdy1 - hdy0) >> hs;
 }
 
+X_INLINE void ccbMap3(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, uint32 shift)
+{
+    int32 x0 = v0->x;
+    int32 y0 = v0->y;
+    int32 x1 = v1->x;
+    int32 y1 = v1->y;
+    int32 x2 = v2->x;
+    int32 y2 = v2->y;
+
+    uint32 ws = shift & 0xFF;
+    uint32 hs = shift >> 8;
+
+    int32 hdx0 = (x1 - x0) << ws;
+    int32 hdy0 = (y1 - y0) << ws;
+    int32 vdx0 = (x2 - x0) << hs;
+    int32 vdy0 = (y2 - y0) << hs;
+
+    f->ccb_HDX = hdx0;
+    f->ccb_HDY = hdy0;
+    f->ccb_VDX = vdx0;
+    f->ccb_VDY = vdy0;
+
+    f->ccb_XPos = (x0 + (FRAME_WIDTH  >> 1)) << 16;
+    f->ccb_YPos = (y0 + (FRAME_HEIGHT >> 1)) << 16;
+
+    hs = 16 - hs;
+    f->ccb_HDDX = -hdx0 >> hs;
+    f->ccb_HDDY = -hdy0 >> hs;
+}
+
+X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices)
+{
+    uint32 i01 = ((uint32*)indices)[0];
+    uint32 i23 = ((uint32*)indices)[1];
+
+    uint32 i0 = (i01 >> 16);
+    uint32 i1 = (i01 & 0xFFFF);
+    uint32 i2 = (i23 >> 16);
+    uint32 i3 = (i23 & 0xFFFF);
+
+    const Vertex* v0 = gVerticesBase + i0;
+    const Vertex* v1 = gVerticesBase + i1;
+    const Vertex* v2 = gVerticesBase + i2;
+    const Vertex* v3 = gVerticesBase + i3;
+
+    uint32 c0 = v0->z;
+    uint32 c1 = v1->z;
+    uint32 c2 = v2->z;
+    uint32 c3 = v3->z;
+
+    if ((c0 & c1 & c2 & c3) & CLIP_MASK)
+        return;
+
+    if ((c0 & CLIP_NEAR) || (c1 & CLIP_NEAR) || (c2 & CLIP_NEAR) || (c3 & CLIP_NEAR))
+        return;
+
+    int32 depth = DEPTH_Q_MAX(c0, c1, c2, c3);
+
+    if (checkBackface(v0, v1, v3) == !(flags & FACE_CCW))
+        return;
+
+    Face* f = faceAdd(depth);
+
+    uint32 intensity = (flags >> (FACE_MIP_SHIFT + FACE_MIP_SHIFT)) & 0xFF;
+    if (depth > (FOG_MIN >> OT_SHIFT)) {
+        intensity += (depth - (FOG_MIN >> OT_SHIFT)) >> 1;
+        intensity = X_MIN(intensity, 255);
+    }
+
+    f->ccb_PIXC = shadeTable[intensity >> 3];
+
+    uint32 texIndex = flags;
+    if (depth > (MIP_DIST >> OT_SHIFT)) {
+        texIndex >>= FACE_MIP_SHIFT;
+    }
+    const Texture* texture = level.textures + (texIndex & FACE_TEXTURE);
+    ccbSetTexture(flags, f, texture);
+
+    ccbMap4(f, v0, v1, v2, v3, texture->shift);
+}
+
 X_INLINE void faceAddRoomTriangle(uint32 flags, const Index* indices)
 {
     uint32 i01 = ((uint32*)indices)[0];
@@ -496,24 +532,24 @@ X_INLINE void faceAddRoomTriangle(uint32 flags, const Index* indices)
     uint32 i1 = (i01 & 0xFFFF);
     uint32 i2 = (i23 >> 16);
 
-    uint8 c0 = gClipBase[i0];
-    uint8 c1 = gClipBase[i1];
-    uint8 c2 = gClipBase[i2];
-
-    if (c0 & c1 & c2)
-        return;
-
-    if (c0 == 32 || c1 == 32 || c2 == 32)
-        return;
-
     const Vertex* v0 = gVerticesBase + i0;
     const Vertex* v1 = gVerticesBase + i1;
     const Vertex* v2 = gVerticesBase + i2;
 
-    if (checkBackface(v0, v1, v2))
+    uint32 c0 = v0->z;
+    uint32 c1 = v1->z;
+    uint32 c2 = v2->z;
+
+    if ((c0 & c1 & c2) & CLIP_MASK)
         return;
 
-    int32 depth = DEPTH_T_MAX();
+    if ((c0 & CLIP_NEAR) || (c1 & CLIP_NEAR) || (c2 & CLIP_NEAR))
+        return;
+
+    int32 depth = DEPTH_T_MAX(c0, c1, c2);
+
+    if (checkBackface(v0, v1, v2) == !(flags & FACE_CCW))
+        return;
 
     Face* f = faceAdd(depth);
     
@@ -532,32 +568,7 @@ X_INLINE void faceAddRoomTriangle(uint32 flags, const Index* indices)
     const Texture* texture = level.textures + (texIndex & FACE_TEXTURE);
     ccbSetTexture(flags, f, texture);
 
-    int32 x0 = v0->x;
-    int32 y0 = v0->y;
-    int32 x1 = v1->x;
-    int32 y1 = v1->y;
-    int32 x2 = v2->x;
-    int32 y2 = v2->y;
-
-    int32 ws = texture->wShift;
-    int32 hs = texture->hShift;
-
-    int32 hdx0 = (x1 - x0) << ws;
-    int32 hdy0 = (y1 - y0) << ws;
-    int32 vdx0 = (x2 - x0) << hs;
-    int32 vdy0 = (y2 - y0) << hs;
-
-    f->ccb_HDX = hdx0;
-    f->ccb_HDY = hdy0;
-    f->ccb_VDX = vdx0;
-    f->ccb_VDY = vdy0;
-
-    f->ccb_XPos = (x0 + (FRAME_WIDTH  >> 1)) << 16;
-    f->ccb_YPos = (y0 + (FRAME_HEIGHT >> 1)) << 16;
-
-    hs = 16 - hs;
-    f->ccb_HDDX = -hdx0 >> hs;
-    f->ccb_HDDY = -hdy0 >> hs;
+    ccbMap3(f, v0, v1, v2, texture->shift);
 }
 
 X_INLINE void faceAddMeshQuad(uint32 flags, uint32 indices, uint32 shade)
@@ -575,7 +586,7 @@ X_INLINE void faceAddMeshQuad(uint32 flags, uint32 indices, uint32 shade)
     if (checkBackface(v0, v1, v3) == !(flags & FACE_CCW)) // TODO (hdx0 * vdy0 - vdx0 * hdy0) <= 0
         return;
 
-    int32 depth = DEPTH_Q_AVG();
+    int32 depth = DEPTH_Q_AVG(v0->z, v1->z, v2->z, v3->z);
 
     Face* f = faceAdd(depth);
     f->ccb_PIXC = shade;
@@ -583,36 +594,7 @@ X_INLINE void faceAddMeshQuad(uint32 flags, uint32 indices, uint32 shade)
     const Texture* texture = level.textures + (flags & FACE_TEXTURE);
     ccbSetTexture(flags, f, texture);
 
-    int32 x0 = v0->x;
-    int32 y0 = v0->y;
-    int32 x1 = v1->x;
-    int32 y1 = v1->y;
-    int32 x2 = v2->x;
-    int32 y2 = v2->y;
-    int32 x3 = v3->x;
-    int32 y3 = v3->y;
-
-    int32 ws = texture->wShift;
-    int32 hs = texture->hShift;
-
-    int32 hdx0 = (x1 - x0) << ws;
-    int32 hdy0 = (y1 - y0) << ws;
-    int32 hdx1 = (x2 - x3) << ws;
-    int32 hdy1 = (y2 - y3) << ws;
-    int32 vdx0 = (x3 - x0) << hs;
-    int32 vdy0 = (y3 - y0) << hs;
-
-    f->ccb_HDX = hdx0;
-    f->ccb_HDY = hdy0;
-    f->ccb_VDX = vdx0;
-    f->ccb_VDY = vdy0;
-
-    f->ccb_XPos = (x0 + (FRAME_WIDTH  >> 1)) << 16;
-    f->ccb_YPos = (y0 + (FRAME_HEIGHT >> 1)) << 16;
-
-    hs = 16 - hs;
-    f->ccb_HDDX = (hdx1 - hdx0) >> hs;
-    f->ccb_HDDY = (hdy1 - hdy0) >> hs;
+    ccbMap4(f, v0, v1, v2, v3, texture->shift);
 }
 
 X_INLINE void faceAddMeshTriangle(uint32 flags, uint32 indices, uint32 shade)
@@ -628,7 +610,7 @@ X_INLINE void faceAddMeshTriangle(uint32 flags, uint32 indices, uint32 shade)
     if (checkBackface(v0, v1, v2))
         return;
 
-    int32 depth = DEPTH_T_AVG();
+    int32 depth = DEPTH_T_AVG(v0->z, v1->z, v2->z);
 
     Face* f = faceAdd(depth);
     f->ccb_PIXC = shade;
@@ -636,32 +618,7 @@ X_INLINE void faceAddMeshTriangle(uint32 flags, uint32 indices, uint32 shade)
     const Texture* texture = level.textures + (flags & FACE_TEXTURE);
     ccbSetTexture(flags, f, texture);
 
-    int32 x0 = v0->x;
-    int32 y0 = v0->y;
-    int32 x1 = v1->x;
-    int32 y1 = v1->y;
-    int32 x2 = v2->x;
-    int32 y2 = v2->y;
-
-    int32 ws = texture->wShift;
-    int32 hs = texture->hShift;
-
-    int32 hdx0 = (x1 - x0) << ws;
-    int32 hdy0 = (y1 - y0) << ws;
-    int32 vdx0 = (x2 - x0) << hs;
-    int32 vdy0 = (y2 - y0) << hs;
-
-    f->ccb_HDX = hdx0;
-    f->ccb_HDY = hdy0;
-    f->ccb_VDX = vdx0;
-    f->ccb_VDY = vdy0;
-
-    f->ccb_XPos = (x0 + (FRAME_WIDTH  >> 1)) << 16;
-    f->ccb_YPos = (y0 + (FRAME_HEIGHT >> 1)) << 16;
-
-    hs = 16 - hs;
-    f->ccb_HDDX = -hdx0 >> hs;
-    f->ccb_HDDY = -hdy0 >> hs;
+    ccbMap3(f, v0, v1, v2, texture->shift);
 }
 
 X_INLINE void faceAddMeshQuadFlat(uint32 flags, uint32 indices, uint32 shade)
@@ -679,39 +636,14 @@ X_INLINE void faceAddMeshQuadFlat(uint32 flags, uint32 indices, uint32 shade)
     if (checkBackface(v0, v1, v3))
         return;
 
-    int32 depth = DEPTH_Q_AVG();
+    int32 depth = DEPTH_Q_AVG(v0->z, v1->z, v2->z, v3->z);
 
     Face* f = faceAdd(depth);
     f->ccb_PIXC = shade;
 
     ccbSetColor(flags, f);
 
-    int32 x0 = v0->x;
-    int32 y0 = v0->y;
-    int32 x1 = v1->x;
-    int32 y1 = v1->y;
-    int32 x2 = v2->x;
-    int32 y2 = v2->y;
-    int32 x3 = v3->x;
-    int32 y3 = v3->y;
-
-    int32 hdx0 = (x1 - x0) << 20;
-    int32 hdy0 = (y1 - y0) << 20;
-    int32 hdx1 = (x2 - x3) << 20;
-    int32 hdy1 = (y2 - y3) << 20;
-    int32 vdx0 = (x3 - x0) << 16;
-    int32 vdy0 = (y3 - y0) << 16;
-
-    f->ccb_HDX = hdx0;
-    f->ccb_HDY = hdy0;
-    f->ccb_VDX = vdx0;
-    f->ccb_VDY = vdy0;
-
-    f->ccb_XPos = (x0 + (FRAME_WIDTH  >> 1)) << 16;
-    f->ccb_YPos = (y0 + (FRAME_HEIGHT >> 1)) << 16;
-
-    f->ccb_HDDX = (hdx1 - hdx0);
-    f->ccb_HDDY = (hdy1 - hdy0);
+    ccbMap4(f, v0, v1, v2, v3, 20 | (16 << 8));
 }
 
 X_INLINE void faceAddMeshTriangleFlat(uint32 flags, uint32 indices, uint32 shade)
@@ -727,35 +659,14 @@ X_INLINE void faceAddMeshTriangleFlat(uint32 flags, uint32 indices, uint32 shade
     if (checkBackface(v0, v1, v2))
         return;
 
-    int32 depth = DEPTH_T_AVG();
+    int32 depth = DEPTH_T_AVG(v0->z, v1->z, v2->z);
 
     Face* f = faceAdd(depth);
     f->ccb_PIXC = shade;
 
     ccbSetColor(flags, f);
 
-    int32 x0 = v0->x;
-    int32 y0 = v0->y;
-    int32 x1 = v1->x;
-    int32 y1 = v1->y;
-    int32 x2 = v2->x;
-    int32 y2 = v2->y;
-
-    int32 hdx0 = (x1 - x0) << 20;
-    int32 hdy0 = (y1 - y0) << 20;
-    int32 vdx0 = (x2 - x0) << 16;
-    int32 vdy0 = (y2 - y0) << 16;
-
-    f->ccb_HDX = hdx0;
-    f->ccb_HDY = hdy0;
-    f->ccb_VDX = vdx0;
-    f->ccb_VDY = vdy0;
-
-    f->ccb_XPos = (x0 + (FRAME_WIDTH  >> 1)) << 16;
-    f->ccb_YPos = (y0 + (FRAME_HEIGHT >> 1)) << 16;
-
-    f->ccb_HDDX = -hdx0;
-    f->ccb_HDDY = -hdy0;
+    ccbMap3(f, v0, v1, v2, 20 | (16 << 8));
 }
 
 void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz)
@@ -784,6 +695,8 @@ void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz)
     faceAddMeshQuadFlat(0, (0 | (1 << 8) | (2 << 16) | (7 << 24)), SHADE_SHADOW);
     faceAddMeshQuadFlat(0, (7 | (2 << 8) | (3 << 16) | (6 << 24)), SHADE_SHADOW);
     faceAddMeshQuadFlat(0, (6 | (3 << 8) | (4 << 16) | (5 << 24)), SHADE_SHADOW);
+
+    gVerticesCount = 0;
 }
 
 void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
@@ -839,10 +752,14 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     Texture* texture = level.textures + sprite->texture;
     ccbSetTexture(0, f, texture);
 
-    f->ccb_HDX = (x1 - x0) << texture->wShift;
+    uint32 shift = texture->shift;
+    uint32 ws = shift & 0xFF;
+    uint32 hs = shift >> 8;
+
+    f->ccb_HDX = (x1 - x0) << ws;
     f->ccb_HDY = 0;
     f->ccb_VDX = 0;
-    f->ccb_VDY = (y1 - y0) << texture->hShift;
+    f->ccb_VDY = (y1 - y0) << hs;
 
     f->ccb_XPos = (x0 + (FRAME_WIDTH  >> 1)) << 16;
     f->ccb_YPos = (y0 + (FRAME_HEIGHT >> 1)) << 16;
@@ -861,10 +778,14 @@ void faceAddGlyph(int32 vx, int32 vy, int32 index)
     Texture* texture = level.textures + sprite->texture;
     ccbSetTexture(0, f, texture);
 
-    f->ccb_HDX = (sprite->r - sprite->l) << texture->wShift;
+    uint32 shift = texture->shift;
+    uint32 ws = shift & 0xFF;
+    uint32 hs = shift >> 8;
+
+    f->ccb_HDX = (sprite->r - sprite->l) << ws;
     f->ccb_HDY = 0;
     f->ccb_VDX = 0;
-    f->ccb_VDY = (sprite->b - sprite->t) << texture->hShift;
+    f->ccb_VDY = (sprite->b - sprite->t) << hs;
 
     f->ccb_XPos = (vx + sprite->l) << 16;
     f->ccb_YPos = (vy + sprite->t) << 16;
@@ -882,6 +803,8 @@ void faceAddRoom(const RoomQuad* quads, int32 qCount, const RoomTriangle* triang
     for (int32 i = 0; i < tCount; i++, triangles++) {
         faceAddRoomTriangle(triangles->flags, triangles->indices);
     }
+
+    gVerticesCount = 0;
 }
 
 void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTriangle* tFaces, const MeshTriangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount)
@@ -908,6 +831,8 @@ void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTria
     for (int32 i = 0; i < ctCount; i++) {
         faceAddMeshTriangleFlat(ctFaces[i].flags, ctFaces[i].indices, shade);
     }
+
+    gVerticesCount = 0;
 }
 
 void flush()
@@ -945,7 +870,7 @@ void flush()
         if (facesHead)
         {
             LAST_CEL(facesTail);
-            DrawCels(screenItem, facesHead);
+            DrawScreenCels(screenItem, facesHead);
             UNLAST_CEL(facesTail);
         }
     }

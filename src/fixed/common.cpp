@@ -1,12 +1,15 @@
 #include "common.h"
 
 uint32 keys;
-AABBi frustumAABB;
 RectMinMax viewport;
 vec3i cameraViewPos;
 vec3i cameraViewOffset;
 Matrix matrixStack[MAX_MATRICES];
 Matrix* matrixPtr = matrixStack;
+
+#ifndef MODEHW
+    AABBi frustumAABB;
+#endif
 
 const FloorData* gLastFloorData;
 FloorData gLastFloorSlant;

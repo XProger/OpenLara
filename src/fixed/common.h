@@ -37,7 +37,7 @@
     #include <mem.h>
 #elif defined(__3DO__)
     #define MODEHW
-    #define USE_DIV_TABLE // 4k of DRAM
+    //#define USE_DIV_TABLE // 4k of DRAM
     #define CPU_BIG_ENDIAN
 
     #define BLOCK_SIZE_DRAM     (32 * 1024)
@@ -47,7 +47,7 @@
     #define SND_BUFFER_SIZE     (4 * BLOCK_SIZE_CD)
     #define SND_BUFFERS         4
 
-    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 30) // 38 for LEVEL10C! >_<
+    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 31) // 35 for LEVEL10C! >_<
     #define MAX_RAM_TEX         (BLOCK_SIZE_VRAM * 44)
     #define MAX_RAM_CEL         (MAX_FACES * sizeof(CCB))
     #define MAX_RAM_SND         (SND_BUFFERS * SND_BUFFER_SIZE)
@@ -401,6 +401,12 @@ extern int32 fps;
     #define SND_MAX          127
 #endif
 
+#ifdef __3DO__
+    #define MAX_VERTICES (1024 + 32) // for mesh (max = LEVEL10A room:58)
+#else
+    #define MAX_VERTICES (5*1024) // for frame
+#endif
+
 #define MAX_UPDATE_FRAMES 10
 
 #define MAX_PLAYERS         1 // TODO 2 players for non-potato platforms
@@ -413,7 +419,6 @@ extern int32 fps;
 #define MAX_STATIC_MESHES   50
 #define MAX_CAMERAS         16
 #define MAX_BOXES           1024
-#define MAX_VERTICES        (3*1024)
 #define MAX_TEXTURES        1536
 #define MAX_FACES           1920
 #define MAX_ROOM_LIST       16
@@ -952,10 +957,7 @@ struct Texture
 #ifdef __3DO__
     uint8* data;
     uint8* plut;
-    uint8  wShift;
-    uint8  hShift;
-    uint16 color;
-    uint32 _unused;
+    uint32 shift;
 #else
     uint16 attribute;
     uint16 tile;
@@ -2031,7 +2033,6 @@ struct IMA_STATE
 
 // renderer internal
 extern uint32 keys;
-extern AABBi frustumAABB;
 extern RectMinMax viewport;
 extern vec3i cameraViewPos;
 extern vec3i cameraViewOffset;
@@ -2039,6 +2040,10 @@ extern Matrix* matrixPtr;
 extern Matrix matrixStack[MAX_MATRICES];
 extern int32 gVerticesCount;
 extern int32 gFacesCount;
+
+#ifndef MODEHW
+    extern AABBi frustumAABB;
+#endif
 
 extern SaveGame gSaveGame;
 extern Settings gSettings;

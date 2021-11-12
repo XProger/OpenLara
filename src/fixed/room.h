@@ -473,13 +473,13 @@ Room** Room::addVisibleRoom(Room** list)
     {
         int32 axis = 0;
         int32 x = (portal->v[0].x - cx) << F16_SHIFT;
-        if (x > 0) axis |= (2 << 0);
+        if (x >= 0) axis |= (2 << 0);
         if (x < 0) axis |= (1 << 0);
         int32 y = (portal->v[0].y - cy) << F16_SHIFT;
-        if (y > 0) axis |= (2 << 2);
+        if (y >= 0) axis |= (2 << 2);
         if (y < 0) axis |= (1 << 2);
         int32 z = (portal->v[0].z - cz) << F16_SHIFT;
-        if (z > 0) axis |= (2 << 4);
+        if (z >= 0) axis |= (2 << 4);
         if (z < 0) axis |= (1 << 4);
 
         vis[i] = (portal->normalMask & axis);
