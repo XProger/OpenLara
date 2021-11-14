@@ -218,10 +218,10 @@ void drawMesh(int32 meshIndex)
         vIntensity = (uint16*)ptr;
         ptr += vCount * sizeof(uint16);
     }
-#endif
 
     if (MAX_VERTICES - gVerticesCount < vCount)
         return;
+#endif
 
     if (MAX_FACES - gFacesCount < mesh->rCount + mesh->tCount + mesh->crCount + mesh->ctCount)
         return;
@@ -757,8 +757,10 @@ void drawRoom(const Room* room, Camera* camera)
     const RoomInfo* info = room->info;
     const RoomData& data = room->data;
 
+#ifndef __3DO__
     if (MAX_VERTICES - gVerticesCount < info->verticesCount)
         return;
+#endif
 
     if (MAX_FACES - gFacesCount < info->quadsCount + info->trianglesCount)
         return;
