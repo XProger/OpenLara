@@ -189,6 +189,12 @@ void drawMesh(int32 meshIndex)
     const MeshVertex* vertices = (MeshVertex*)ptr;
     ptr += vCount * sizeof(vertices[0]);
 
+#ifdef __3DO__
+    if (vCount & 1) { // data alignment
+        ptr += sizeof(MeshVertex);
+    }
+#endif
+
     MeshQuad* rFaces = (MeshQuad*)ptr;
     ptr += mesh->rCount * sizeof(MeshQuad);
 

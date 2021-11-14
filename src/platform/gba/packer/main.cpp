@@ -998,6 +998,22 @@ struct LevelPC
             }
         };
 
+        struct Vertex3DO
+        {
+            int8 y;
+            uint8 zero;
+            uint8 x;
+            uint8 z;
+
+            void write(FileStream &f) const
+            {
+                f.write(y);
+                f.write(zero);
+                f.write(x);
+                f.write(z);
+            }
+        };
+
         struct Sprite
         {
             uint16 index;
@@ -3767,7 +3783,14 @@ struct LevelPC
                 info.verticesCount = roomVerticesCount;
                 for (int32 i = 0; i < roomVerticesCount; i++)
                 {
-                    roomVertices[i].write(f);
+                    const Room::VertexComp &v = roomVertices[i];
+
+                    Room::Vertex3DO comp;
+                    comp.x = v.x;
+                    comp.y = v.y;
+                    comp.z = v.z;
+                    comp.zero = 0;
+                    comp.write(f);
                 }
 
                 info.sprites = f.align4();
@@ -3949,18 +3972,23 @@ struct LevelPC
             for (int32 j = 0; j < vCount; j++)
             {
                 struct MeshVertex3DO {
-                    int16 y, x, _unused, z;
+                    int16 x, y, z;
                 } v;
 
                 v.x = vertices[j].x << 2; // F16_SHIFT
                 v.y = vertices[j].y << 2; // F16_SHIFT
                 v.z = vertices[j].z << 2; // F16_SHIFT
-                v._unused = 0;
 
-                f.write(v.y);
                 f.write(v.x);
-                f.write(v._unused);
+                f.write(v.y);
                 f.write(v.z);
+            }
+
+            if (vCount % 2) { // add one vertex for the data alignment
+                int16 zero = 0;
+                f.write(zero);
+                f.write(zero);
+                f.write(zero);
             }
 
             for (int32 j = 0; j < rCount; j++)

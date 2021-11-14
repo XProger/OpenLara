@@ -714,8 +714,15 @@ struct Room;
 
 struct RoomVertex
 {
+#ifdef __3DO__
+    int8 y;
+    uint8 zero;
+    uint8 x;
+    uint8 z;
+#else
     int8 x, y, z;
     uint8 g;
+#endif
 };
 
 struct RoomSprite
@@ -727,11 +734,7 @@ struct RoomSprite
 
 struct MeshVertex
 {
-#ifdef __3DO__
-    int16 y, x, _unused, z;
-#else
     int16 x, y, z;
-#endif
 };
 
 struct Portal
