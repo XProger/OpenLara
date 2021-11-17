@@ -368,180 +368,6 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
     return false;
 }
 
-#ifdef __3DO__
-bool Room::checkPortal(const Portal* portal, vec3i* points)
-{
-    int32 x0 = clip.x1;
-    int32 y0 = clip.y1;
-    int32 x1 = clip.x0;
-    int32 y1 = clip.y0;
-
-    int32 znear = 0, zfar = 0;
-
-    for (int32 i = 0; i < 4; i++)
-    {
-        int32 x = points[i].x;
-        int32 y = points[i].y;
-        int32 z = points[i].z;
-
-        if (z <= 0) {
-            points[i].x = -points[i].x;
-            points[i].y = -points[i].y;
-            znear++;
-            continue;
-        }
-
-        if (z >= (VIEW_MAX_F >> FIXED_SHIFT)) {
-            zfar++;
-        }
-
-        x += FRAME_WIDTH  >> 1;
-        y += FRAME_HEIGHT >> 1;
-
-        if (x < x0) x0 = x;
-        if (x > x1) x1 = x;
-        if (y < y0) y0 = y;
-        if (y > y1) y1 = y;
-    }
-
-    if (znear == 4 || zfar == 4)
-        return false;
-
-    if (znear)
-    {
-        const vec3i *a = points;
-        const vec3i *b = points + 3;
-        for (int32 i = 0; i < 4; i++)
-        {
-            if ((a->z <= 0) ^ (b->z <= 0))
-            {
-                if (a->x < 0 && b->x < 0) {
-                    x0 = 0;
-                } else if (a->x > 0 && b->x > 0) {
-                    x1 = FRAME_WIDTH;
-                } else {
-                    x0 = 0;
-                    x1 = FRAME_WIDTH;
-                }
-
-                if (a->y < 0 && b->y < 0) {
-                    y0 = 0;
-                } else if (a->y > 0 && b->y > 0) {
-                    y1 = FRAME_HEIGHT;
-                } else {
-                    y0 = 0;
-                    y1 = FRAME_HEIGHT;
-                }
-            }
-            b = a;
-            a++;
-        }
-    }
-
-    if (x0 < clip.x0) x0 = clip.x0;
-    if (x1 > clip.x1) x1 = clip.x1;
-    if (y0 < clip.y0) y0 = clip.y0;
-    if (y1 > clip.y1) y1 = clip.y1;
-
-    if (x0 >= x1 || y0 >= y1)
-        return false;
-
-    Room* nextRoom = rooms + portal->roomIndex;
-
-    if (x0 < nextRoom->clip.x0) nextRoom->clip.x0 = x0;
-    if (x1 > nextRoom->clip.x1) nextRoom->clip.x1 = x1;
-    if (y0 < nextRoom->clip.y0) nextRoom->clip.y0 = y0;
-    if (y1 > nextRoom->clip.y1) nextRoom->clip.y1 = y1;
-
-    return true;
-}
-
-Room** Room::addVisibleRoom(Room** list)
-{
-    uint32 vis[MAX_PORTALS];
-    vec3i vertices[MAX_PORTALS * 4];
-
-    int32 cx = cameraViewPos.x - (info->x << 8);
-    int32 cy = cameraViewPos.y;
-    int32 cz = cameraViewPos.z - (info->z << 8);
-
-    const Portal* portal = data.portals;
-    vec3i* v = (vec3i*)vertices;
-    int32 vCount = 0;
-
-    for (int32 i = 0; i < info->portalsCount; i++, portal++)
-    {
-        int32 axis = 0;
-        int32 x = (portal->v[0].x - cx) << F16_SHIFT;
-        if (x >= 0) axis |= (2 << 0);
-        if (x < 0) axis |= (1 << 0);
-        int32 y = (portal->v[0].y - cy) << F16_SHIFT;
-        if (y >= 0) axis |= (2 << 2);
-        if (y < 0) axis |= (1 << 2);
-        int32 z = (portal->v[0].z - cz) << F16_SHIFT;
-        if (z >= 0) axis |= (2 << 4);
-        if (z < 0) axis |= (1 << 4);
-
-        vis[i] = (portal->normalMask & axis);
-
-        if (!vis[i])
-            continue;
-
-        v->x = x;
-        v->y = y;
-        v->z = z;
-        v++;
-
-        v->x = (portal->v[1].x - cx) << F16_SHIFT;
-        v->y = (portal->v[1].y - cy) << F16_SHIFT;
-        v->z = (portal->v[1].z - cz) << F16_SHIFT;
-        v++;
-
-        v->x = (portal->v[2].x - cx) << F16_SHIFT;
-        v->y = (portal->v[2].y - cy) << F16_SHIFT;
-        v->z = (portal->v[2].z - cz) << F16_SHIFT;
-        v++;
-
-        v->x = (portal->v[3].x - cx) << F16_SHIFT;
-        v->y = (portal->v[3].y - cy) << F16_SHIFT;
-        v->z = (portal->v[3].z - cz) << F16_SHIFT;
-        v++;
-
-        vCount += 4;
-    }
-
-    if (!vCount)
-        return list;
-
-    transform((vec3i*)vertices, vCount);
-
-    portal = data.portals;
-    v = (vec3i*)vertices;
-
-    for (int32 i = 0; i < info->portalsCount; i++, portal++)
-    {
-        if (!vis[i])
-            continue;
-
-        if (checkPortal(portal, v))
-        {
-            Room* nextRoom = rooms + portal->roomIndex;
-
-            list = nextRoom->addVisibleRoom(list);
-
-            if (!nextRoom->visible)
-            {
-                nextRoom->visible = true;
-                *list++ = nextRoom;
-            }
-        }
-
-        v += 4;
-    }
-
-    return list;
-}
-#else
 bool Room::checkPortal(const Portal* portal)
 {
     vec3i d;
@@ -555,12 +381,12 @@ bool Room::checkPortal(const Portal* portal)
 
 #ifdef __3DO__
     int32 axis = 0;
-    if (d.x > 0) axis |= (2 << 0);
-    if (d.x < 0) axis |= (1 << 0);
-    if (d.y > 0) axis |= (2 << 2);
-    if (d.y < 0) axis |= (1 << 2);
-    if (d.z > 0) axis |= (2 << 4);
-    if (d.z < 0) axis |= (1 << 4);
+    if (d.x >= 0) axis |= (2 << 0);
+    if (d.x <  0) axis |= (1 << 0);
+    if (d.y >= 0) axis |= (2 << 2);
+    if (d.y <  0) axis |= (1 << 2);
+    if (d.z >= 0) axis |= (2 << 4);
+    if (d.z <  0) axis |= (1 << 4);
 
     if (!(portal->normalMask & axis))
         return false;
@@ -602,7 +428,13 @@ bool Room::checkPortal(const Portal* portal)
         }
 
         int32 dz = (z >> (FIXED_SHIFT + FOV_SHIFT + 1));
+
         if (dz > 0) {
+            #ifdef __3DO__
+                x >>= FIXED_SHIFT;
+                y >>= FIXED_SHIFT;
+                z >>= FIXED_SHIFT;
+            #endif
             PERSPECTIVE(x, y, z);
             x += FRAME_WIDTH  >> 1;
             y += FRAME_HEIGHT >> 1;
@@ -696,7 +528,6 @@ Room** Room::addVisibleRoom(Room** list)
 
     return list;
 }
-#endif
 
 Room** Room::getVisibleRooms()
 {

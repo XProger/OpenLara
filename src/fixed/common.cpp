@@ -847,34 +847,35 @@ void matrixFrame(const vec3s &pos, const uint32* angles)
     matrixRotateYXZ(aX, aY, aZ);
 }
 
+#ifndef USE_MATRIX_ASM
 #ifdef IWRAM_MATRIX_LERP
-void matrixLerp(const Matrix &n, int32 multiplier, int32 divider);
+void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv);
 #else
-void matrixLerp(const Matrix &n, int32 multiplier, int32 divider)
+void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv)
 {
     Matrix &m = matrixGet();
 
-    if ((divider == 2) || ((divider == 4) && (multiplier == 2))) {
+    if ((pdiv == 2) || ((pdiv == 4) && (pmul == 2))) {
         LERP_MATRIX(LERP_1_2);
-    } else if (divider == 4) {
+    } else if (pdiv == 4) {
 
-        if (multiplier == 1) {
+        if (pmul == 1) {
             LERP_MATRIX(LERP_1_4);
         } else {
             LERP_MATRIX(LERP_3_4);
         }
 
-    } else if (divider == 3) {
+    } else if (pdiv == 3) {
         
-        if (multiplier == 1) {
+        if (pmul == 1) {
             LERP_MATRIX(LERP_1_3);
         } else {
             LERP_MATRIX(LERP_2_3);
         }
 
-    } else if (divider == 5) {
+    } else if (pdiv == 5) {
 
-        switch (multiplier)
+        switch (pmul)
         {
             case 4 : LERP_MATRIX(LERP_4_5); break;
             case 3 : LERP_MATRIX(LERP_3_5); break;
@@ -883,9 +884,11 @@ void matrixLerp(const Matrix &n, int32 multiplier, int32 divider)
         }
 
     } else {
+        int32 t = pmul * FixedInvU(pdiv) >> 8;
         LERP_MATRIX(LERP_SLOW);
     }
 }
+#endif
 #endif
 
 void matrixFrameLerp(const vec3s &pos, const uint32* anglesA, const uint32* anglesB, int32 delta, int32 rate)
@@ -942,6 +945,13 @@ void matrixSetIdentity()
     m.e21 = 0;
     m.e22 = 0x4000;
     m.e23 = 0;
+
+#ifdef __3DO__
+    m.e30 = 0;
+    m.e31 = 0;
+    m.e32 = 0;
+    m.e33 = 0x4000;
+#endif
 }
 
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
@@ -967,6 +977,13 @@ void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
     m.e21 = -sx;
     m.e22 = (cx * cy) >> FIXED_SHIFT;
     m.e23 = 0;
+
+#ifdef __3DO__
+    m.e30 = 0;
+    m.e31 = 0;
+    m.e32 = 0;
+    m.e33 = 0x4000;
+#endif
 
     cameraViewPos = pos;
     cameraViewOffset = _vec3i(0, 0, 0);

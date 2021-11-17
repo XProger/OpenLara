@@ -37,7 +37,7 @@
     #include <mem.h>
 #elif defined(__3DO__)
     #define MODEHW
-    //#define USE_DIV_TABLE // 4k of DRAM
+    #define USE_DIV_TABLE // 4k of DRAM
     #define CPU_BIG_ENDIAN
 
     #define BLOCK_SIZE_DRAM     (32 * 1024)
@@ -47,7 +47,7 @@
     #define SND_BUFFER_SIZE     (4 * BLOCK_SIZE_CD)
     #define SND_BUFFERS         4
 
-    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 31) // 35 for LEVEL10C! >_<
+    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 31) // 34 for LEVEL10C! >_<
     #define MAX_RAM_TEX         (BLOCK_SIZE_VRAM * 44)
     #define MAX_RAM_CEL         (MAX_FACES * sizeof(CCB))
     #define MAX_RAM_SND         (SND_BUFFERS * SND_BUFFER_SIZE)
@@ -76,7 +76,6 @@
     #include <celutils.h>
     #include <timerutils.h>
     #include <hardware.h>
-    //#include <filefunctions.h>
 #else
     #error unsupported platform
 #endif
@@ -125,6 +124,7 @@
     #define IWRAM_MATRIX_LERP
 // the maximum of active enemies
 //    #define MAX_ENEMIES 3
+    #define VIS_DIST (1024 * 10)
 #endif
 
 #ifdef __3DO__
@@ -134,13 +134,13 @@
     #define LOD_TRAP_FLOOR
 // disable matrix interpolation
     //#define NO_ANIM_LERP
-    #define ANIM_LERP_ANGLE
 // the maximum navigation iterations per simulation tick
-    #define NAV_STEPS   1
+    #define NAV_STEPS 1
 // the maximum of active enemies
     #define MAX_ENEMIES 3
 // set the maximum number of simultaneously played channels
     #define SND_CHANNELS 4
+    #define VIS_DIST (1024 * 10)
 #endif
 
 #ifndef NAV_STEPS
@@ -428,16 +428,20 @@ extern int32 fps;
 #define MAX_DYN_SECTORS     (1024*3)
 #define MAX_SAMPLES         180
 
+#ifndef VIS_DIST
+    #define VIS_DIST (1024 * 16)
+#endif
+
 #define FOV_SHIFT       3
 #define FOG_SHIFT       1
-#define FOG_MAX         (10 * 1024)
+#define FOG_MAX         VIS_DIST
 #define FOG_MIN         (FOG_MAX - (8192 >> FOG_SHIFT))
-#define VIEW_MIN_F      (32 << FIXED_SHIFT)
+#define VIEW_MIN_F      (256 << FIXED_SHIFT)
 #define VIEW_MAX_F      (FOG_MAX << FIXED_SHIFT)
 
-#define FRUSTUM_FAR_X   5 << 10
-#define FRUSTUM_FAR_Y   3 << 10
-#define FRUSTUM_FAR_Z   9 << 10
+#define FRUSTUM_FAR_X   (5 << 10)
+#define FRUSTUM_FAR_Y   (3 << 10)
+#define FRUSTUM_FAR_Z   (9 << 10)
 
 #define FACE_TRIANGLE   0x8000
 #define FACE_COLORED    0x4000
@@ -592,10 +596,10 @@ struct vec4i {
 struct Matrix
 {
 #ifdef __3DO__
-    int32 e00, e10, e20;
-    int32 e01, e11, e21;
-    int32 e02, e12, e22;
-    int32 e03, e13, e23;
+    int32 e00, e10, e20, e30;
+    int32 e01, e11, e21, e31;
+    int32 e02, e12, e22, e32;
+    int32 e03, e13, e23, e33;
 #else
     int32 e00, e01, e02, e03;
     int32 e10, e11, e12, e13;
@@ -850,11 +854,8 @@ struct Room {
     const Sector* getWaterSector(int32 x, int32 z) const;
     Room* getRoom(int32 x, int32 y, int32 z);
     bool collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height);
-#ifdef __3DO__
-    bool checkPortal(const Portal* portal, vec3i* points);
-#else
     bool checkPortal(const Portal* portal);
-#endif
+
     Room** addVisibleRoom(Room** list);
     Room** addNearRoom(Room** list, int32 x, int32 y, int32 z);
     Room** getNearRooms(const vec3i &pos, int32 radius, int32 height);
@@ -1910,8 +1911,8 @@ struct CollisionInfo
 
 struct Box
 {
-    int8 minZ, maxZ;
-    int8 minX, maxX;
+    uint8 minZ, maxZ;
+    uint8 minX, maxX;
     int16 floor;
     uint16 overlap;
 };
@@ -1996,16 +1997,13 @@ struct IMA_STATE
     int32 idx;
 };
 
-/*
-#define PERSPECTIVE(x, y, z) {\
-    x = (x / (z >> 7));\
-    y = (y / (z >> 6));\
-}
-*/
 #if defined(MODEHW)
     #define PERSPECTIVE(x, y, z) {\
-        x = (x << 6) / (z >> 2);\
-        y = (y << 6) / (z >> 2);\
+        int32 dz = z >> 4;\
+        if (dz >= DIV_TABLE_SIZE) dz = DIV_TABLE_SIZE - 1;\
+        int32 d = FixedInvU(dz);\
+        x = (x * d) >> 12;\
+        y = (y * d) >> 12;\
     }
 #elif defined(MODE13)
     #define PERSPECTIVE(x, y, z) {\
@@ -2116,27 +2114,39 @@ vec3i boxPushOut(const AABBs &a, const AABBs &b);
     y = (((uint16*)(a))[1] & 0x000F) << 12 | (((uint16*)(a))[0] & 0xFC00) >> 4;\
     z = (((uint16*)(a))[0] & 0x03FF) << 6;
 
-#define LERP_1_2(a, b, mul, div) a = (b + a) >> 1
-#define LERP_1_3(a, b, mul, div) a = a + ((b - a) / 3)
-#define LERP_2_3(a, b, mul, div) a = b - ((b - a) / 3)
-#define LERP_1_4(a, b, mul, div) a = a + ((b - a) >> 2)
-#define LERP_3_4(a, b, mul, div) a = b - ((b - a) >> 2)
-#define LERP_1_5(a, b, mul, div) a = a + ((b - a) / 5)
-#define LERP_2_5(a, b, mul, div) a = a + ((b - a) * 2 / 5)
-#define LERP_3_5(a, b, mul, div) a = b - ((b - a) * 2 / 5)
-#define LERP_4_5(a, b, mul, div) a = b - ((b - a) / 5)
-#define LERP_SLOW(a, b, mul, div) a = a + ((b - a) * mul / div)
+#define USE_MATRIX_ASM
 
-#define LERP_ROW(lerp_func, a, b, mul, div) \
-    lerp_func(a##0, b##0, mul, div); \
-    lerp_func(a##1, b##1, mul, div); \
-    lerp_func(a##2, b##2, mul, div); \
-    lerp_func(a##3, b##3, mul, div);
+#ifdef USE_MATRIX_ASM
+    extern "C" void matrixLerp_asm(const Matrix &n, int32 pmul, int32 pdiv);
 
-#define LERP_MATRIX(lerp_func) \
-    LERP_ROW(lerp_func, m.e0, n.e0, multiplier, divider); \
-    LERP_ROW(lerp_func, m.e1, n.e1, multiplier, divider); \
-    LERP_ROW(lerp_func, m.e2, n.e2, multiplier, divider);
+    #define matrixLerp matrixLerp_asm
+#else
+    #define LERP_1_2(a, b)   a = (b + a) >> 1
+    #define LERP_1_3(a, b)   a = a + (b - a) / 3
+    #define LERP_2_3(a, b)   a = b - (b - a) / 3
+    #define LERP_1_4(a, b)   a = a + ((b - a) >> 2)
+    #define LERP_3_4(a, b)   a = b - ((b - a) >> 2)
+    #define LERP_1_5(a, b)   a = a + (b - a) / 5
+    #define LERP_2_5(a, b)   a = a + ((b - a) << 1) / 5
+    #define LERP_3_5(a, b)   a = b - ((b - a) << 1) / 5
+    #define LERP_4_5(a, b)   a = b - (b - a) / 5
+    #define LERP_SLOW(a, b)  a = a + ((b - a) * t >> 8)
+
+    #define LERP_ROW(lerp_func, a, b, row) \
+        lerp_func(a.e##row##0, b.e##row##0); \
+        lerp_func(a.e##row##1, b.e##row##1); \
+        lerp_func(a.e##row##2, b.e##row##2); \
+        lerp_func(a.e##row##3, b.e##row##3);
+
+    #define LERP_MATRIX(lerp_func) \
+        LERP_ROW(lerp_func, m, n, 0); \
+        LERP_ROW(lerp_func, m, n, 1); \
+        LERP_ROW(lerp_func, m, n, 2);
+
+    void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv);
+
+    #define matrixLerp matrixLerp_c
+#endif
 
 X_INLINE Matrix& matrixGet()
 {
@@ -2181,7 +2191,6 @@ void matrixRotateY(int32 angle);
 void matrixRotateZ(int32 angle);
 void matrixRotateYXZ(int32 angleX, int32 angleY, int32 angleZ);
 void matrixRotateZXY(int32 angleX, int32 angleY, int32 angleZ);
-void matrixLerp(const Matrix &n, int32 multiplier, int32 divider);
 void matrixFrame(const vec3s &pos, const uint32* angles);
 void matrixFrameLerp(const vec3s &pos, const uint32* anglesA, const uint32* anglesB, int32 delta, int32 rate);
 void matrixSetIdentity();
@@ -2196,9 +2205,8 @@ void setPaletteIndex(int32 index);
 void clear();
 int32 rectIsVisible(const RectMinMax* rect);
 int32 boxIsVisible(const AABBs* box);
-void transform(vec3i* points, int32 count);
 bool transformBoxRect(const AABBs* box, RectMinMax* rect);
-void transformRoom(const RoomVertex* vertices, int32 vCount, bool underwater);
+void transformRoom(const Room* room);
 void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal);
 void faceAddQuad(uint32 flags, const Index* indices);
 void faceAddTriangle(uint32 flags, const Index* indices);

@@ -21,7 +21,7 @@ CXXFLAGS = $(CFLAGS)
 ASFLAGS	 = -BI -i $(SDK)/include/3do
 INCPATH	 = -I $(SDK)/include/3do -I $(SDK)/include/ttl -I ../../fixed
 LIBPATH	 = $(SDK)/lib
-LDFLAGS	 = -aif -reloc -ro-base 0 -sym $(EXENAME).sym -libpath $(LIBPATH)
+LDFLAGS	 = -aif -reloc -ro-base 0 -libpath $(LIBPATH) -nodebug -remove -info Sizes
 STARTUP	 = $(LIBPATH)/cstartup.o
 
 LIBS = \

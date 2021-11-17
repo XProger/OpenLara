@@ -494,9 +494,7 @@ void drawLaraNodes(const ItemObj* lara, const AnimFrame* frameA)
                 matrixTranslate(node->pos.x, node->pos.y, node->pos.z);
                 node++;
                 if (arm->useBasis) { // hands are rotated relative to the basis
-                #ifndef __3DO__ // TODO_3DO
                     matrixSetBasis(matrixGet(), basis);
-                #endif
                     matrixRotateYXZ(arm->angle.x, arm->angle.y, arm->angle.z);
                 }
                 matrixFrame(_vec3s(0, 0, 0), anglesArm[i]++);
@@ -628,9 +626,7 @@ void drawLaraNodesLerp(const ItemObj* lara, const AnimFrame* frameA, const AnimF
                 matrixTranslate(node->pos.x, node->pos.y, node->pos.z);
                 node++;
                 if (arm->useBasis) { // hands are rotated relative to the basis
-                #ifndef __3DO__ // TODO_3DO
                     matrixSetBasis(matrixGet(), basis);
-                #endif
                     matrixRotateYXZ(arm->angle.x, arm->angle.y, arm->angle.z);
                 }
 
@@ -769,9 +765,9 @@ void drawRoom(const Room* room, Camera* camera)
     int32 rz = info->z << 8;
 
     matrixPush();
-    matrixTranslateAbs(info->x << 8, 0, info->z << 8);
+    matrixTranslateAbs(info->x << 8, info->yTop, info->z << 8);
 
-    camera->updateFrustum(info->x << 8, 0, info->z << 8);
+    camera->updateFrustum(info->x << 8, info->yTop, info->z << 8);
 
     setPaletteIndex(ROOM_FLAG_WATER(info->flags) ? 1 : 0);
 
@@ -802,7 +798,7 @@ void drawRoom(const Room* room, Camera* camera)
 
     {
         PROFILE(CNT_TRANSFORM);
-        transformRoom(data.vertices, info->verticesCount, ROOM_FLAG_WATER(info->flags));
+        transformRoom(room);
     }
 
     {
