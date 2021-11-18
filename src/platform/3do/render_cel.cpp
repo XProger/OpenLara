@@ -182,7 +182,7 @@ X_INLINE int32 classify(int32 x, int32 y, int32 x0, int32 y0, int32 x1, int32 y1
            (y > y1 ? CLIP_BOTTOM : 0);
 }
 
-X_INLINE void transform(Vertex* points, int32 count)
+X_INLINE void transformVertices(Vertex* points, int32 count)
 {
     Matrix& m = matrixGet();
     int32 mx = m.e03;
@@ -226,7 +226,7 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
         { b.maxX, b.maxY, b.maxZ, 1 << 16 }
     };
 
-    transform(v, 8);
+    transformVertices(v, 8);
 
     *rect = RectMinMax( INT_MAX, INT_MAX, INT_MIN, INT_MIN );
 
@@ -333,16 +333,8 @@ void unpackMesh_c(const MeshVertex* vertices, int32 vCount)
 }
 #endif
 
-void transformRoom(const Room* room)
+void projectVertices(int32 vCount)
 {
-    int32 vCount = room->info->verticesCount;
-    if (vCount <= 0)
-        return;
-
-    unpackRoom(room->data.vertices, vCount);
-
-    transform(gVertices, vCount);
-
     int32 x0 = viewportRel.x0;
     int32 y0 = viewportRel.y0;
     int32 x1 = viewportRel.x1;
@@ -350,7 +342,7 @@ void transformRoom(const Room* room)
 
     Vertex* res = gVertices;
 
-    for (int32 i = 0; i < vCount; i++, res++)
+    for (int32 i = 0; i < vCount; i++)
     {
         int32 x = res->x;
         int32 y = res->y;
@@ -372,7 +364,21 @@ void transformRoom(const Room* room)
         res->x = x;
         res->y = y;
         res->z = (z << CLIP_SHIFT) | clip;
+        res++;
     }
+}
+
+void transformRoom(const Room* room)
+{
+    int32 vCount = room->info->verticesCount;
+    if (vCount <= 0)
+        return;
+
+    unpackRoom(room->data.vertices, vCount);
+
+    transformVertices(gVertices, vCount);
+
+    projectVertices(vCount);
 
     gVerticesCount += vCount;
 }
@@ -381,38 +387,9 @@ void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vInte
 {
     unpackMesh(vertices, vCount);
 
-    transform(gVertices, vCount);
+    transformVertices(gVertices, vCount);
 
-    int32 x0 = viewportRel.x0;
-    int32 y0 = viewportRel.y0;
-    int32 x1 = viewportRel.x1;
-    int32 y1 = viewportRel.y1;
-
-    Vertex* res = gVertices;
-
-    for (int32 i = 0; i < vCount; i++, res++)
-    {
-        int32 x = res->x;
-        int32 y = res->y;
-        int32 z = res->z;
-        int32 clip = 0;
-
-        if (z < (VIEW_MIN_F >> FIXED_SHIFT)) {
-            z = (VIEW_MIN_F >> FIXED_SHIFT);
-            clip = CLIP_NEAR;
-        } else if (z >= (VIEW_MAX_F >> FIXED_SHIFT)) {
-            z = (VIEW_MAX_F >> FIXED_SHIFT);
-            clip = CLIP_FAR;
-        }
-
-        PERSPECTIVE(x, y, z);
-
-        clip |= classify(x, y, x0, y0, x1, y1);
-
-        res->x = x;
-        res->y = y;
-        res->z = (z << CLIP_SHIFT) | clip;
-    }
+    projectVertices(vCount);
 
     gVerticesCount += vCount;
 }

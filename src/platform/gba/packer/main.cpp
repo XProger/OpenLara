@@ -998,22 +998,6 @@ struct LevelPC
             }
         };
 
-        struct Vertex3DO
-        {
-            int8 y;
-            uint8 zero;
-            uint8 x;
-            uint8 z;
-
-            void write(FileStream &f) const
-            {
-                f.write(y);
-                f.write(zero);
-                f.write(x);
-                f.write(z);
-            }
-        };
-
         struct Sprite
         {
             uint16 index;
@@ -1533,8 +1517,8 @@ struct LevelPC
 
     struct BoxComp
     {
-        int8 minZ, maxZ;
-        int8 minX, maxX;
+        uint8 minZ, maxZ;
+        uint8 minX, maxX;
         int16 floor;
         int16 overlap;
 
@@ -2016,12 +2000,21 @@ struct LevelPC
     Room::VertexComp roomVertices[MAX_ROOM_VERTICES];
     int32 roomVerticesCount;
 
-    int32 addRoomVertex(const Room::Vertex &v, bool ignoreG = false)
+    int32 addRoomVertex(int32 yOffset, const Room::Vertex &v, bool ignoreG = false)
     {
         Room::VertexComp comp;
-        comp.x = v.pos.x / 1024;
-        comp.y = v.pos.y / 256;
-        comp.z = v.pos.z / 1024;
+        int32 px = v.pos.x >> 10;
+        int32 py = (v.pos.y - yOffset) >> 8;
+        int32 pz = v.pos.z >> 10;
+
+        ASSERT(py >= 0);
+        ASSERT(px < 32);
+        ASSERT(py < 64);
+        ASSERT(pz < 32);
+
+        comp.x = px;
+        comp.y = py;
+        comp.z = pz;
         comp.g = ignoreG ? 0 : (v.lighting >> 5);
 
         for (int32 i = 0; i < roomVerticesCount; i++)
@@ -2460,8 +2453,19 @@ struct LevelPC
                 ASSERT(room->info.yTop >= -32768 && room->info.yTop <= 32767);
                 info.x = room->info.x / 256;
                 info.z = room->info.z / 256;
-                info.yBottom = room->info.yBottom;
-                info.yTop = room->info.yTop;
+                info.yBottom = -32768;
+                info.yTop = 32767;
+
+                for (int32 j = 0; j < room->vCount; j++)
+                {
+                    Room::Vertex &v = room->vertices[j];
+                    if (v.pos.y < info.yTop) {
+                        info.yTop = v.pos.y;
+                    }
+                    if (v.pos.y > info.yBottom) {
+                        info.yBottom = v.pos.y;
+                    }
+                }
 
                 info.spritesCount = room->sCount;
                 info.quadsCount = room->qCount;
@@ -2491,10 +2495,10 @@ struct LevelPC
                 for (int32 i = 0; i < room->qCount; i++)
                 {
                     Quad q = room->quads[i];
-                    q.indices[0] = addRoomVertex(room->vertices[q.indices[0]]);
-                    q.indices[1] = addRoomVertex(room->vertices[q.indices[1]]);
-                    q.indices[2] = addRoomVertex(room->vertices[q.indices[2]]);
-                    q.indices[3] = addRoomVertex(room->vertices[q.indices[3]]);
+                    q.indices[0] = addRoomVertex(info.yTop, room->vertices[q.indices[0]]);
+                    q.indices[1] = addRoomVertex(info.yTop, room->vertices[q.indices[1]]);
+                    q.indices[2] = addRoomVertex(info.yTop, room->vertices[q.indices[2]]);
+                    q.indices[3] = addRoomVertex(info.yTop, room->vertices[q.indices[3]]);
                     q.write(f);
                 }
 
@@ -2502,9 +2506,9 @@ struct LevelPC
                 for (int32 i = 0; i < room->tCount; i++)
                 {
                     Triangle t = room->triangles[i];
-                    t.indices[0] = addRoomVertex(room->vertices[t.indices[0]]);
-                    t.indices[1] = addRoomVertex(room->vertices[t.indices[1]]);
-                    t.indices[2] = addRoomVertex(room->vertices[t.indices[2]]);
+                    t.indices[0] = addRoomVertex(info.yTop, room->vertices[t.indices[0]]);
+                    t.indices[1] = addRoomVertex(info.yTop, room->vertices[t.indices[1]]);
+                    t.indices[2] = addRoomVertex(info.yTop, room->vertices[t.indices[2]]);
                     t.write(f);
                 }
 
@@ -2931,12 +2935,14 @@ struct LevelPC
     struct Texture3DO {
         int32 data;
         int32 plut;
+        uint32 _shift;
+
+        // not in file
         uint8 wShift;
         uint8 hShift;
         uint16 color;
         uint32 _unused;
 
-        // not in file
         uint32 pre0;
         uint32 pre1;
         uint8* src;
@@ -3675,8 +3681,19 @@ struct LevelPC
                 ASSERT(room->info.yTop >= -32768 && room->info.yTop <= 32767);
                 info.x = room->info.x / 256;
                 info.z = room->info.z / 256;
-                info.yBottom = room->info.yBottom;
-                info.yTop = room->info.yTop;
+                info.yBottom = -32768;
+                info.yTop = 32767;
+
+                for (int32 j = 0; j < room->vCount; j++)
+                {
+                    Room::Vertex &v = room->vertices[j];
+                    if (v.pos.y < info.yTop) {
+                        info.yTop = v.pos.y;
+                    }
+                    if (v.pos.y > info.yBottom) {
+                        info.yBottom = v.pos.y;
+                    }
+                }
 
                 info.spritesCount = room->sCount;
                 info.quadsCount = room->qCount;
@@ -3716,10 +3733,10 @@ struct LevelPC
                     uint32 intensity = ((v0.lighting + v1.lighting + v2.lighting + v3.lighting) / 4) >> 5;
                     ASSERT(intensity <= 255);
                     
-                    q.indices[0] = addRoomVertex(v0, true);
-                    q.indices[1] = addRoomVertex(v1, true);
-                    q.indices[2] = addRoomVertex(v2, true);
-                    q.indices[3] = addRoomVertex(v3, true);
+                    q.indices[0] = addRoomVertex(info.yTop, v0, true);
+                    q.indices[1] = addRoomVertex(info.yTop, v1, true);
+                    q.indices[2] = addRoomVertex(info.yTop, v2, true);
+                    q.indices[3] = addRoomVertex(info.yTop, v3, true);
 
                     RoomQuad3DO comp;
                     comp.indices[0] = q.indices[0];
@@ -3756,9 +3773,9 @@ struct LevelPC
                     uint32 intensity = ((v0.lighting + v1.lighting + v2.lighting) / 3) >> 5;
                     ASSERT(intensity <= 255);
                     
-                    t.indices[0] = addRoomVertex(v0, true);
-                    t.indices[1] = addRoomVertex(v1, true);
-                    t.indices[2] = addRoomVertex(v2, true);
+                    t.indices[0] = addRoomVertex(info.yTop, v0, true);
+                    t.indices[1] = addRoomVertex(info.yTop, v1, true);
+                    t.indices[2] = addRoomVertex(info.yTop, v2, true);
 
                     RoomTriangle3DO comp;
                     comp.indices[0] = t.indices[0];
@@ -3781,16 +3798,30 @@ struct LevelPC
 
                 info.vertices = f.align4();
                 info.verticesCount = roomVerticesCount;
-                for (int32 i = 0; i < roomVerticesCount; i++)
+                for (int32 i = 0; i < roomVerticesCount; i += 4)
                 {
-                    const Room::VertexComp &v = roomVertices[i];
+                    Room::VertexComp v[4];
 
-                    Room::Vertex3DO comp;
-                    comp.x = v.x;
-                    comp.y = v.y;
-                    comp.z = v.z;
-                    comp.zero = 0;
-                    comp.write(f);
+                    for (int32 j = 0; j < 4; j++)
+                    {
+                        if (i + j < roomVerticesCount) {
+                            v[j] = roomVertices[i + j];
+                        } else {
+                            memset(&v[j], 0, sizeof(v[j]));
+                        }
+                    }
+
+                    {
+                        uint32 value = v[0].x | (v[0].y << 5) | (v[0].z << 11);
+                        value |= (v[1].x | (v[1].y << 5) | (v[1].z << 11)) << 16;
+                        f.write(value);
+                    }
+
+                    {
+                        uint32 value = v[2].x | (v[2].y << 5) | (v[2].z << 11);
+                        value |= (v[3].x | (v[3].y << 5) | (v[3].z << 11)) << 16;
+                        f.write(value);
+                    }
                 }
 
                 info.sprites = f.align4();
@@ -4217,10 +4248,10 @@ struct LevelPC
             const LevelPC::Box* box = boxes + i;
 
             BoxComp comp;
-            comp.minX = box->minX / 1024;
-            comp.minZ = box->minZ / 1024;
-            comp.maxX = (box->maxX + 1) / 1024;
-            comp.maxZ = (box->maxZ + 1) / 1024;
+            comp.minX = box->minX >> 10;
+            comp.minZ = box->minZ >> 10;
+            comp.maxX = (box->maxX + 1) >> 10;
+            comp.maxZ = (box->maxZ + 1) >> 10;
             comp.floor = box->floor;
             comp.overlap = box->overlap;
 
