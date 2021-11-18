@@ -945,13 +945,6 @@ void matrixSetIdentity()
     m.e21 = 0;
     m.e22 = 0x4000;
     m.e23 = 0;
-
-#ifdef __3DO__
-    m.e30 = 0;
-    m.e31 = 0;
-    m.e32 = 0;
-    m.e33 = 0x4000;
-#endif
 }
 
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
@@ -977,13 +970,6 @@ void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
     m.e21 = -sx;
     m.e22 = (cx * cy) >> FIXED_SHIFT;
     m.e23 = 0;
-
-#ifdef __3DO__
-    m.e30 = 0;
-    m.e31 = 0;
-    m.e32 = 0;
-    m.e33 = 0x4000;
-#endif
 
     cameraViewPos = pos;
     cameraViewOffset = _vec3i(0, 0, 0);

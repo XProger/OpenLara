@@ -4,7 +4,7 @@
 
 struct Vertex
 {
-    int32 x, y, z, w; // for rooms z = (depth << CLIP_SHIFT) | ClipFlags
+    int32 x, y, z; // for rooms z = (depth << CLIP_SHIFT) | ClipFlags
 };
 
 uint16* gPalette;
@@ -174,30 +174,126 @@ enum ClipFlags {
     CLIP_NEAR   = 1 << 5
 };
 
-X_INLINE int32 classify(int32 x, int32 y, int32 x0, int32 y0, int32 x1, int32 y1)
+#define USE_ASM
+
+#ifdef USE_ASM
+    #define unpackRoom unpackRoom_asm
+    #define unpackMesh unpackMesh_asm
+    #define projectVertices projectVertices_asm
+
+    extern "C" void unpackRoom_asm(const RoomVertex* vertices, int32 vCount);
+    extern "C" void unpackMesh_asm(const MeshVertex* vertices, int32 vCount);
+    extern "C" void projectVertices_asm(int32 vCount);
+#else
+    #define unpackRoom unpackRoom_c
+    #define unpackMesh unpackMesh_c
+    #define projectVertices projectVertices_c
+
+void unpackRoom_c(const RoomVertex* vertices, int32 vCount)
 {
-    return (x < x0 ? CLIP_LEFT   : 0) |
-           (x > x1 ? CLIP_RIGHT  : 0) |
-           (y < y0 ? CLIP_TOP    : 0) |
-           (y > y1 ? CLIP_BOTTOM : 0);
+    Vertex* res = gVertices;
+
+    uint32 *v32 = (uint32*)vertices;
+
+    for (int32 i = 0; i < vCount; i += 4)
+    {
+        uint32 n0 = *v32++;
+        uint32 n1 = *v32++;
+
+        res->x = (n0 << 10) & 0x7C00;
+        res->y = (n0 << 3) & 0x3F00;
+        res->z = (n0 >> 1) & 0x7C00;
+        res++;
+
+        res->x = (n0 >> 6) & 0x7C00;
+        res->y = (n0 >> 13) & 0x3F00;
+        res->z = (n0 >> 17) & 0x7C00;
+        res++;
+
+        res->x = (n1 << 10) & 0x7C00;
+        res->y = (n1 << 3) & 0x3F00;
+        res->z = (n1 >> 1) & 0x7C00;
+        res++;
+
+        res->x = (n1 >> 6) & 0x7C00;
+        res->y = (n1 >> 13) & 0x3F00;
+        res->z = (n1 >> 17) & 0x7C00;
+        res++;
+    }
 }
 
-X_INLINE void transformVertices(Vertex* points, int32 count)
+void unpackMesh_c(const MeshVertex* vertices, int32 vCount)
+{
+    uint32 *v32 = (uint32*)vertices;
+
+    Vertex* res = gVertices;
+    for (int32 i = 0; i < vCount; i += 2)
+    {
+        uint32 n0 = *v32++;
+        uint32 n1 = *v32++;
+        uint32 n2 = *v32++;
+
+        res->x = int16(n0 >> 16);
+        res->y = int16(n0);
+        res->z = int16(n1 >> 16);
+        res++;
+
+        res->x = int16(n1);
+        res->y = int16(n2 >> 16);
+        res->z = int16(n2);
+        res++;
+    }
+}
+
+void projectVertices_c(int32 vCount)
 {
     Matrix& m = matrixGet();
-    int32 mx = m.e03;
-    int32 my = m.e13;
-    int32 mz = m.e23;
-    m.e03 >>= FIXED_SHIFT;
-    m.e13 >>= FIXED_SHIFT;
-    m.e23 >>= FIXED_SHIFT;
 
-    MulManyVec4Mat44_F16((vec4f16*)points, (vec4f16*)points, *(mat44f16*)&matrixGet(), count);
+    Vertex* v = gVertices;
 
-    m.e03 = mx;
-    m.e13 = my;
-    m.e23 = mz;
+    int32 minX = viewportRel.x0;
+    int32 minY = viewportRel.y0;
+    int32 maxX = viewportRel.x1;
+    int32 maxY = viewportRel.y1;
+
+    for (int32 i = 0; i < vCount; i++)
+    {
+        int32 vx = v->x;
+        int32 vy = v->y;
+        int32 vz = v->z;
+
+        int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
+        int32 y = DP43(m.e10, m.e11, m.e12, m.e13, vx, vy, vz);
+        int32 z = DP43(m.e20, m.e21, m.e22, m.e23, vx, vy, vz);
+
+        int32 clip = 0;
+
+        if (z < VIEW_MIN_F) {
+            z = VIEW_MIN_F;
+            clip = CLIP_NEAR;
+        } else if (z > VIEW_MAX_F) {
+            z = VIEW_MAX_F;
+            clip = CLIP_FAR;
+        }
+
+        x >>= FIXED_SHIFT;
+        y >>= FIXED_SHIFT;
+        z >>= FIXED_SHIFT;
+
+        PERSPECTIVE(x, y, z);
+
+        if (x < minX) clip |= CLIP_LEFT;
+        if (y < minY) clip |= CLIP_TOP;
+        if (x > maxX) clip |= CLIP_RIGHT;
+        if (y > maxY) clip |= CLIP_BOTTOM;
+
+        v->x = x;
+        v->y = y;
+        v->z = (z << CLIP_SHIFT) | clip;
+        v++;
+    }
 }
+#endif
 
 bool transformBoxRect(const AABBs* box, RectMinMax* rect)
 {
@@ -207,39 +303,36 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
         return false;
     }
 
-    AABBi b;
-    b.minX = (box->minX << F16_SHIFT);
-    b.maxX = (box->maxX << F16_SHIFT);
-    b.minY = (box->minY << F16_SHIFT);
-    b.maxY = (box->maxY << F16_SHIFT);
-    b.minZ = (box->minZ << F16_SHIFT);
-    b.maxZ = (box->maxZ << F16_SHIFT);
+    int32 minX = box->minX;
+    int32 maxX = box->maxX;
+    int32 minY = box->minY;
+    int32 maxY = box->maxY;
+    int32 minZ = box->minZ;
+    int32 maxZ = box->maxZ;
 
-    Vertex v[8] = {
-        { b.minX, b.minY, b.minZ, 1 << 16 },
-        { b.maxX, b.minY, b.minZ, 1 << 16 },
-        { b.minX, b.maxY, b.minZ, 1 << 16 },
-        { b.maxX, b.maxY, b.minZ, 1 << 16 },
-        { b.minX, b.minY, b.maxZ, 1 << 16 },
-        { b.maxX, b.minY, b.maxZ, 1 << 16 },
-        { b.minX, b.maxY, b.maxZ, 1 << 16 },
-        { b.maxX, b.maxY, b.maxZ, 1 << 16 }
-    };
+    gVertices[0].x = minX; gVertices[0].y = minY; gVertices[0].z = minZ;
+    gVertices[1].x = maxX; gVertices[1].y = minY; gVertices[1].z = minZ;
+    gVertices[2].x = minX; gVertices[2].y = maxY; gVertices[2].z = minZ;
+    gVertices[3].x = maxX; gVertices[3].y = maxY; gVertices[3].z = minZ;
+    gVertices[4].x = minX; gVertices[4].y = minY; gVertices[4].z = maxZ;
+    gVertices[5].x = maxX; gVertices[5].y = minY; gVertices[5].z = maxZ;
+    gVertices[6].x = minX; gVertices[6].y = maxY; gVertices[6].z = maxZ;
+    gVertices[7].x = maxX; gVertices[7].y = maxY; gVertices[7].z = maxZ;
 
-    transformVertices(v, 8);
+    projectVertices(8);
 
     *rect = RectMinMax( INT_MAX, INT_MAX, INT_MIN, INT_MIN );
 
-    for (int32 i = 0; i < 8; i++)
+    Vertex* v = gVertices;
+
+    for (int32 i = 0; i < 8; i++, v++)
     {
-        int32 x = v[i].x;
-        int32 y = v[i].y;
-        int32 z = v[i].z;
+        int32 x = v->x;
+        int32 y = v->y;
+        int32 z = v->z;
 
-        if (z < (VIEW_MIN_F >> FIXED_SHIFT) || z >= (VIEW_MAX_F >> FIXED_SHIFT))
+        if ((z & CLIP_MASK) & (CLIP_NEAR | CLIP_FAR))
             continue;
-
-        PERSPECTIVE(x, y, z);
 
         if (x < rect->x0) rect->x0 = x;
         if (x > rect->x1) rect->x1 = x;
@@ -255,119 +348,6 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
     return true;
 }
 
-#define USE_ASM
-
-#ifdef USE_ASM
-    #define unpackRoom unpackRoom_asm
-    #define unpackMesh unpackMesh_asm
-    //#define ccbMap4 ccbMap4_asm
-
-    extern "C" void unpackRoom_asm(const RoomVertex* vertices, int32 vCount);
-    extern "C" void unpackMesh_asm(const MeshVertex* vertices, int32 vCount);
-    //extern "C" void ccbMap4_asm(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, const Vertex* v3, uint32 shift);
-#else
-    #define unpackRoom unpackRoom_c
-    #define unpackMesh unpackMesh_c
-
-void unpackRoom_c(const RoomVertex* vertices, int32 vCount)
-{
-    Vertex* res = gVertices;
-
-    uint32 *v32 = (uint32*)vertices;
-
-    for (int32 i = 0; i < vCount; i += 4)
-    {
-        uint32 n0 = *v32++;
-        uint32 n1 = *v32++;
-
-        res->x = (n0 << 12) & 0x1F000;
-        res->y = (n0 << 5) & 0xFC00;
-        res->z = (n0 << 1) & 0x1F000;
-        res->w = 1 << 16;
-        res++;
-
-        res->x = (n0 >> 4) & 0x1F000;
-        res->y = (n0 >> 11) & 0xFC00;
-        res->z = (n0 >> 15) & 0x1F000;
-        res->w = 1 << 16;
-        res++;
-
-        res->x = (n1 << 12) & 0x1F000;
-        res->y = (n1 << 5) & 0xFC00;
-        res->z = (n1 << 1) & 0x1F000;
-        res->w = 1 << 16;
-        res++;
-
-        res->x = (n1 >> 4) & 0x1F000;
-        res->y = (n1 >> 11) & 0xFC00;
-        res->z = (n1 >> 15) & 0x1F000;
-        res->w = 1 << 16;
-        res++;
-    }
-}
-
-void unpackMesh_c(const MeshVertex* vertices, int32 vCount)
-{
-    uint32 *v32 = (uint32*)vertices;
-
-    Vertex* res = gVertices;
-    for (int32 i = 0; i < vCount; i += 2)
-    {
-        // << F16_SHIFT should be already applied
-        uint32 n0 = *v32++;
-        uint32 n1 = *v32++;
-        uint32 n2 = *v32++;
-
-        res->x = int16(n0 >> 16);
-        res->y = int16(n0);
-        res->z = int16(n1 >> 16);
-        res->w = 1 << 16;
-        res++;
-
-        res->x = int16(n1);
-        res->y = int16(n2 >> 16);
-        res->z = int16(n2);
-        res->w = 1 << 16;
-        res++;
-    }
-}
-#endif
-
-void projectVertices(int32 vCount)
-{
-    int32 x0 = viewportRel.x0;
-    int32 y0 = viewportRel.y0;
-    int32 x1 = viewportRel.x1;
-    int32 y1 = viewportRel.y1;
-
-    Vertex* res = gVertices;
-
-    for (int32 i = 0; i < vCount; i++)
-    {
-        int32 x = res->x;
-        int32 y = res->y;
-        int32 z = res->z;
-        int32 clip = 0;
-
-        if (z < (VIEW_MIN_F >> FIXED_SHIFT)) {
-            z = (VIEW_MIN_F >> FIXED_SHIFT);
-            clip = CLIP_NEAR;
-        } else if (z > (VIEW_MAX_F >> FIXED_SHIFT)) {
-            z = (VIEW_MAX_F >> FIXED_SHIFT);
-            clip = CLIP_FAR;
-        }
-
-        PERSPECTIVE(x, y, z);
-
-        clip |= classify(x, y, x0, y0, x1, y1);
-
-        res->x = x;
-        res->y = y;
-        res->z = (z << CLIP_SHIFT) | clip;
-        res++;
-    }
-}
-
 void transformRoom(const Room* room)
 {
     int32 vCount = room->info->verticesCount;
@@ -375,8 +355,6 @@ void transformRoom(const Room* room)
         return;
 
     unpackRoom(room->data.vertices, vCount);
-
-    transformVertices(gVertices, vCount);
 
     projectVertices(vCount);
 
@@ -386,8 +364,6 @@ void transformRoom(const Room* room)
 void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal)
 {
     unpackMesh(vertices, vCount);
-
-    transformVertices(gVertices, vCount);
 
     projectVertices(vCount);
 
@@ -757,11 +733,6 @@ X_INLINE void faceAddMeshTriangleFlat(uint32 flags, uint32 indices, uint32 shade
 
 void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz)
 {
-    x <<= F16_SHIFT;
-    z <<= F16_SHIFT;
-    sx <<= F16_SHIFT;
-    sz <<= F16_SHIFT;
-
     int32 sx2 = sx << 1;
     int32 sz2 = sz << 1;
 

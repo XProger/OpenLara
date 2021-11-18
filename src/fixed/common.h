@@ -124,7 +124,7 @@
     #define IWRAM_MATRIX_LERP
 // the maximum of active enemies
 //    #define MAX_ENEMIES 3
-    #define VIS_DIST (1024 * 10)
+    #define VIEW_DIST (1024 * 10)
 #endif
 
 #ifdef __3DO__
@@ -140,7 +140,7 @@
     #define MAX_ENEMIES 3
 // set the maximum number of simultaneously played channels
     #define SND_CHANNELS 4
-    #define VIS_DIST (1024 * 10)
+    #define VIEW_DIST (1024 * 10)
 #endif
 
 #ifndef NAV_STEPS
@@ -428,16 +428,16 @@ extern int32 fps;
 #define MAX_DYN_SECTORS     (1024*3)
 #define MAX_SAMPLES         180
 
-#ifndef VIS_DIST
-    #define VIS_DIST (1024 * 16)
+#ifndef VIEW_DIST
+    #define VIEW_DIST (1024 * 16)
 #endif
 
 #define FOV_SHIFT       3
 #define FOG_SHIFT       1
-#define FOG_MAX         VIS_DIST
+#define FOG_MAX         VIEW_DIST
 #define FOG_MIN         (FOG_MAX - (8192 >> FOG_SHIFT))
 #define VIEW_MIN_F      (256 << FIXED_SHIFT)
-#define VIEW_MAX_F      (FOG_MAX << FIXED_SHIFT)
+#define VIEW_MAX_F      (VIEW_DIST << FIXED_SHIFT)
 
 #define FRUSTUM_FAR_X   (5 << 10)
 #define FRUSTUM_FAR_Y   (3 << 10)
@@ -490,7 +490,7 @@ extern int32 fps;
 #define DP33(ax,ay,az,bx,by,bz)     (ax * bx + ay * by + az * bz)
 
 #ifdef USE_DIV_TABLE
-    #define DIV_TABLE_SIZE   1024
+    #define DIV_TABLE_SIZE   1025 // to compare with #1024 without extra LDR
     #define FixedInvS(x)     ((x < 0) ? -divTable[abs(x)] : divTable[x])
     #define FixedInvU(x)     divTable[x]
     extern divTableInt divTable[DIV_TABLE_SIZE];
@@ -588,23 +588,11 @@ struct vec4i {
     }
 };
 
-#ifdef __3DO__
-    #define F16_SHIFT (16 - FIXED_SHIFT)    // for fix14<->fix16 conversion
-    #define DOT_SHIFT (FIXED_SHIFT + FIXED_SHIFT - 16 - F16_SHIFT)
-#endif
-
 struct Matrix
 {
-#ifdef __3DO__
-    int32 e00, e10, e20, e30;
-    int32 e01, e11, e21, e31;
-    int32 e02, e12, e22, e32;
-    int32 e03, e13, e23, e33;
-#else
     int32 e00, e01, e02, e03;
     int32 e10, e11, e12, e13;
     int32 e20, e21, e22, e23;
-#endif
 };
 
 struct RoomQuad
