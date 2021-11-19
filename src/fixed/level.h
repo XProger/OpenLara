@@ -13,7 +13,7 @@ IWRAM_DATA uint8 lightmap[256 * 32]; // IWRAM 8k
 EWRAM_DATA ItemObj items[MAX_ITEMS];
 
 #ifdef ROM_READ
-EWRAM_DATA Texture textures[MAX_TEXTURES];
+EWRAM_DATA Texture textures[MAX_TEXTURES]; // animated textures require memory swap
 EWRAM_DATA FixedCamera cameras[MAX_CAMERAS];
 EWRAM_DATA Box boxes[MAX_BOXES];
 #endif

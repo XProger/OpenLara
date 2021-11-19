@@ -37,8 +37,10 @@
     #include <mem.h>
 #elif defined(__3DO__)
     #define MODEHW
-    #define USE_DIV_TABLE // 4k of DRAM
+    #define USE_DIV_TABLE   // 4k of DRAM
     #define CPU_BIG_ENDIAN
+    #define USE_MATRIX_ASM
+    #define USE_ASM
 
     #define BLOCK_SIZE_DRAM     (32 * 1024)
     #define BLOCK_SIZE_VRAM     (16 * 1024)
@@ -590,9 +592,16 @@ struct vec4i {
 
 struct Matrix
 {
+#ifdef __3DO__
+    int32 e00, e10, e20;
+    int32 e01, e11, e21;
+    int32 e02, e12, e22;
+    int32 e03, e13, e23;
+#else
     int32 e00, e01, e02, e03;
     int32 e10, e11, e12, e13;
     int32 e20, e21, e22, e23;
+#endif
 };
 
 struct RoomQuad
@@ -707,10 +716,7 @@ struct Room;
 struct RoomVertex
 {
 #ifdef __3DO__
-    int8 y;
-    uint8 zero;
-    uint8 x;
-    uint8 z;
+    uint16 xyz565;
 #else
     int8 x, y, z;
     uint8 g;
@@ -1444,7 +1450,7 @@ struct ExtraInfoLara
 
     uint16 meshes[JOINT_MAX];
 
-    uint16 ammo[WEAPON_MAX]; // TODO make global
+    int16 ammo[WEAPON_MAX]; // TODO make global
 
     Nav nav;
 
@@ -2003,12 +2009,12 @@ struct IMA_STATE
     }
 #elif defined(MODE4)
     #define PERSPECTIVE(x, y, z) {\
-        int32 dz = (z >> (FIXED_SHIFT + FOV_SHIFT + 1));\
-        dz += (dz >> 2);\
-        ASSERT(dz < DIV_TABLE_SIZE);\
+        int32 dz = z >> 4;\
+        dz += z >> 6;\
+        if (dz >= DIV_TABLE_SIZE) dz = DIV_TABLE_SIZE - 1;\
         int32 d = FixedInvU(dz);\
-        x = d * (x >> FIXED_SHIFT) >> 12;\
-        y = d * (y >> FIXED_SHIFT) >> 12;\
+        x = (x * d) >> 12;\
+        y = (y * d) >> 12;\
     }
 #else
     #define PERSPECTIVE(x, y, z) {\
@@ -2101,8 +2107,6 @@ vec3i boxPushOut(const AABBs &a, const AABBs &b);
     x = (((uint16*)(a))[1] & 0x3FF0) << 2;\
     y = (((uint16*)(a))[1] & 0x000F) << 12 | (((uint16*)(a))[0] & 0xFC00) >> 4;\
     z = (((uint16*)(a))[0] & 0x03FF) << 6;
-
-#define USE_MATRIX_ASM
 
 #ifdef USE_MATRIX_ASM
     extern "C" void matrixLerp_asm(const Matrix &n, int32 pmul, int32 pdiv);
@@ -2201,7 +2205,7 @@ void faceAddTriangle(uint32 flags, const Index* indices);
 void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz);
 void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index);
 void faceAddGlyph(int32 vx, int32 vy, int32 index);
-void faceAddRoom(const RoomQuad* quads, int32 qCount, const RoomTriangle* triangles, int32 tCount);
+void faceAddRoom(const Room* room);
 void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTriangle* tFaces, const MeshTriangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount);
 void flush();
 

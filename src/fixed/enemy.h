@@ -14,7 +14,7 @@ enum AggressionLevel
     AGGRESSION_LVL_1   = 0x400,
     AGGRESSION_LVL_2   = 0x2000,
     AGGRESSION_LVL_3   = 0x4000,
-    AGGRESSION_LVL_MAX = 0x7FFF,
+    AGGRESSION_LVL_MAX = 0x7FFF
 };
 
 struct Enemy : ItemObj
@@ -687,13 +687,13 @@ struct Wolf : Enemy
         HIT_MASK    = 0x774F,  // body, head, front legs
         DIST_STALK  = 1023 * 3,
         DIST_BITE   = 345,
-        DIST_ATTACK = 1024 + 512,
+        DIST_ATTACK = 1024 + 512
     };
 
     enum {
         ANIM_DEATH = 20,
         ANIM_DEATH_RUN,
-        ANIM_DEATH_JUMP,
+        ANIM_DEATH_JUMP
     };
 
     enum {
@@ -709,7 +709,7 @@ struct Wolf : Enemy
         STATE_GROWL,
         STATE_TURN, // unused
         STATE_DEATH,
-        STATE_BITE,
+        STATE_BITE
     };
 
     Wolf(Room* room) : Enemy(room, 6, 341, 375, AGGRESSION_LVL_2)
@@ -849,7 +849,7 @@ struct Wolf : Enemy
 struct Bear : Enemy
 {
     enum {
-        HIT_MASK = 0x2406C, // front legs and head
+        HIT_MASK = 0x2406C // front legs and head
     };
 
     enum {
@@ -863,7 +863,7 @@ struct Bear : Enemy
         STATE_BITE   ,
         STATE_ATTACK ,
         STATE_EAT    ,
-        STATE_DEATH  ,
+        STATE_DEATH
     };
 
     Bear(Room* room) : Enemy(room, 20, 341, 500, AGGRESSION_LVL_3)
@@ -1038,7 +1038,7 @@ struct Bat : Enemy
         STATE_FLY,
         STATE_ATTACK,
         STATE_CIRCLING,
-        STATE_DEATH,
+        STATE_DEATH
     };
 
     Bat(Room* room) : Enemy(room, 1, 102, 0, AGGRESSION_LVL_1) {}

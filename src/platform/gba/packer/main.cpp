@@ -4006,9 +4006,9 @@ struct LevelPC
                     int16 x, y, z;
                 } v;
 
-                v.x = vertices[j].x;
-                v.y = vertices[j].y;
-                v.z = vertices[j].z;
+                v.x = vertices[j].x << 2;
+                v.y = vertices[j].y << 2;
+                v.z = vertices[j].z << 2;
 
                 f.write(v.x);
                 f.write(v.y);

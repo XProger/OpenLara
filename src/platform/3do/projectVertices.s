@@ -11,24 +11,19 @@ vCount  RN r0
 mx      RN r0
 my      RN r1
 mz      RN r2
-vx      RN r3
-vy      RN r4
-vz      RN r5
-x       RN r6
-y       RN r7
-z       RN r8
-
-minX    RN mx
-minY    RN my
-maxX    RN mz
-maxY    RN vx
-dz      RN vy
-
-vp      RN r9
+x       RN r3
+y       RN r4
+z       RN r5
+dz      RN r6
+minX    RN dz
+minY    RN r7
+maxX    RN r8
+maxY    RN r12
+last    RN r9
 m       RN r10
+vp      RN m
 vertex  RN r11
-divLUT  RN r12
-last    RN lr
+divLUT  RN lr
 
 FIXED_SHIFT     EQU 14
 PROJ_SHIFT      EQU 4
@@ -45,40 +40,34 @@ VIEW_DIST       EQU (1024 * 10)
 VIEW_MIN        EQU (256 << CLIP_SHIFT)
 VIEW_MAX        EQU (VIEW_DIST << CLIP_SHIFT)
 
+MulManyVec3Mat33_F16 EQU (0x50000 + 2)
+
 projectVertices_asm
         stmfd sp!, {r4-r11, lr}
 
-        ldr divLUT, =divTable
-        ldr vertex, =gVertices
-        ldr vp, =viewportRel
         ldr m, =matrixPtr
         ldr m, [m]
+        ldr vertex, =gVertices
+        mov r3, vCount
         add vCount, vCount, vCount, lsl #1
         add last, vertex, vCount, lsl #2    ; last = gVertices + vCount * 12
 
-loop    ldmia vertex, {vx, vy, vz}  ; read unpacked vertex
+        mov r2, m
+        mov r1, vertex
+        mov r0, vertex
+        swi MulManyVec3Mat33_F16
 
-    ; transform x
-        ldmia m!, {mx, my, mz, x}
-        mla x, mx, vx, x
-        mla x, my, vy, x
-        mla x, mz, vz, x
-    ; transform y
-        ldmia m!, {mx, my, mz, y}
-        mla y, mx, vx, y
-        mla y, my, vy, y
-        mla y, mz, vz, y
-    ; transform z
-        ldmia m!, {mx, my, mz, z}
-        mla z, mx, vx, z
-        mla z, my, vy, z
-        mla z, mz, vz, z
+        add m, m, #36           ; skip 3x3 matrix part
+        ldmia m, {mx, my, mz}   ; get view space offset from matrix        
+        ldr divLUT, =divTable
+        ldr vp, =viewportRel
 
-        sub m, m, #48               ; restore matrixPtr
+loop    ldmia vertex, {x, y, z}     ; read unpacked vertex
 
-        mov x, x, asr #FIXED_SHIFT
-        mov y, y, asr #FIXED_SHIFT
-        mov z, z, asr #FIXED_SHIFT
+        add x, x, mx, asr #FIXED_SHIFT
+        add y, y, my, asr #FIXED_SHIFT
+        add z, z, mz, asr #FIXED_SHIFT
+
         mov z, z, lsl #CLIP_SHIFT   ; add some bits for the clipping flags
 
     ; check z clipping
@@ -86,8 +75,8 @@ loop    ldmia vertex, {vx, vy, vz}  ; read unpacked vertex
         movlt z, #VIEW_MIN
         orrlt z, z, #CLIP_NEAR
         cmp z, #VIEW_MAX
-        movge z, #VIEW_MAX
-        orrge z, z, #CLIP_FAR
+        movgt z, #VIEW_MAX
+        orrgt z, z, #CLIP_FAR
 
     ; projection
         mov dz, z, lsr #(PROJ_SHIFT + CLIP_SHIFT)
@@ -106,9 +95,9 @@ loop    ldmia vertex, {vx, vy, vz}  ; read unpacked vertex
         cmp y, minY
         orrlt z, z, #CLIP_TOP
         cmp x, maxX
-        orrge z, z, #CLIP_RIGHT
+        orrgt z, z, #CLIP_RIGHT
         cmp y, maxY
-        orrge z, z, #CLIP_BOTTOM
+        orrgt z, z, #CLIP_BOTTOM
 
         stmia vertex!, {x, y, z}    ; store projected vertex
         cmp vertex, last

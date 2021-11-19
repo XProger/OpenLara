@@ -427,15 +427,15 @@ bool Room::checkPortal(const Portal* portal)
             zfar++;
         }
 
-        int32 dz = (z >> (FIXED_SHIFT + FOV_SHIFT + 1));
+        int32 dz = (z >> (FIXED_SHIFT + FOV_SHIFT + 1)); // TODO PROJ_SHIFT?
 
         if (dz > 0) {
-            #ifdef __3DO__
-                x >>= FIXED_SHIFT;
-                y >>= FIXED_SHIFT;
-                z >>= FIXED_SHIFT;
-            #endif
+            x >>= FIXED_SHIFT;
+            y >>= FIXED_SHIFT;
+            z >>= FIXED_SHIFT;
+
             PERSPECTIVE(x, y, z);
+
             x += FRAME_WIDTH  >> 1;
             y += FRAME_HEIGHT >> 1;
         } else {

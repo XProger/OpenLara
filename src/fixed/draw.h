@@ -274,8 +274,6 @@ void drawShadow(const ItemObj* item, int32 size)
         { x - sx2, 0, z + sz  }  // 7
     };
 
-    int32 startVertex32 = gVerticesCount;
-
     transformMesh(v, 8, NULL, NULL);
 
     static const Index indices[] = { 
@@ -284,9 +282,9 @@ void drawShadow(const ItemObj* item, int32 size)
         6, 3, 4, 5
     };
 
-    faceAddQuad(FACE_SHADOW, indices + 0, startVertex32);
-    faceAddQuad(FACE_SHADOW, indices + 4, startVertex32);
-    faceAddQuad(FACE_SHADOW, indices + 8, startVertex32);
+    faceAddQuad(FACE_SHADOW, indices + 0);
+    faceAddQuad(FACE_SHADOW, indices + 4);
+    faceAddQuad(FACE_SHADOW, indices + 8);
 #endif
 
     matrixPop();
@@ -803,7 +801,7 @@ void drawRoom(const Room* room, Camera* camera)
 
     {
         PROFILE(CNT_ADD);
-        faceAddRoom(data.quads, info->quadsCount, data.triangles, info->trianglesCount);
+        faceAddRoom(room);
     }
 
     matrixPop();

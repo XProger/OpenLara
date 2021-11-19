@@ -37,6 +37,8 @@ bool enableClipping;
 
 extern Item screenItem;
 
+#define F16_SHIFT 2 // special f14 to f16 shift for the math co-processor
+
 #define DUP16(value) value | (value << 16)
 
 enum ShadeValue
@@ -174,8 +176,6 @@ enum ClipFlags {
     CLIP_NEAR   = 1 << 5
 };
 
-#define USE_ASM
-
 #ifdef USE_ASM
     #define unpackRoom unpackRoom_asm
     #define unpackMesh unpackMesh_asm
@@ -200,24 +200,24 @@ void unpackRoom_c(const RoomVertex* vertices, int32 vCount)
         uint32 n0 = *v32++;
         uint32 n1 = *v32++;
 
-        res->x = (n0 << 10) & 0x7C00;
-        res->y = (n0 << 3) & 0x3F00;
-        res->z = (n0 >> 1) & 0x7C00;
+        res->x = (n0 << 12) & 0x1F000;
+        res->y = (n0 << 5) & 0xFC00;
+        res->z = (n0 << 1) & 0x1F000;
         res++;
 
-        res->x = (n0 >> 6) & 0x7C00;
-        res->y = (n0 >> 13) & 0x3F00;
-        res->z = (n0 >> 17) & 0x7C00;
+        res->x = (n0 >> 4) & 0x1F000;
+        res->y = (n0 >> 11) & 0xFC00;
+        res->z = (n0 >> 15) & 0x1F000;
         res++;
 
-        res->x = (n1 << 10) & 0x7C00;
-        res->y = (n1 << 3) & 0x3F00;
-        res->z = (n1 >> 1) & 0x7C00;
+        res->x = (n1 << 12) & 0x1F000;
+        res->y = (n1 << 5) & 0xFC00;
+        res->z = (n1 << 1) & 0x1F000;
         res++;
 
-        res->x = (n1 >> 6) & 0x7C00;
-        res->y = (n1 >> 13) & 0x3F00;
-        res->z = (n1 >> 17) & 0x7C00;
+        res->x = (n1 >> 4) & 0x1F000;
+        res->y = (n1 >> 11) & 0xFC00;
+        res->z = (n1 >> 15) & 0x1F000;
         res++;
     }
 }
@@ -247,40 +247,38 @@ void unpackMesh_c(const MeshVertex* vertices, int32 vCount)
 
 void projectVertices_c(int32 vCount)
 {
-    Matrix& m = matrixGet();
-
     Vertex* v = gVertices;
+    Vertex* last = gVertices + vCount;
 
-    int32 minX = viewportRel.x0;
-    int32 minY = viewportRel.y0;
-    int32 maxX = viewportRel.x1;
-    int32 maxY = viewportRel.y1;
+    Matrix &m = matrixGet();
+    int32 mx = m.e03 >> FIXED_SHIFT;
+    int32 my = m.e13 >> FIXED_SHIFT;
+    int32 mz = m.e23 >> FIXED_SHIFT;
 
-    for (int32 i = 0; i < vCount; i++)
+    MulManyVec3Mat33_F16((vec3f16*)v, (vec3f16*)v, *(mat33f16*)&m, vCount);
+
+    do
     {
-        int32 vx = v->x;
-        int32 vy = v->y;
-        int32 vz = v->z;
-
-        int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
-        int32 y = DP43(m.e10, m.e11, m.e12, m.e13, vx, vy, vz);
-        int32 z = DP43(m.e20, m.e21, m.e22, m.e23, vx, vy, vz);
+        int32 x = v->x + mx;
+        int32 y = v->y + my;
+        int32 z = v->z + mz;
 
         int32 clip = 0;
 
-        if (z < VIEW_MIN_F) {
-            z = VIEW_MIN_F;
+        if (z < (VIEW_MIN_F >> FIXED_SHIFT)) {
+            z = (VIEW_MIN_F >> FIXED_SHIFT);
             clip = CLIP_NEAR;
-        } else if (z > VIEW_MAX_F) {
-            z = VIEW_MAX_F;
+        } else if (z > (VIEW_MAX_F >> FIXED_SHIFT)) {
+            z = (VIEW_MAX_F >> FIXED_SHIFT);
             clip = CLIP_FAR;
         }
 
-        x >>= FIXED_SHIFT;
-        y >>= FIXED_SHIFT;
-        z >>= FIXED_SHIFT;
-
         PERSPECTIVE(x, y, z);
+
+        int32 minX = viewportRel.x0;
+        int32 minY = viewportRel.y0;
+        int32 maxX = viewportRel.x1;
+        int32 maxY = viewportRel.y1;
 
         if (x < minX) clip |= CLIP_LEFT;
         if (y < minY) clip |= CLIP_TOP;
@@ -291,7 +289,7 @@ void projectVertices_c(int32 vCount)
         v->y = y;
         v->z = (z << CLIP_SHIFT) | clip;
         v++;
-    }
+    } while (v < last);
 }
 #endif
 
@@ -303,12 +301,12 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
         return false;
     }
 
-    int32 minX = box->minX;
-    int32 maxX = box->maxX;
-    int32 minY = box->minY;
-    int32 maxY = box->maxY;
-    int32 minZ = box->minZ;
-    int32 maxZ = box->maxZ;
+    int32 minX = box->minX << F16_SHIFT;
+    int32 maxX = box->maxX << F16_SHIFT;
+    int32 minY = box->minY << F16_SHIFT;
+    int32 maxY = box->maxY << F16_SHIFT;
+    int32 minZ = box->minZ << F16_SHIFT;
+    int32 maxZ = box->maxZ << F16_SHIFT;
 
     gVertices[0].x = minX; gVertices[0].y = minY; gVertices[0].z = minZ;
     gVertices[1].x = maxX; gVertices[1].y = minY; gVertices[1].z = minZ;
@@ -438,7 +436,11 @@ X_INLINE void ccbSetColor(uint32 flags, Face* face)
     face->ccb_SourcePtr = (CelData*)&gPalette[flags & 0xFF];
 }
 
-X_INLINE void ccbMap4(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, const Vertex* v3, uint32 shift)
+extern "C" void ccbMap4_asm(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, const Vertex* v3, uint32 shift);
+//#define ccbMap4 ccbMap4_asm
+#define ccbMap4 ccbMap4_c
+
+X_INLINE void ccbMap4_c(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, const Vertex* v3, uint32 shift)
 {
     int32 x1 = v1->x;
     int32 y1 = v1->y;
@@ -733,6 +735,11 @@ X_INLINE void faceAddMeshTriangleFlat(uint32 flags, uint32 indices, uint32 shade
 
 void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz)
 {
+    x <<= F16_SHIFT;
+    z <<= F16_SHIFT;
+    sx <<= F16_SHIFT;
+    sz <<= F16_SHIFT;
+
     int32 sx2 = sx << 1;
     int32 sz2 = sz << 1;
 
@@ -861,13 +868,16 @@ void faceAddGlyph(int32 vx, int32 vy, int32 index)
     f->ccb_HDDY = 0;
 }
 
-void faceAddRoom(const RoomQuad* quads, int32 qCount, const RoomTriangle* triangles, int32 tCount)
+void faceAddRoom(const Room* room)
 {
-    for (int32 i = 0; i < qCount; i++, quads++) {
+    const RoomQuad* quads = room->data.quads;
+    const RoomTriangle* triangles = room->data.triangles;
+
+    for (int32 i = 0; i < room->info->quadsCount; i++, quads++) {
         faceAddRoomQuad(quads->flags, quads->indices);
     }
 
-    for (int32 i = 0; i < tCount; i++, triangles++) {
+    for (int32 i = 0; i < room->info->trianglesCount; i++, triangles++) {
         faceAddRoomTriangle(triangles->flags, triangles->indices);
     }
 }

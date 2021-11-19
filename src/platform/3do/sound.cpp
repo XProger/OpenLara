@@ -203,6 +203,9 @@ void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode)
     pitch = pitch * 0x2000 >> SND_PITCH_SHIFT;
 
 // update playing status
+    int32 maxPos = -2;
+    int32 maxPosIndex = -1;
+
     for (int32 i = 0; i < SND_CHANNELS; i++)
     {
         Channel* ch = channels + i;
@@ -213,6 +216,11 @@ void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode)
         if (pos == -1 || pos >= samples[ch->index].size)
         {
             ch->playing = false;
+        }
+
+        if (maxPos < pos) {
+            maxPos = pos;
+            maxPosIndex = i;
         }
     }
 
@@ -264,7 +272,25 @@ void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode)
         return (void*)ch->sampler;
     }
 
-    printf("MAX_CHANNELS!\n");
+// stop a longest playing sample
+    if (maxPosIndex != -1)
+    {
+        Channel* ch = channels + maxPosIndex;
+
+        StopInstrument(ch->sampler, NULL);
+        DetachSample(ch->attach);
+
+        ch->setVolume(volume);
+        ch->setPitch(pitch);
+        ch->attach = AttachSample(ch->sampler, samples[index].data, NULL);
+        ch->index = index;
+        ch->playing = true;
+
+        StartInstrument(ch->sampler, NULL);
+
+        return (void*)ch->sampler;
+    }
+
     return NULL;
 }
 

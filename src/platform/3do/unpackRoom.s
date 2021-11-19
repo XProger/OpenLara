@@ -31,8 +31,8 @@ last     RN lr
         stmfd sp!, {r4-r9, lr}
         ldr res, =gVertices
         add last, vertices, vCount, lsl #1 ; last = vertices + vCount * 2
-        mov maskH, #0x7C00
-        mov maskV, #0x3F00
+        mov maskH, #0x1F000
+        mov maskV, #0xFC00
 
 loop    ldmia vertices!, {n0, n1} ; load four encoded vertices
         cmp vertices, last
@@ -41,27 +41,27 @@ loop    ldmia vertices!, {n0, n1} ; load four encoded vertices
         ; n0 = z3:5, y3:6, x3:5, z2:5, y2:6, x2:5
 
     ; 1st vertex
-        and vx0, maskH, n0, lsl #10     ; decode x0
-        and vy0, maskV, n0, lsl #3      ; decode y0
-        and vz0, maskH, n0, lsr #1      ; decode z0
+        and vx0, maskH, n0, lsl #12     ; decode x0
+        and vy0, maskV, n0, lsl #5      ; decode y0
+        and vz0, maskH, n0, lsl #1      ; decode z0
 
     ; 2nd vertex
-        and vx1, maskH, n0, lsr #6      ; decode x0
-        and vy1, maskV, n0, lsr #13     ; decode y0
-        and vz1, maskH, n0, lsr #17     ; decode z0
+        and vx1, maskH, n0, lsr #4      ; decode x1
+        and vy1, maskV, n0, lsr #11     ; decode y1
+        and vz1, maskH, n0, lsr #15     ; decode z1
 
     ; store
         stmia res!, {vx0, vy0, vz0, vx1, vy1, vz1}
 
     ; 3rd vertex
-        and vx2, maskH, n1, lsl #10     ; decode x0
-        and vy2, maskV, n1, lsl #3      ; decode y0
-        and vz2, maskH, n1, lsr #1      ; decode z0
+        and vx2, maskH, n1, lsl #12     ; decode x2
+        and vy2, maskV, n1, lsl #5      ; decode y2
+        and vz2, maskH, n1, lsl #1      ; decode z2
 
     ; 4th vertex
-        and vx3, maskH, n1, lsr #6      ; decode x0
-        and vy3, maskV, n1, lsr #13     ; decode y0
-        and vz3, maskH, n1, lsr #17     ; decode z0
+        and vx3, maskH, n1, lsr #4      ; decode x3
+        and vy3, maskV, n1, lsr #11     ; decode y3
+        and vz3, maskH, n1, lsr #15     ; decode z3
 
     ; store
         stmia res!, {vx2, vy2, vz2, vx3, vy3, vz3}

@@ -20,7 +20,7 @@ CFLAGS   = $(OPT) -bi -za1 -zas1 -wn -ff -fa -d __3DO__=1 -cpu ARM6
 CXXFLAGS = $(CFLAGS)
 ASFLAGS	 = -BI -i $(SDK)/include/3do
 INCPATH	 = -I $(SDK)/include/3do -I $(SDK)/include/ttl -I ../../fixed
-LIBPATH	 = $(SDK)/lib
+LIBPATH	 = $(SDK)/lib/3do
 LDFLAGS	 = -aif -reloc -ro-base 0 -libpath $(LIBPATH) -nodebug -remove -info Sizes
 STARTUP	 = $(LIBPATH)/cstartup.o
 

@@ -228,7 +228,7 @@ struct Door : Object
 {
     enum {
         STATE_CLOSE,
-        STATE_OPEN,
+        STATE_OPEN
     };
 
     Door(Room* room) : Object(room)
@@ -308,7 +308,7 @@ struct TrapDoor : Object
 {
     enum {
         STATE_CLOSE,
-        STATE_OPEN,
+        STATE_OPEN
     };
 
     TrapDoor(Room* room) : Object(room) {}
@@ -349,7 +349,7 @@ struct Switch : Object
 {
     enum {
         STATE_UP,
-        STATE_DOWN,
+        STATE_DOWN
     };
 
     Switch(Room* room) : Object(room) {}
@@ -676,7 +676,7 @@ struct TrapFloor : Object
         STATE_STATIC,
         STATE_SHAKE,
         STATE_FALL,
-        STATE_DOWN,
+        STATE_DOWN
     };
 
     TrapFloor(Room* room) : Object(room) {}
@@ -746,7 +746,7 @@ struct TrapSwingBlade : Object
         STATE_STATIC,
         STATE_BEGIN,
         STATE_SWING,
-        STATE_END,
+        STATE_END
     };
 
     TrapSwingBlade(Room* room) : Object(room)
@@ -872,7 +872,7 @@ struct Block : Object
         STATE_NONE,
         STATE_READY,
         STATE_PUSH,
-        STATE_PULL,
+        STATE_PULL
     };
 
     Block(Room* room) : Object(room)

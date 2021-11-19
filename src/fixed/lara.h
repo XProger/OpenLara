@@ -142,7 +142,7 @@ enum {
     JOINT_MASK_LEG_R      = JOINT_MASK_LEG_R1 | JOINT_MASK_LEG_R2 | JOINT_MASK_LEG_R3,
     JOINT_MASK_UPPER      = JOINT_MASK_TORSO  | JOINT_MASK_ARM_L  | JOINT_MASK_ARM_R,       // without head
     JOINT_MASK_LOWER      = JOINT_MASK_HIPS   | JOINT_MASK_LEG_L  | JOINT_MASK_LEG_R,
-    JOINT_MASK_BRAID      = JOINT_MASK_HEAD   | JOINT_MASK_TORSO  | JOINT_MASK_ARM_L1 | JOINT_MASK_ARM_L2 | JOINT_MASK_ARM_R1 | JOINT_MASK_ARM_R2,
+    JOINT_MASK_BRAID      = JOINT_MASK_HEAD   | JOINT_MASK_TORSO  | JOINT_MASK_ARM_L1 | JOINT_MASK_ARM_L2 | JOINT_MASK_ARM_R1 | JOINT_MASK_ARM_R2
 };
 
 Lara* players[MAX_PLAYERS];
@@ -238,7 +238,7 @@ struct Lara : ItemObj
 
         ANIM_SHOTGUN_AIM = 0,
         ANIM_SHOTGUN_DRAW,
-        ANIM_SHOTGUN_FIRE,
+        ANIM_SHOTGUN_FIRE
     };
 
     enum {
@@ -330,7 +330,7 @@ struct Lara : ItemObj
         ANIM_SWITCH_BIG_UP      = 196,
         ANIM_PUSH_BUTTON        = 197,
 
-        ANIM_UW_ROLL            = 203,
+        ANIM_UW_ROLL            = 203
     };
 
     typedef void (Lara::*Handler)();
@@ -1943,7 +1943,7 @@ struct Lara : ItemObj
     enum ClimbState {
         CLIMB_HANG,
         CLIMB_COLLIDE,
-        CLIMB_OK,
+        CLIMB_OK
     };
 
     ClimbState c_climbCollide(int32 width)
