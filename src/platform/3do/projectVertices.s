@@ -15,12 +15,12 @@ x       RN r3
 y       RN r4
 z       RN r5
 dz      RN r6
-minX    RN r7
-minY    RN r8
-maxX    RN r9
-maxY    RN r12
-m       RN minX
-vp      RN minX
+minXY   RN r7
+maxXY   RN r8
+minZ    RN r9
+maxZ    RN r12
+m       RN dz
+vp      RN dz
 last    RN r10
 vertex  RN r11
 divLUT  RN lr
@@ -61,23 +61,28 @@ projectVertices_asm
         ldmia m, {mx, my, mz}   ; get view space offset from matrix
         ldr divLUT, =divTable
         ldr vp, =viewportRel
-        ldmia vp, {minX, minY, maxX, maxY}
+        ldmia vp, {minXY, maxXY}
+
+        mov minZ, #VIEW_MIN
+        mov maxZ, #VIEW_MAX
+
+        mov my, my, asr #FIXED_SHIFT
+        mov my, my, lsl #PROJ_SHIFT
+
+        mov mz, mz, asr #FIXED_SHIFT
+        mov mz, mz, lsl #CLIP_SHIFT
 
 loop    ldmia vertex, {x, y, z}     ; read unpacked vertex
 
         add x, x, mx, asr #FIXED_SHIFT
-        add y, y, my, asr #FIXED_SHIFT
-        add z, z, mz, asr #FIXED_SHIFT
-
-        mov z, z, lsl #CLIP_SHIFT   ; add some bits for the clipping flags
+        add y, my, y, lsl #PROJ_SHIFT ; extra shift for min/max cmp with hi half-word
+        add z, mz, z, lsl #CLIP_SHIFT ; add some bits for the clipping flags
 
     ; check z clipping
-        cmp z, #VIEW_MIN
-        movlt z, #VIEW_MIN
-        orrlt z, z, #CLIP_NEAR
-        cmp z, #VIEW_MAX
-        movgt z, #VIEW_MAX
-        orrgt z, z, #CLIP_FAR
+        cmp z, minZ
+        orrlt z, minZ, #CLIP_NEAR
+        cmp z, maxZ
+        orrgt z, maxZ, #CLIP_FAR
 
     ; projection
         mov dz, z, lsr #(PROJ_SHIFT + CLIP_SHIFT)   ; z is positive
@@ -85,17 +90,19 @@ loop    ldmia vertex, {x, y, z}     ; read unpacked vertex
         mul x, dz, x
         mul y, dz, y
         mov x, x, asr #(16 - PROJ_SHIFT)
-        mov y, y, asr #(16 - PROJ_SHIFT)
+        ; keep y shifted by 16 for min/max cmp
 
     ; check xy clipping
-        cmp x, minX
+        cmp x, minXY, asr #16
         orrlt z, z, #CLIP_LEFT
-        cmp y, minY
+        cmp y, minXY, lsl #16
         orrlt z, z, #CLIP_TOP
-        cmp x, maxX
+        cmp x, maxXY, asr #16
         orrgt z, z, #CLIP_RIGHT
-        cmp y, maxY
+        cmp y, maxXY, lsl #16
         orrgt z, z, #CLIP_BOTTOM
+
+        mov y, y, asr #16
 
         stmia vertex!, {x, y, z}    ; store projected vertex
         cmp vertex, last

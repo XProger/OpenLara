@@ -28,7 +28,12 @@ Face* otFacesTail[OT_SIZE];
 int32 otMin = OT_SIZE - 1;
 int32 otMax = 0;
 
-RectMinMax viewportRel;
+struct ViewportRel {
+    int16 x0, y0;
+    int16 x1, y1;
+};
+
+ViewportRel viewportRel;
 
 bool enableClipping;
 
@@ -321,7 +326,7 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
 
     *rect = RectMinMax( INT_MAX, INT_MAX, INT_MIN, INT_MIN );
 
-    Vertex* v = gVertices;
+    const Vertex* v = gVertices;
 
     for (int32 i = 0; i < 8; i++, v++)
     {
