@@ -133,9 +133,6 @@ void sndInit()
             ConnectInstruments(ch->sampler, "Output", sndMixer, InputName);
         }
 
-        if (ch->sampler < 0)
-            printf("FUCK!\n");
-
         ch->frequency = GrabKnob(ch->sampler, "Frequency");
         ch->amplitude = GrabKnob(ch->sampler, "Amplitude");
         ch->setVolume(0x7FFF);

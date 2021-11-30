@@ -185,14 +185,22 @@ enum ClipFlags {
     #define unpackRoom unpackRoom_asm
     #define unpackMesh unpackMesh_asm
     #define projectVertices projectVertices_asm
+    #define ccbMap4 ccbMap4_asm
+    #define ccbMap3 ccbMap3_asm
 
-    extern "C" void unpackRoom_asm(const RoomVertex* vertices, int32 vCount);
-    extern "C" void unpackMesh_asm(const MeshVertex* vertices, int32 vCount);
-    extern "C" void projectVertices_asm(int32 vCount);
+    extern "C" {
+        void unpackRoom_asm(const RoomVertex* vertices, int32 vCount);
+        void unpackMesh_asm(const MeshVertex* vertices, int32 vCount);
+        void projectVertices_asm(int32 vCount);
+        void ccbMap4_asm(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, const Vertex* v3, uint32 shift);
+        void ccbMap3_asm(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, uint32 shift);
+    }
 #else
     #define unpackRoom unpackRoom_c
     #define unpackMesh unpackMesh_c
     #define projectVertices projectVertices_c
+    #define ccbMap4 ccbMap4_c
+    #define ccbMap3 ccbMap3_c
 
 void unpackRoom_c(const RoomVertex* vertices, int32 vCount)
 {
@@ -295,6 +303,79 @@ void projectVertices_c(int32 vCount)
         v->z = (z << CLIP_SHIFT) | clip;
         v++;
     } while (v < last);
+}
+
+void ccbMap4_c(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, const Vertex* v3, uint32 shift)
+{
+    int32 x1 = v1->x;
+    int32 y1 = v1->y;
+    int32 x3 = v3->x;
+    int32 y3 = v3->y;
+    int32 x2 = v2->x;
+    int32 y2 = v2->y;
+    int32 x0 = v0->x;
+    int32 y0 = v0->y;
+
+    uint32 ws = shift & 0xFF;
+    uint32 hs = shift >> 8;
+
+    int32 hdx0 = (x1 - x0) << ws;
+    int32 hdy0 = (y1 - y0) << ws;
+    int32 hdx1 = (x2 - x3) << ws;
+    int32 hdy1 = (y2 - y3) << ws;
+    int32 vdx0 = (x3 - x0) << hs;
+    int32 vdy0 = (y3 - y0) << hs;
+
+    hs = 16 - hs;
+    int32 hddx = (hdx1 - hdx0) >> hs;
+    int32 hddy = (hdy1 - hdy0) >> hs;
+
+    f->ccb_XPos = (x0 << 16) + (FRAME_WIDTH  << 15);
+    f->ccb_YPos = (y0 << 16) + (FRAME_HEIGHT << 15);
+
+    f->ccb_HDX = hdx0;
+    f->ccb_HDY = hdy0;
+    f->ccb_VDX = vdx0;
+    f->ccb_VDY = vdy0;
+    f->ccb_HDDX = hddx;
+    f->ccb_HDDY = hddy;
+
+#ifdef DEBUG_CLIPPING
+    f->ccb_PIXC = SHADE_SHADOW;
+#endif
+}
+
+void ccbMap3_c(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, uint32 shift)
+{
+    int32 x0 = v0->x;
+    int32 y0 = v0->y;
+    int32 x1 = v1->x;
+    int32 y1 = v1->y;
+    int32 x2 = v2->x;
+    int32 y2 = v2->y;
+
+    uint32 ws = shift & 0xFF;
+    uint32 hs = shift >> 8;
+
+    int32 hdx0 = (x1 - x0) << ws;
+    int32 hdy0 = (y1 - y0) << ws;
+    int32 vdx0 = (x2 - x0) << hs;
+    int32 vdy0 = (y2 - y0) << hs;
+
+    f->ccb_XPos = (x0 << 16) + (FRAME_WIDTH  << 15);
+    f->ccb_YPos = (y0 << 16) + (FRAME_HEIGHT << 15);
+    f->ccb_HDX = hdx0;
+    f->ccb_HDY = hdy0;
+    f->ccb_VDX = vdx0;
+    f->ccb_VDY = vdy0;
+
+    hs = 16 - hs;
+    f->ccb_HDDX = -hdx0 >> hs;
+    f->ccb_HDDY = -hdy0 >> hs;
+
+#ifdef DEBUG_CLIPPING
+    f->ccb_PIXC = SHADE_SHADOW;
+#endif
 }
 #endif
 
@@ -439,82 +520,6 @@ X_INLINE void ccbSetColor(uint32 flags, Face* face)
         CCB_BGND;
 
     face->ccb_SourcePtr = (CelData*)&gPalette[flags & 0xFF];
-}
-
-extern "C" void ccbMap4_asm(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, const Vertex* v3, uint32 shift);
-//#define ccbMap4 ccbMap4_asm
-#define ccbMap4 ccbMap4_c
-
-X_INLINE void ccbMap4_c(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, const Vertex* v3, uint32 shift)
-{
-    int32 x1 = v1->x;
-    int32 y1 = v1->y;
-    int32 x3 = v3->x;
-    int32 y3 = v3->y;
-    int32 x2 = v2->x;
-    int32 y2 = v2->y;
-    int32 x0 = v0->x;
-    int32 y0 = v0->y;
-
-    uint32 ws = shift & 0xFF;
-    uint32 hs = shift >> 8;
-
-    int32 hdx0 = (x1 - x0) << ws;
-    int32 hdy0 = (y1 - y0) << ws;
-    int32 hdx1 = (x2 - x3) << ws;
-    int32 hdy1 = (y2 - y3) << ws;
-    int32 vdx0 = (x3 - x0) << hs;
-    int32 vdy0 = (y3 - y0) << hs;
-
-    hs = 16 - hs;
-    int32 hddx = (hdx1 - hdx0) >> hs;
-    int32 hddy = (hdy1 - hdy0) >> hs;
-
-    f->ccb_XPos = (x0 << 16) + (((FRAME_WIDTH  >> 1) << 16) + 32768);
-    f->ccb_YPos = (y0 << 16) + (((FRAME_HEIGHT >> 1) << 16) + 32768);
-    f->ccb_HDX = hdx0;
-    f->ccb_HDY = hdy0;
-    f->ccb_VDX = vdx0;
-    f->ccb_VDY = vdy0;
-    f->ccb_HDDX = hddx;
-    f->ccb_HDDY = hddy;
-
-#ifdef DEBUG_CLIPPING
-    f->ccb_PIXC = SHADE_SHADOW;
-#endif
-}
-
-X_INLINE void ccbMap3(Face* f, const Vertex* v0, const Vertex* v1, const Vertex* v2, uint32 shift)
-{
-    int32 x0 = v0->x;
-    int32 y0 = v0->y;
-    int32 x1 = v1->x;
-    int32 y1 = v1->y;
-    int32 x2 = v2->x;
-    int32 y2 = v2->y;
-
-    uint32 ws = shift & 0xFF;
-    uint32 hs = shift >> 8;
-
-    int32 hdx0 = (x1 - x0) << ws;
-    int32 hdy0 = (y1 - y0) << ws;
-    int32 vdx0 = (x2 - x0) << hs;
-    int32 vdy0 = (y2 - y0) << hs;
-
-    f->ccb_XPos = (x0 << 16) + (((FRAME_WIDTH  >> 1) << 16) + 32768);
-    f->ccb_YPos = (y0 << 16) + (((FRAME_HEIGHT >> 1) << 16) + 32768);
-    f->ccb_HDX = hdx0;
-    f->ccb_HDY = hdy0;
-    f->ccb_VDX = vdx0;
-    f->ccb_VDY = vdy0;
-
-    hs = 16 - hs;
-    f->ccb_HDDX = -hdx0 >> hs;
-    f->ccb_HDDY = -hdy0 >> hs;
-
-#ifdef DEBUG_CLIPPING
-    f->ccb_PIXC = SHADE_SHADOW;
-#endif
 }
 
 X_INLINE void faceAddRoomQuad(uint32 flags, const Index* indices)
