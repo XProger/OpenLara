@@ -431,7 +431,7 @@ extern int32 fps;
 #define MAX_SAMPLES         180
 
 #ifndef VIEW_DIST
-    #define VIEW_DIST (1024 * 16)
+    #define VIEW_DIST (1024 * 10)
 #endif
 
 #define FOV_SHIFT       3
@@ -607,8 +607,8 @@ struct Matrix
 struct RoomQuad
 {
 #ifdef __3DO__
-    Index  indices[4];
     uint32 flags;
+    Index  indices[4];
 #else
     Index  indices[4];
     uint16 flags;
@@ -618,8 +618,8 @@ struct RoomQuad
 struct MeshQuad
 {
 #ifdef __3DO__
-    uint32 indices;
     uint32 flags;
+    uint32 indices;
 #else
     Index  indices[4];
     uint16 flags;
@@ -629,9 +629,8 @@ struct MeshQuad
 struct RoomTriangle
 {
 #ifdef __3DO__
-    Index  indices[3];
-    uint16 _unused;
     uint32 flags;
+    Index  indices[4];
 #else
     Index  indices[3];
     uint16 flags;
@@ -641,8 +640,8 @@ struct RoomTriangle
 struct MeshTriangle
 {
 #ifdef __3DO__
-    uint32 indices;
     uint32 flags;
+    uint32 indices;
 #else
     Index  indices[3];
     uint16 flags;
@@ -1992,8 +1991,10 @@ struct IMA_STATE
 };
 
 #if defined(MODEHW)
+    #define PERSPECTIVE_DZ(z) (z >> 4)
+
     #define PERSPECTIVE(x, y, z) {\
-        int32 dz = z >> 4;\
+        int32 dz = PERSPECTIVE_DZ(z);\
         if (dz >= DIV_TABLE_SIZE) dz = DIV_TABLE_SIZE - 1;\
         int32 d = FixedInvU(dz);\
         x = (x * d) >> 12;\
@@ -2008,9 +2009,10 @@ struct IMA_STATE
         y = d * (y >> 14) >> 12;\
     }
 #elif defined(MODE4)
+    #define PERSPECTIVE_DZ(z) ((z >> 4) + (z >> 6))
+
     #define PERSPECTIVE(x, y, z) {\
-        int32 dz = z >> 4;\
-        dz += z >> 6;\
+        int32 dz = PERSPECTIVE_DZ(z);\
         if (dz >= DIV_TABLE_SIZE) dz = DIV_TABLE_SIZE - 1;\
         int32 d = FixedInvU(dz);\
         x = (x * d) >> 12;\
@@ -2147,6 +2149,7 @@ X_INLINE Matrix& matrixGet()
 
 X_INLINE void matrixPush()
 {
+    ASSERT(matrixPtr - matrixStack < MAX_MATRICES);
     memcpy(matrixPtr + 1, matrixPtr, sizeof(Matrix));
     matrixPtr++;
 }

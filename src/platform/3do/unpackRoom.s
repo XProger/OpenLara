@@ -1,8 +1,8 @@
     AREA |C$$code|, CODE, READONLY
 |x$codeseg|
 
-    IMPORT cameraViewOffset
-    IMPORT gVertices
+    INCLUDE common_asm.inc
+
     EXPORT unpackRoom_asm
 
 unpackRoom_asm

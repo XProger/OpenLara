@@ -1,7 +1,8 @@
     AREA |C$$code|, CODE, READONLY
 |x$codeseg|
 
-    IMPORT gVertices
+    INCLUDE common_asm.inc
+
     EXPORT unpackMesh_asm
 
 unpackMesh_asm

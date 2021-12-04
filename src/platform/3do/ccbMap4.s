@@ -1,6 +1,8 @@
     AREA |C$$code|, CODE, READONLY
 |x$codeseg|
 
+    INCLUDE common_asm.inc
+
     EXPORT ccbMap4_asm
 
 ccbMap4_asm
@@ -36,9 +38,6 @@ hddy     RN hdy1
 ws       RN r12
 hs       RN lr
 shift    RN hs
-
-FRAME_WIDTH  EQU 320
-FRAME_HEIGHT EQU 240
 
         stmfd sp!, {r4-r8, lr}
 

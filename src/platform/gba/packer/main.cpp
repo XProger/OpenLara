@@ -816,11 +816,11 @@ struct LevelPC
 
         void write(FileStream &f) const
         {
+            f.write(flags);
             f.write(indices[0]);
             f.write(indices[1]);
             f.write(indices[2]);
             f.write(indices[3]);
-            f.write(flags);
         }
     };
 
@@ -831,11 +831,11 @@ struct LevelPC
 
         void write(FileStream &f) const
         {
+            f.write(flags);
             f.write(indices[3]);
             f.write(indices[2]);
             f.write(indices[1]);
             f.write(indices[0]);
-            f.write(flags);
         }
     };
 
@@ -862,11 +862,11 @@ struct LevelPC
 
         void write(FileStream &f) const
         {
+            f.write(flags);
             f.write(indices[0]);
             f.write(indices[1]);
             f.write(indices[2]);
             f.write(_unused);
-            f.write(flags);
         }
     };
 
@@ -878,12 +878,12 @@ struct LevelPC
 
         void write(FileStream &f) const
         {
+            f.write(flags);
             uint8 unused = 0;
             f.write(unused);
             f.write(indices[2]);
             f.write(indices[1]);
             f.write(indices[0]);
-            f.write(flags);
         }
     };
 
@@ -3738,14 +3738,20 @@ struct LevelPC
                     q.indices[2] = addRoomVertex(info.yTop, v2, true);
                     q.indices[3] = addRoomVertex(info.yTop, v3, true);
 
+                    ASSERT((int32)q.indices[0] * 12 < 0xFFFF);
+                    ASSERT((int32)q.indices[1] * 12 < 0xFFFF);
+                    ASSERT((int32)q.indices[2] * 12 < 0xFFFF);
+                    ASSERT((int32)q.indices[3] * 12 < 0xFFFF);
+
                     RoomQuad3DO comp;
-                    comp.indices[0] = q.indices[0];
-                    comp.indices[1] = q.indices[1];
-                    comp.indices[2] = q.indices[2];
-                    comp.indices[3] = q.indices[3];
+                    comp.indices[0] = q.indices[0] * 12;
+                    comp.indices[1] = q.indices[1] * 12;
+                    comp.indices[2] = q.indices[2] * 12;
+                    comp.indices[3] = q.indices[3] * 12;
                     comp.flags = q.flags;
                 // add ccw flag and swap indices
                     calcQuadFlip(comp);
+                    ASSERT((comp.flags & FACE_CCW) == 0);
                 // add intensity
                     comp.flags |= (intensity << (FACE_MIP_SHIFT + FACE_MIP_SHIFT));
                     if (textures3DO[comp.flags & FACE_TEXTURE].pre0 & PRE0_BGND) {
@@ -3777,10 +3783,14 @@ struct LevelPC
                     t.indices[1] = addRoomVertex(info.yTop, v1, true);
                     t.indices[2] = addRoomVertex(info.yTop, v2, true);
 
+                    ASSERT((int32)t.indices[0] * 12 < 0xFFFF);
+                    ASSERT((int32)t.indices[1] * 12 < 0xFFFF);
+                    ASSERT((int32)t.indices[2] * 12 < 0xFFFF);
+
                     RoomTriangle3DO comp;
-                    comp.indices[0] = t.indices[0];
-                    comp.indices[1] = t.indices[1];
-                    comp.indices[2] = t.indices[2];
+                    comp.indices[0] = t.indices[0] * 12;
+                    comp.indices[1] = t.indices[1] * 12;
+                    comp.indices[2] = t.indices[2] * 12;
                     comp._unused = 0;
                     comp.flags = t.flags;
                 // add intensity

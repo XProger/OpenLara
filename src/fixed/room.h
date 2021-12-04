@@ -421,19 +421,19 @@ bool Room::checkPortal(const Portal* portal)
             continue;
         }
 
-        if (z >= VIEW_MAX_F)
+        if (z > VIEW_MAX_F)
         {
             z = VIEW_MAX_F;
             zfar++;
         }
 
-        int32 dz = (z >> (FIXED_SHIFT + FOV_SHIFT + 1)); // TODO PROJ_SHIFT?
+        x >>= FIXED_SHIFT;
+        y >>= FIXED_SHIFT;
+        z >>= FIXED_SHIFT;
+
+        int32 dz = PERSPECTIVE_DZ(z);
 
         if (dz > 0) {
-            x >>= FIXED_SHIFT;
-            y >>= FIXED_SHIFT;
-            z >>= FIXED_SHIFT;
-
             PERSPECTIVE(x, y, z);
 
             x += FRAME_WIDTH  >> 1;

@@ -1,8 +1,8 @@
     AREA |C$$code|, CODE, READONLY
 |x$codeseg|
 
-    IMPORT matrixPtr
-    IMPORT divTable
+    INCLUDE common_asm.inc
+
     EXPORT matrixLerp_asm
 
 n       RN r0

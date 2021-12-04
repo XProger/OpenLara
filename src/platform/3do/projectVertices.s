@@ -1,10 +1,8 @@
     AREA |C$$code|, CODE, READONLY
 |x$codeseg|
 
-    IMPORT matrixPtr
-    IMPORT viewportRel
-    IMPORT divTable
-    IMPORT gVertices
+    INCLUDE common_asm.inc
+
     EXPORT projectVertices_asm
 
 vCount  RN r0
@@ -24,23 +22,6 @@ vp      RN dz
 last    RN r10
 vertex  RN r11
 divLUT  RN lr
-
-FIXED_SHIFT     EQU 14
-PROJ_SHIFT      EQU 4
-CLIP_SHIFT      EQU 8
-CLIP_LEFT       EQU (1 << 0)
-CLIP_RIGHT      EQU (1 << 1)
-CLIP_TOP        EQU (1 << 2)
-CLIP_BOTTOM     EQU (1 << 3)
-CLIP_FAR        EQU (1 << 4)
-CLIP_NEAR       EQU (1 << 5)
-
-DIV_TABLE_END   EQU (1025 - 1)
-VIEW_DIST       EQU (1024 * 10)             ; max = DIV_TABLE_END << PROJ_SHIFT
-VIEW_MIN        EQU (256 << CLIP_SHIFT)
-VIEW_MAX        EQU (VIEW_DIST << CLIP_SHIFT)
-
-MulManyVec3Mat33_F16 EQU (0x50000 + 2)
 
 projectVertices_asm
         stmfd sp!, {r4-r11, lr}
