@@ -51,6 +51,7 @@ shift    RN hs
 
         and ws, shift, #0xFF
         mov hs, shift, lsr #8
+        and hs, hs, #0xFF
 
         sub hdx1, vx2, vx3
         sub hdy1, vy2, vy3

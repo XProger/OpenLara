@@ -3,7 +3,7 @@
     IMPORT gVertices
     IMPORT gFacesBase
     IMPORT gOT
-    IMPORT gPaletteOffset
+    IMPORT gPalette
     IMPORT shadeTable
     IMPORT divTable
     IMPORT level

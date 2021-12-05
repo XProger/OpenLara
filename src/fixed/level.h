@@ -122,7 +122,6 @@ void readLevel_GBA(const uint8* data)
     {
         Texture* tex = level.textures + i;
         tex->data += intptr_t(RAM_TEX);
-        tex->plut += intptr_t(RAM_TEX);
     }
 #endif
 }

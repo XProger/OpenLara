@@ -44,6 +44,7 @@ hddy     RN hs
 
         and ws, shift, #0xFF
         mov hs, shift, lsr #8
+        and hs, hs, #0xFF
 
         sub hdx0, vx1, vx0
         sub hdy0, vy1, vy0

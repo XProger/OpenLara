@@ -30,6 +30,10 @@ tex         RN r11
 mask        RN r12
 depth       RN lr
 
+fQuads      RN countArg
+fLast       RN pixc
+fVertices   RN tex
+
 spQuads     RN vx0
 spLast      RN vx1
 spVertices  RN vy3
@@ -69,7 +73,7 @@ hddx        RN hdx1
 hddy        RN hdy1
 
 nextPtr     RN vy2
-dataPtr     RN flags
+dataPtr     RN quadsArg
 plutPtr     RN countArg
 
 tmp         RN countArg
@@ -108,26 +112,25 @@ SP_SIZE     EQU 32
         ldr spTextures, =level
         ldr spTextures, [spTextures, #LVL_TEX_OFFSET]
         ldr spFaceBase, =gFacesBase
-        ldr spPalette, =gPaletteOffset
+        ldr spPalette, =gPalette
         ldr spPalette, [spPalette]
 
         stmia sp, {quadsArg, spLast, spVertices, spOT, spShadeLUT, spTextures, spFaceBase, spPalette}
 
-loop    ldmia sp, {spQuads, spLast, spVertices}
-        cmp spQuads, spLast
+loop    ldmia sp, {fQuads, fLast, fVertices}
+skip    cmp fQuads, fLast
         bge done
 
-        ldmia spQuads!, {flags, i0, i1}
-        str spQuads, [sp, #SP_QUADS]
+        ldmia fQuads!, {flags, i0, i1}
 
         ; get vertex pointers
-        add vp0, spVertices, i0, lsr #16
+        add vp0, fVertices, i0, lsr #16
         mov i0, i0, lsl #16
-        add vp1, spVertices, i0, lsr #16
+        add vp1, fVertices, i0, lsr #16
 
-        add vp2, spVertices, i1, lsr #16
+        add vp2, fVertices, i1, lsr #16
         mov i1, i1, lsl #16
-        add vp3, spVertices, i1, lsr #16
+        add vp3, fVertices, i1, lsr #16
 
         ; read z value with clip mask
         ldr vz0, [vp0, #8]
@@ -140,7 +143,7 @@ loop    ldmia sp, {spQuads, spLast, spVertices}
         and mask, vz2, mask
         and mask, vz3, mask
         tst mask, #CLIP_MASK
-        bne loop
+        bne skip
 
         ; depth = max(vz0, vz1, vz2, vz3) (DEPTH_Q_MAX)
         mov depth, vz0
@@ -162,7 +165,10 @@ loop    ldmia sp, {spQuads, spLast, spVertices}
         mul hv0, hdx0, vdy0
         mul hv1, hdy0, vdx0
         cmp hv0, hv1
-        ble loop
+        ble skip
+
+        ; poly is visible, store fQuads on the stack to reuse the reg
+        str fQuads, [sp, #SP_QUADS]
 
         ; depth = max(0, depth) >> (CLIP_SHIFT + OT_SHIFT)
         movs depth, depth, lsr #(CLIP_SHIFT + OT_SHIFT)
@@ -189,18 +195,16 @@ loop    ldmia sp, {spQuads, spLast, spVertices}
         ; get texture ptr (base or mip)
         mov texIndex, flags
         cmp depth, #(MIP_DIST >> OT_SHIFT)
-        movgt texIndex, flags, lsr #FACE_MIP_SHIFT
+        movgt texIndex, texIndex, lsr #FACE_MIP_SHIFT
         mov texIndex, texIndex, lsl #(32 - FACE_MIP_SHIFT)
-        mov texIndex, texIndex, lsr #(32 - FACE_MIP_SHIFT)
-        add texIndex, texIndex, texIndex, lsl #1
-        add tex, tex, texIndex, lsl #2
+        add tex, tex, texIndex, lsr #(32 - FACE_MIP_SHIFT - 3)  ; sizeof(Texture) = 2^3
 
         ; faceAdd
         cmp depth, #(OT_SIZE - 1)
         movgt depth, #(OT_SIZE - 1)
         add ot, ot, depth, lsl #3   ; mul by size of OT element
 
-        mov depth, faceBase     ; use depth reg as faceBase due face reg collision
+        mov depth, faceBase     ; use depth reg due face vs faceBase reg collision
 
         ldr face, [depth]
         add nextPtr, face, #SIZE_OF_CCB
@@ -220,10 +224,12 @@ loop    ldmia sp, {spQuads, spLast, spVertices}
 
         ; ccbMap4
         stmia face!, {flags, nextPtr}
-        ldmia tex, {dataPtr, plutPtr, shift}
+        ldmia tex, {dataPtr, shift}
 
+        ; plutPtr = plutOffset + (tex->shift >> 16) * sizeof(PLUT)
         ldr plutOffset, [sp, #SP_PALETTE]
-        add plutPtr, plutPtr, plutOffset
+        mov plutPtr, shift, lsr #16
+        add plutPtr, plutOffset, plutPtr, lsl #5
 
         ldmia vp2, {vx2, vy2}
         sub vx2, vx2, vx0
@@ -233,6 +239,7 @@ loop    ldmia sp, {spQuads, spLast, spVertices}
 
         and ws, shift, #0xFF
         mov hs, shift, lsr #8
+        and hs, hs, #0xFF
 
         mov hdx0, hdx0, lsl ws
         mov hdy0, hdy0, lsl ws
@@ -253,7 +260,7 @@ loop    ldmia sp, {spQuads, spLast, spVertices}
 
         stmia face, {dataPtr, plutPtr, xpos, ypos, hdx0, hdy0, vdx0, vdy0, hddx, hddy, pixc}
 
-        bl loop
+        b loop
 
 done    add sp, sp, #SP_SIZE
         ldmfd sp!, {r4-r11, pc}

@@ -953,7 +953,6 @@ struct Texture
 {
 #ifdef __3DO__
     uint8* data;
-    uint8* plut;
     uint32 shift;
 #else
     uint16 attribute;

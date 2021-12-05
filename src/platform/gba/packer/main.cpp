@@ -2935,13 +2935,10 @@ struct LevelPC
     struct Texture3DO {
         int32 data;
         int32 plut;
-        uint32 _shift;
 
-        // not in file
         uint8 wShift;
         uint8 hShift;
         uint16 color;
-        uint32 _unused;
 
         uint32 pre0;
         uint32 pre1;
@@ -2954,9 +2951,8 @@ struct LevelPC
 
         void write(FileStream &f) const
         {
+            uint32 shift = wShift | (hShift << 8) | (plut << 16);
             f.write(data);
-            f.write(plut);
-            uint32 shift = wShift | (hShift << 8);
             f.write(shift);
         }
 
@@ -3003,13 +2999,13 @@ struct LevelPC
         {
             if (memcmp(&PLUTs[i], &p, sizeof(PLUT)) == 0)
             {
-                return sizeof(PLUT) * i;
+                return i;
             }
         }
 
         PLUTs[plutsCount] = p;
 
-        return sizeof(PLUT) * plutsCount++;
+        return plutsCount++;
     }
 
     template <typename T>
@@ -3059,7 +3055,7 @@ struct LevelPC
 
         f.bigEndian = true;
 
-    // reserve 4 bytes for the main palette (first 16 x PLUTs) offset
+    // reserve 4 bytes for the PLUTs offset
         f.seek(4);
 
     // convert palette to 15-bit and fix some color gradients
@@ -3503,15 +3499,7 @@ struct LevelPC
 
         printf("duplicate size: %d\n", dupSize);
 
-
-    // fix PLUT offsets
-        int32 plutsOffset = f.getPos();
-        for (int32 i = 0; i < objectTexturesCount; i++)
-        {
-            textures3DO[i].plut += plutsOffset;
-        }
-
-        uint32 paletteOffset = f.getPos();
+        uint32 paletteOffset = f.align4();
 
     // write PLUTs
         f.write((uint16*)PLUTs, sizeof(PLUT) / 2 * plutsCount);

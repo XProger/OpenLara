@@ -7,8 +7,7 @@ struct Vertex
     int32 x, y, z; // for rooms z = (depth << CLIP_SHIFT) | ClipFlags
 };
 
-uint16* gPalette;
-int32 gPaletteOffset; // offset to the default or underwater PLUTs
+uint16* gPalette; // offset to the default or underwater PLUTs
 
 extern Level level;
 extern int32 lightAmbient;
@@ -140,8 +139,8 @@ void setViewport(const RectMinMax &vp)
 
 void setPaletteIndex(int32 index)
 {
-    gPaletteOffset = index * level.tilesCount * sizeof(uint16) * 16;
-    gPalette = (uint16*)((uint8*)RAM_TEX + (*(uint32*)RAM_TEX) + gPaletteOffset);
+    uint32 paletteOffset = *(uint32*)RAM_TEX;
+    gPalette = (uint16*)(intptr_t(RAM_TEX) + paletteOffset + index * level.tilesCount * sizeof(uint16) * 16);
 }
 
 int32 rectIsVisible(const RectMinMax* rect)
@@ -333,7 +332,7 @@ X_INLINE void ccbMap4_c(Face* f, const Vertex* v0, const Vertex* v1, const Verte
     int32 y0 = v0->y;
 
     uint32 ws = shift & 0xFF;
-    uint32 hs = shift >> 8;
+    uint32 hs = (shift >> 8) & 0xFF;
 
     int32 hdx0 = (x1 - x0) << ws;
     int32 hdy0 = (y1 - y0) << ws;
@@ -371,7 +370,7 @@ X_INLINE void ccbMap3_c(Face* f, const Vertex* v0, const Vertex* v1, const Verte
     int32 y2 = v2->y;
 
     uint32 ws = shift & 0xFF;
-    uint32 hs = shift >> 8;
+    uint32 hs = (shift >> 8) & 0xFF;
 
     int32 hdx0 = (x1 - x0) << ws;
     int32 hdy0 = (y1 - y0) << ws;
@@ -557,7 +556,7 @@ X_INLINE void ccbSetTexture(uint32 flags, Face* face, const Texture* texture)
         (flags >> (8 + FACE_MIP_SHIFT + FACE_MIP_SHIFT) << 5); // set CCB_BGND (0x20 == 1 << 5)
 
     face->ccb_SourcePtr = (CelData*)texture->data;
-    face->ccb_PLUTPtr = texture->plut + gPaletteOffset;
+    face->ccb_PLUTPtr = gPalette + (texture->shift >> 16) * 16;
 }
 
 X_INLINE void ccbSetColor(uint32 flags, Face* face)
@@ -897,7 +896,9 @@ void faceAddGlyph(int32 vx, int32 vy, int32 index)
 
 void faceAddRoom(const Room* room)
 {
-    faceAddRoomQuads(room->data.quads, room->info->quadsCount);
+    if (room->info->quadsCount) {
+        faceAddRoomQuads(room->data.quads, room->info->quadsCount);
+    }
 
     const RoomTriangle* triangles = room->data.triangles;
     for (int32 i = 0; i < room->info->trianglesCount; i++, triangles++) {
