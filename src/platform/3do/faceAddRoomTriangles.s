@@ -3,9 +3,9 @@
 
     INCLUDE common_asm.inc
 
-    EXPORT faceAddRoomQuads_asm
+    EXPORT faceAddRoomTriangles_asm
 
-faceAddRoomQuads_asm
+faceAddRoomTriangles_asm
 
 polysArg    RN r0
 countArg    RN r1
@@ -18,11 +18,11 @@ vy0         RN r3
 vx1         RN r4
 vy1         RN r5
 
-vx3         RN r6
-vy3         RN r7
+vx2         RN r6
+vy2         RN r7
 
-vx2         RN r8
-vy2         RN r9
+vx3         RN r8
+vy3         RN r9
 
 pixc        RN r10
 tex         RN r11
@@ -36,12 +36,12 @@ fVertices   RN tex
 
 spPolys     RN vx0
 spLast      RN vx1
-spVertices  RN vy3
-spOT        RN vx2
-spShadeLUT  RN vy2
-spTextures  RN pixc
-spFaceBase  RN tex
-spPalette   RN mask
+spVertices  RN vy2
+spOT        RN vx3
+spPalette   RN vy3
+spShadeLUT  RN pixc
+spTextures  RN tex
+spFaceBase  RN mask
 
 face        RN mask
 faceBase    RN mask
@@ -53,25 +53,21 @@ i1          RN vy1
 vz0         RN vy0
 vz1         RN vy1
 vz2         RN vy2
-vz3         RN vy3
 
 vp0         RN vx0
 vp1         RN vx1
 vp2         RN vx2
-vp3         RN vx3
 
 xpos        RN vx0
 ypos        RN vy0
 hdx0        RN vx1
 hdy0        RN vy1
-hdx1        RN vx2
-hdy1        RN vy2
-vdx0        RN vx3
-vdy0        RN vy3
-hddx        RN hdx1
-hddy        RN hdy1
+vdx0        RN vx2
+vdy0        RN vy2
+hddx        RN vx3
+hddy        RN vy3
 
-nextPtr     RN vy2
+nextPtr     RN vy3
 dataPtr     RN polysArg
 plutPtr     RN countArg
 
@@ -82,9 +78,9 @@ otTail      RN depth
 shadeLUT    RN pixc
 fog         RN pixc
 
-intensity   RN vy2
-plutOffset  RN vy2
-texIndex    RN vy2
+intensity   RN vy3
+plutOffset  RN vx3
+texIndex    RN vy3
 
 ws          RN tex
 hs          RN depth
@@ -94,10 +90,10 @@ SP_POLYS    EQU 0
 SP_LAST     EQU 4
 SP_VERTICES EQU 8
 SP_OT       EQU 12
-SP_SHADELUT EQU 16
-SP_TEXTURES EQU 20
-SP_FACEBASE EQU 24
-SP_PALETTE  EQU 28
+SP_PALETTE  EQU 16
+SP_SHADELUT EQU 20
+SP_TEXTURES EQU 24
+SP_FACEBASE EQU 28
 SP_SIZE     EQU 32
 
         stmfd sp!, {r4-r11, lr}
@@ -107,14 +103,14 @@ SP_SIZE     EQU 32
         add spLast, polysArg, countArg, lsl #2
         ldr spVertices, =gVertices
         ldr spOT, =gOT
+        ldr spPalette, =gPalette
+        ldr spPalette, [spPalette]
         ldr spShadeLUT, =shadeTable
         ldr spTextures, =level
         ldr spTextures, [spTextures, #LVL_TEX_OFFSET]
         ldr spFaceBase, =gFacesBase
-        ldr spPalette, =gPalette
-        ldr spPalette, [spPalette]
 
-        stmia sp, {polysArg, spLast, spVertices, spOT, spShadeLUT, spTextures, spFaceBase, spPalette}
+        stmia sp, {polysArg, spLast, spVertices, spOT, spPalette, spShadeLUT, spTextures, spFaceBase}
 
 loop    ldmia sp, {fPolys, fLast, fVertices}
 skip    cmp fPolys, fLast
@@ -128,39 +124,33 @@ skip    cmp fPolys, fLast
         add vp1, fVertices, i0, lsr #16
 
         add vp2, fVertices, i1, lsr #16
-        mov i1, i1, lsl #16
-        add vp3, fVertices, i1, lsr #16
 
         ; read z value with clip mask
         ldr vz0, [vp0, #8]
         ldr vz1, [vp1, #8]
         ldr vz2, [vp2, #8]
-        ldr vz3, [vp3, #8]
 
         ; check clipping
         and mask, vz1, vz0
         and mask, vz2, mask
-        and mask, vz3, mask
         tst mask, #CLIP_MASK
         bne skip
 
-        ; depth = max(vz0, vz1, vz2, vz3) (DEPTH_Q_MAX)
+        ; depth = max(vz0, vz1, vz2) (DEPTH_T_MAX)
         mov depth, vz0
         cmp depth, vz1
         movlt depth, vz1
         cmp depth, vz2
         movlt depth, vz2
-        cmp depth, vz3
-        movlt depth, vz3
 
-        ; (vx1 - vx0) * (vy3 - vy0) <= (vy1 - vy0) * (vx3 - vx0)
+        ; (vx1 - vx0) * (vy2 - vy0) <= (vy1 - vy0) * (vx2 - vx0)
         ldmia vp0, {vx0, vy0}
         ldmia vp1, {vx1, vy1}
-        ldmia vp3, {vx3, vy3}
+        ldmia vp2, {vx2, vy2}
         sub hdx0, vx1, vx0
         sub hdy0, vy1, vy0
-        sub vdx0, vx3, vx0
-        sub vdy0, vy3, vy0
+        sub vdx0, vx2, vx0
+        sub vdy0, vy2, vy0
         mul cross, hdy0, vdx0
         rsb cross, cross, #0
         mlas cross, hdx0, vdy0, cross
@@ -186,7 +176,7 @@ skip    cmp fPolys, fLast
         mov intensity, intensity, lsr #3
 
         add tmp, sp, #SP_OT
-        ldmia tmp, {ot, shadeLUT, tex, faceBase}
+        ldmia tmp, {ot, plutOffset, shadeLUT, tex, faceBase}
 
         ; pixc = shadeTable[intensity]
         ldr pixc, [shadeLUT, intensity, lsl #2]
@@ -226,15 +216,8 @@ skip    cmp fPolys, fLast
         ldmia tex, {dataPtr, shift}
 
         ; plutPtr = plutOffset + (tex->shift >> 16) * sizeof(PLUT)
-        ldr plutOffset, [sp, #SP_PALETTE]
         mov plutPtr, shift, lsr #16
         add plutPtr, plutOffset, plutPtr, lsl #5
-
-        ldmia vp2, {vx2, vy2}
-        sub vx2, vx2, vx0
-        sub vy2, vy2, vy0
-        sub hdx1, vx2, vx3
-        sub hdy1, vy2, vy3
 
         and ws, shift, #0xFF
         mov hs, shift, lsr #8
@@ -247,8 +230,8 @@ skip    cmp fPolys, fLast
         mov vdy0, vdy0, lsl hs
 
         rsb hs, hs, #16
-        rsb hddx, hdx0, hdx1, lsl ws
-        rsb hddy, hdy0, hdy1, lsl ws
+        rsb hddx, hdx0, #0
+        rsb hddy, hdy0, #0
         mov hddx, hddx, asr hs
         mov hddy, hddy, asr hs
 

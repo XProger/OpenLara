@@ -3,16 +3,17 @@
 
     INCLUDE common_asm.inc
 
-    EXPORT faceAddRoomQuads_asm
+    EXPORT faceAddMeshQuads_asm
 
-faceAddRoomQuads_asm
+faceAddMeshQuads_asm
 
 polysArg    RN r0
 countArg    RN r1
+shadeArg    RN r2
 
 flags       RN polysArg
 
-vx0         RN r2
+vx0         RN shadeArg
 vy0         RN r3
 
 vx1         RN r4
@@ -27,28 +28,27 @@ vy2         RN r9
 pixc        RN r10
 tex         RN r11
 
-mask        RN r12
+face        RN r12
 depth       RN lr
 
+mask        RN depth
+
 fPolys      RN countArg
-fLast       RN pixc
-fVertices   RN tex
+fLast       RN tex
+fVertices   RN face
 
 spPolys     RN vx0
 spLast      RN vx1
 spVertices  RN vy3
 spOT        RN vx2
-spShadeLUT  RN vy2
-spTextures  RN pixc
-spFaceBase  RN tex
-spPalette   RN mask
+spFaceBase  RN vy2
+spTextures  RN tex
+spPalette   RN face
 
-face        RN mask
-faceBase    RN mask
-cross       RN mask
+faceBase    RN vy2
+cross       RN vy2
 
-i0          RN vy0
-i1          RN vy1
+indices     RN vy0
 
 vz0         RN vy0
 vz1         RN vy1
@@ -78,11 +78,8 @@ plutPtr     RN countArg
 tmp         RN countArg
 ot          RN countArg
 otTail      RN depth
+nextFace    RN depth
 
-shadeLUT    RN pixc
-fog         RN pixc
-
-intensity   RN vy2
 plutOffset  RN vy2
 texIndex    RN vy2
 
@@ -94,42 +91,50 @@ SP_POLYS    EQU 0
 SP_LAST     EQU 4
 SP_VERTICES EQU 8
 SP_OT       EQU 12
-SP_SHADELUT EQU 16
+SP_FACEBASE EQU 16
 SP_TEXTURES EQU 20
-SP_FACEBASE EQU 24
-SP_PALETTE  EQU 28
-SP_SIZE     EQU 32
+SP_PALETTE  EQU 24
+SP_SIZE     EQU 28
 
         stmfd sp!, {r4-r11, lr}
         sub sp, sp, #SP_SIZE
 
-        add countArg, countArg, countArg, lsl #1
-        add spLast, polysArg, countArg, lsl #2
+        mov pixc, shadeArg
+
+        add spLast, polysArg, countArg, lsl #3
         ldr spVertices, =gVertices
         ldr spOT, =gOT
-        ldr spShadeLUT, =shadeTable
+        ldr spFaceBase, =gFacesBase
         ldr spTextures, =level
         ldr spTextures, [spTextures, #LVL_TEX_OFFSET]
-        ldr spFaceBase, =gFacesBase
         ldr spPalette, =gPalette
         ldr spPalette, [spPalette]
 
-        stmia sp, {polysArg, spLast, spVertices, spOT, spShadeLUT, spTextures, spFaceBase, spPalette}
+        stmia sp, {polysArg, spLast, spVertices, spOT, spFaceBase, spTextures, spPalette}
 
 loop    ldmia sp, {fPolys, fLast, fVertices}
 skip    cmp fPolys, fLast
         bge done
 
-        ldmia fPolys!, {flags, i0, i1}
+        ldmia fPolys!, {flags, indices}
 
         ; get vertex pointers
-        add vp0, fVertices, i0, lsr #16
-        mov i0, i0, lsl #16
-        add vp1, fVertices, i0, lsr #16
+        and vp0, indices, #0xFF
+        mov vp1, indices, lsr #8
+        and vp1, vp1, #0xFF
+        mov vp2, indices, lsr #16
+        and vp2, vp2, #0xFF
+        mov vp3, indices, lsr #24
 
-        add vp2, fVertices, i1, lsr #16
-        mov i1, i1, lsl #16
-        add vp3, fVertices, i1, lsr #16
+        add vp0, vp0, vp0, lsl #1
+        add vp1, vp1, vp1, lsl #1
+        add vp2, vp2, vp2, lsl #1
+        add vp3, vp3, vp3, lsl #1
+
+        add vp0, fVertices, vp0, lsl #2
+        add vp1, fVertices, vp1, lsl #2
+        add vp2, fVertices, vp2, lsl #2
+        add vp3, fVertices, vp3, lsl #2
 
         ; read z value with clip mask
         ldr vz0, [vp0, #8]
@@ -144,14 +149,10 @@ skip    cmp fPolys, fLast
         tst mask, #CLIP_MASK
         bne skip
 
-        ; depth = max(vz0, vz1, vz2, vz3) (DEPTH_Q_MAX)
-        mov depth, vz0
-        cmp depth, vz1
-        movlt depth, vz1
-        cmp depth, vz2
-        movlt depth, vz2
-        cmp depth, vz3
-        movlt depth, vz3
+        ; depth = (vz0 + vz1 + vz2 + vz3) (DEPTH_Q_AVG)
+        add depth, vz0, vz1
+        add depth, depth, vz2
+        add depth, depth, vz3
 
         ; (vx1 - vx0) * (vy3 - vy0) <= (vy1 - vy0) * (vx3 - vx0)
         ldmia vp0, {vx0, vy0}
@@ -163,52 +164,34 @@ skip    cmp fPolys, fLast
         sub vdy0, vy3, vy0
         mul cross, hdy0, vdx0
         rsb cross, cross, #0
-        mlas cross, hdx0, vdy0, cross
-        ble skip
+        mla cross, hdx0, vdy0, cross
+        teq cross, flags
+        bmi skip
 
         ; poly is visible, store fPolys on the stack to reuse the reg
         str fPolys, [sp, #SP_POLYS]
 
-        ; depth = max(0, depth >> (CLIP_SHIFT + OT_SHIFT))
-        movs depth, depth, lsr #(CLIP_SHIFT + OT_SHIFT)
+        ; depth = max(0, (depth / 4) >> (CLIP_SHIFT + OT_SHIFT))
+        movs depth, depth, lsr #(2 + CLIP_SHIFT + OT_SHIFT)
         movmi depth, #0
 
-        ; fog = max(0, (depth - (FOG_MIN >> OT_SHIFT)) >> 1)
-        sub fog, depth, #(FOG_MIN >> OT_SHIFT)
-        movs fog, fog, asr #1
-        movmi fog, #0
-
-        ; intensity = min(255, fog + ((flags >> (FACE_MIP_SHIFT + FACE_MIP_SHIFT)) & 0xFF)) >> 3
-        mov intensity, flags, lsl #(32 - 8 - FACE_MIP_SHIFT - FACE_MIP_SHIFT)
-        add intensity, fog, intensity, lsr #(32 - 8)
-        cmp intensity, #255
-        movcs intensity, #255
-        mov intensity, intensity, lsr #3
-
         add tmp, sp, #SP_OT
-        ldmia tmp, {ot, shadeLUT, tex, faceBase}
-
-        ; pixc = shadeTable[intensity]
-        ldr pixc, [shadeLUT, intensity, lsl #2]
-
-        ; get texture ptr (base or mip)
-        mov texIndex, flags
-        cmp depth, #(MIP_DIST >> OT_SHIFT)
-        movgt texIndex, texIndex, lsr #FACE_MIP_SHIFT
-        mov texIndex, texIndex, lsl #(32 - FACE_MIP_SHIFT)
-        add tex, tex, texIndex, lsr #(32 - FACE_MIP_SHIFT - 3)  ; sizeof(Texture) = 2^3
+        ldmia tmp, {ot, faceBase, tex}
 
         ; faceAdd
         cmp depth, #(OT_SIZE - 1)
         movgt depth, #(OT_SIZE - 1)
         add ot, ot, depth, lsl #3   ; mul by size of OT element
 
-        mov depth, faceBase     ; use depth reg due face vs faceBase reg collision
+        ldr face, [faceBase]
+        add nextFace, face, #SIZE_OF_CCB
+        str nextFace, [faceBase]
 
-        ldr face, [depth]
-        add nextPtr, face, #SIZE_OF_CCB
-        str nextPtr, [depth]
+        ; get texture ptr
+        mov texIndex, flags, lsl #(32 - FACE_MIP_SHIFT)
+        add tex, tex, texIndex, lsr #(32 - FACE_MIP_SHIFT - 3)  ; sizeof(Texture) = 2^3
 
+        ; add face to Ordering Table
         ldmia ot, {nextPtr, otTail}
         cmp nextPtr, #0
         moveq otTail, face

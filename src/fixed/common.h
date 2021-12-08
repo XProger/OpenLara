@@ -2146,17 +2146,21 @@ X_INLINE Matrix& matrixGet()
     return *matrixPtr;
 }
 
-X_INLINE void matrixPush()
+#ifdef USE_ASM
+    extern "C" void matrixPush_asm();
+    #define matrixPush() matrixPush_asm();
+#else
+    #define matrixPush() matrixPush_c();
+
+X_INLINE void matrixPush_c()
 {
     ASSERT(matrixPtr - matrixStack < MAX_MATRICES);
     memcpy(matrixPtr + 1, matrixPtr, sizeof(Matrix));
     matrixPtr++;
 }
+#endif
 
-X_INLINE void matrixPop()
-{
-    matrixPtr--;
-}
+#define matrixPop() matrixPtr--
 
 X_INLINE void matrixSetBasis(Matrix &dst, const Matrix &src)
 {
