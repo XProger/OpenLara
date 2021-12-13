@@ -4,8 +4,10 @@
     IMPORT gFacesBase
     IMPORT gOT
     IMPORT gPalette
+    IMPORT cameraViewPos
     IMPORT shadeTable
     IMPORT divTable
+    IMPORT sinTable
     IMPORT level
 
 CCB_NOBLK       EQU 0x00000010

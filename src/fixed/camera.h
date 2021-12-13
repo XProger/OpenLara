@@ -8,9 +8,10 @@
 #define CAM_DIST_FOLLOW         1536
 #define CAM_DIST_LOOK           768
 #define CAM_DIST_COMBAT         2048
-#define CAMERA_ANGLE_FOLLOW     ANGLE(-10)
-#define CAMERA_ANGLE_COMBAT     ANGLE(-10)
-#define CAMERA_ANGLE_MAX        ANGLE(85)
+#define CAM_RADIUS              255
+#define CAM_ANGLE_FOLLOW        ANGLE(-10)
+#define CAM_ANGLE_COMBAT        ANGLE(-10)
+#define CAM_ANGLE_MAX           ANGLE(85)
 
 void Camera::init(ItemObj* lara)
 {
@@ -53,21 +54,59 @@ Location Camera::getLocationForAngle(int32 angle, int32 distH, int32 distV)
     return res;
 }
 
+bool checkWall(Room* room, int32 x, int32 y, int32 z)
+{
+    Room* nextRoom = room->getRoom(x, y, z);
+
+    const Sector* sector = nextRoom->getSector(x, z);
+    int32 floor = sector->getFloor(x, y, z);
+    int32 ceiling = sector->getCeiling(x, y, z);
+    return (floor == WALL || ceiling == WALL || ceiling >= floor || y > floor || y < ceiling);
+}
+
+int32 checkHeight(Room* room, int32 x, int32 y, int32 z)
+{
+    Room* nextRoom = room->getRoom(x, y, z);
+    const Sector* sector = nextRoom->getSector(x, z);
+    int32 floor = sector->getFloor(x, y, z);
+    int32 ceiling = sector->getCeiling(x, y, z);
+
+    if (floor != WALL && ceiling != WALL && ceiling < floor)
+    {
+        if (y - CAM_RADIUS < ceiling && y + CAM_RADIUS > floor)
+           return (floor + ceiling) >> 1;
+
+        if (y + CAM_RADIUS > floor)
+            return floor - CAM_RADIUS;
+
+        if (y - CAM_RADIUS < ceiling)
+            return ceiling + CAM_RADIUS;
+    }
+
+    return y;
+}
+
 void Camera::clip(Location &loc)
 {
-    const Sector* sector = loc.room->getSector(loc.pos.x, loc.pos.z);
-        
-    int32 floor = sector->getFloor(loc.pos.x, loc.pos.y, loc.pos.z);
-    if (floor != WALL && loc.pos.y > floor - 128) {
-        loc.pos.y = floor - 128;
+    loc.pos.y = checkHeight(loc.room, loc.pos.x, loc.pos.y, loc.pos.z);
+
+    if (checkWall(loc.room, loc.pos.x - CAM_RADIUS, loc.pos.y, loc.pos.z)) {
+        loc.pos.x = (loc.pos.x & (~1023)) + CAM_RADIUS;
     }
 
-    int32 ceiling = sector->getCeiling(loc.pos.x, loc.pos.y, loc.pos.z);
-    if (ceiling != WALL && loc.pos.y < ceiling + 128) {
-        loc.pos.y = ceiling + 128;
+    if (checkWall(loc.room, loc.pos.x + CAM_RADIUS, loc.pos.y, loc.pos.z)) {
+        loc.pos.x = (loc.pos.x | 1023) - CAM_RADIUS;
     }
 
-    // TODO clip walls?
+    if (checkWall(loc.room, loc.pos.x, loc.pos.y, loc.pos.z - CAM_RADIUS)) {
+        loc.pos.z = (loc.pos.z & (~1023)) + CAM_RADIUS;
+    }
+
+    if (checkWall(loc.room, loc.pos.x, loc.pos.y, loc.pos.z + CAM_RADIUS)) {
+        loc.pos.z = (loc.pos.z | 1023) - CAM_RADIUS;
+    }
+
+    loc.room = loc.room->getRoom(loc.pos.x, loc.pos.y, loc.pos.z);
 }
 
 Location Camera::getBestLocation(bool clip)
@@ -135,7 +174,7 @@ void Camera::updateFree()
     if (keys & IK_LEFT)  angle.y -= CAM_ROT_SPEED;
     if (keys & IK_RIGHT) angle.y += CAM_ROT_SPEED;
 
-    angle.x = X_CLAMP(angle.x, -CAMERA_ANGLE_MAX, CAMERA_ANGLE_MAX);
+    angle.x = X_CLAMP(angle.x, -CAM_ANGLE_MAX, CAM_ANGLE_MAX);
 
     if (keys & IK_A)
     {
@@ -157,10 +196,10 @@ void Camera::updateFree()
 void Camera::updateFollow(ItemObj* item)
 {
     if (targetAngle.x == 0) {
-        targetAngle.x = CAMERA_ANGLE_FOLLOW;
+        targetAngle.x = CAM_ANGLE_FOLLOW;
     }
 
-    targetAngle.x = X_CLAMP(targetAngle.x + item->angle.x, -CAMERA_ANGLE_MAX, CAMERA_ANGLE_MAX);
+    targetAngle.x = X_CLAMP(targetAngle.x + item->angle.x, -CAM_ANGLE_MAX, CAM_ANGLE_MAX);
     targetAngle.y += item->angle.y;
 
     Location best = getBestLocation(false);
@@ -172,7 +211,7 @@ void Camera::updateCombat(ItemObj* item)
 {
     ASSERT(item->type == ITEM_LARA);
 
-    targetAngle.x = item->angle.x + CAMERA_ANGLE_COMBAT;
+    targetAngle.x = item->angle.x + CAM_ANGLE_COMBAT;
     targetAngle.y = item->angle.y;
         
     if (item->extraL->armR.target || item->extraL->armL.target)

@@ -1630,15 +1630,15 @@ struct LevelPC
 
     struct NodeComp
     {
-        uint16 flags;
         vec3s pos;
+        uint16 flags;
 
         void write(FileStream &f)
         {
-            f.write(flags);
             f.write(pos.x);
             f.write(pos.y);
             f.write(pos.z);
+            f.write(flags);
         }
     };
 

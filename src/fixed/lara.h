@@ -412,6 +412,16 @@ struct Lara : ItemObj
         soundStop(SND_SCREAM);
     }
 
+    void restore()
+    {
+        if (health > 0)
+            return;
+
+        health = LARA_MAX_HEALTH;
+        oxygen = LARA_MAX_OXYGEN;
+        animSet(ROOM_FLAG_WATER(room->info->flags) ? Lara::ANIM_UNDERWATER : Lara::ANIM_STAND, true, 0);
+    }
+
 // common
     bool alignAngle(int16 &angle, int16 threshold)
     {

@@ -53,7 +53,7 @@ projectVertices_asm
         mov mz, mz, asr #FIXED_SHIFT
         mov mz, mz, lsl #CLIP_SHIFT
 
-loop    ldmia vertex, {x, y, z}     ; read unpacked vertex
+loop    ldmia vertex, {x, y, z}     ; read transformed vertex
 
         add x, x, mx, asr #FIXED_SHIFT
         add y, my, y, lsl #PROJ_SHIFT ; extra shift for min/max cmp with hi half-word

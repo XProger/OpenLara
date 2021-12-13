@@ -363,14 +363,7 @@ int main(int argc, char *argv[])
 
         if ((keys & IK_A) && (keys & IK_C)) // respawn
         {
-            Lara* lara = players[0];
-            if (lara->health <= 0)
-            {
-                lara->health = LARA_MAX_HEALTH;
-                lara->oxygen = LARA_MAX_OXYGEN;
-                lara->animSet(Lara::ANIM_STAND, true, 0);
-                //game.resetLara(0, lara->room - rooms, lara->pos, lara->angle.y);
-            }
+            players[0]->restore();
         }
 
 int32 updateTime = osGetSystemTimeMS();

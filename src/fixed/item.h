@@ -813,7 +813,7 @@ vec3i ItemObj::getJoint(int32 jointIndex, const vec3i &offset) const
 
     const ModelNode* node = level.nodes + model->nodeIndex;
 
-    matrixFrame(frame->pos, frameAngles);
+    matrixFrame(&frame->pos, frameAngles);
 
     ASSERT(jointIndex < model->count);
 
@@ -822,7 +822,7 @@ vec3i ItemObj::getJoint(int32 jointIndex, const vec3i &offset) const
         if (node->flags & 1) matrixPop();
         if (node->flags & 2) matrixPush();
 
-        matrixFrame(node->pos, ++frameAngles);
+        matrixFrame(&node->pos, ++frameAngles);
 
         // TODO extra rotations
 
@@ -866,7 +866,7 @@ int32 ItemObj::getSpheres(Sphere* spheres, bool flag) const
 
     const ModelNode* node = level.nodes + model->nodeIndex;
 
-    matrixFrame(frame->pos, frameAngles);
+    matrixFrame(&frame->pos, frameAngles);
 
     Sphere* sphere = spheres;
 
@@ -889,7 +889,7 @@ int32 ItemObj::getSpheres(Sphere* spheres, bool flag) const
         if (node->flags & 1) matrixPop();
         if (node->flags & 2) matrixPush();
 
-        matrixFrame(node->pos, ++frameAngles);
+        matrixFrame(&node->pos, ++frameAngles);
 
         // TODO extra rotations
 

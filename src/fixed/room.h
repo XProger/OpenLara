@@ -286,7 +286,7 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
     cinfo.staticHit = false;
     cinfo.offset = _vec3i(0, 0, 0);
 
-    AABBs objBox;
+    AABBi objBox;
     objBox.minX = -cinfo.radius;
     objBox.maxX =  cinfo.radius;
     objBox.minZ = -cinfo.radius;
@@ -314,17 +314,14 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
             if (staticMesh->flags & STATIC_MESH_FLAG_NO_COLLISION)
                 continue;
 
-            AABBs meshBox = boxRotate(staticMesh->cbox, STATIC_MESH_ROT(mesh->flags));
-
         // TODO align RoomInfo::Mesh (room relative int16?)
-            vec3i pos;
-            pos.x = mesh->pos.x + (room->info->x << 8);
-            pos.y = mesh->pos.y;
-            pos.z = mesh->pos.z + (room->info->z << 8);
+            int32 x = mesh->pos.x - p.x + (room->info->x << 8);
+            int32 y = mesh->pos.y - p.y;
+            int32 z = mesh->pos.z - p.z + (room->info->z << 8);
 
-            pos -= p;
-
-            boxTranslate(meshBox, pos);
+            AABBi meshBox(staticMesh->cbox);
+            boxRotateYQ(meshBox, STATIC_MESH_QUADRANT(mesh->flags));
+            boxTranslate(meshBox, x, y, z);
 
             if (!boxIntersect(meshBox, objBox))
                 continue;

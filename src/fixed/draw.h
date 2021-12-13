@@ -322,7 +322,7 @@ void drawNodes(const ItemObj* item, const AnimFrame* frameA)
     const uint32* angles = (uint32*)(frameA->angles + 1);
     const int16* extraAngles = (int16*)item->extra;
 
-    matrixFrame(frameA->pos, angles);
+    matrixFrame(&frameA->pos, angles);
     if (visibleMask & 1) {
         drawMesh(meshIndex);
     }
@@ -336,7 +336,7 @@ void drawNodes(const ItemObj* item, const AnimFrame* frameA)
         if (node->flags & NODE_FLAG_POP)  matrixPop();
         if (node->flags & NODE_FLAG_PUSH) matrixPush();
 
-        matrixFrame(node->pos, angles);
+        matrixFrame(&node->pos, angles);
 
         if (extraAngles)
         {
@@ -374,12 +374,12 @@ void drawNodesLerp(const ItemObj* item, const AnimFrame* frameA, const AnimFrame
 
     int32 t = GET_FRAME_T(frameDelta, frameRate);
 
-    vec3s posLerp;
+    vec4s posLerp;
     posLerp.x = frameA->pos.x + ((frameB->pos.x - frameA->pos.x) * t >> 16);
     posLerp.y = frameA->pos.y + ((frameB->pos.y - frameA->pos.y) * t >> 16);
     posLerp.z = frameA->pos.z + ((frameB->pos.z - frameA->pos.z) * t >> 16);
 
-    matrixFrameLerp(posLerp, anglesA, anglesB, frameDelta, frameRate);
+    matrixFrameLerp(&posLerp, anglesA, anglesB, frameDelta, frameRate);
     if (visibleMask & 1) {
         drawMesh(meshIndex);
     }
@@ -394,7 +394,7 @@ void drawNodesLerp(const ItemObj* item, const AnimFrame* frameA, const AnimFrame
         if (node->flags & NODE_FLAG_POP)  matrixPop();
         if (node->flags & NODE_FLAG_PUSH) matrixPush();
 
-        matrixFrameLerp(node->pos, anglesA, anglesB, frameDelta, frameRate);
+        matrixFrameLerp(&node->pos, anglesA, anglesB, frameDelta, frameRate);
 
         if (extraAngles)
         {
@@ -412,7 +412,11 @@ void drawNodesLerp(const ItemObj* item, const AnimFrame* frameA, const AnimFrame
     }
 }
 
-#define DEF_TORSO_ANGLE _vec3s(1216, -832, -192)
+#define DEF_TORSO_ANGLE_X 1216
+#define DEF_TORSO_ANGLE_Y -832
+#define DEF_TORSO_ANGLE_Z -192
+
+const uint32 ZERO_POS[2] = { 0, 0 };
 
 void drawLaraNodes(const ItemObj* lara, const AnimFrame* frameA)
 {
@@ -441,9 +445,11 @@ void drawLaraNodes(const ItemObj* lara, const AnimFrame* frameA)
             // additional torso animation for shotgun
             if (extraL->weapon == WEAPON_SHOTGUN && i == LARA_ARM_R)
             {
-                vec3s ang;
-                DECODE_ANGLES((uint32*)(frame->angles + 1) + JOINT_TORSO, ang.x, ang.y, ang.z);
-                torsoAngle += ang - DEF_TORSO_ANGLE;
+                int32 aX, aY, aZ;
+                DECODE_ANGLES(*((uint32*)(frame->angles + 1) + JOINT_TORSO), aX, aY, aZ);
+                torsoAngle.x = torsoAngle.x + aX - DEF_TORSO_ANGLE_X;
+                torsoAngle.y = torsoAngle.y + aY - DEF_TORSO_ANGLE_Y;
+                torsoAngle.z = torsoAngle.z + aZ - DEF_TORSO_ANGLE_Z;
             }
         }
     }
@@ -455,22 +461,22 @@ void drawLaraNodes(const ItemObj* lara, const AnimFrame* frameA)
 
     matrixPush();
     { // JOINT_HIPS
-        matrixFrame(frameA->pos, angles++);
+        matrixFrame(&frameA->pos, angles++);
         drawMesh(*mesh++);
 
         for (int32 i = 0; i < 2; i++) // draw Left & Right legs
         {
             matrixPush();
             { // JOINT_LEG_1
-                matrixFrame((node++)->pos, angles++);
+                matrixFrame(&(node++)->pos, angles++);
                 drawMesh(*mesh++);
 
                 { // JOINT_LEG_2
-                    matrixFrame((node++)->pos, angles++);
+                    matrixFrame(&(node++)->pos, angles++);
                     drawMesh(*mesh++);
 
                     { // JOINT_LEG_3
-                        matrixFrame((node++)->pos, angles++);
+                        matrixFrame(&(node++)->pos, angles++);
                         drawMesh(*mesh++);
                     }
                 }
@@ -479,7 +485,7 @@ void drawLaraNodes(const ItemObj* lara, const AnimFrame* frameA)
         }
 
         { // JOINT_TORSO
-            matrixFrame((node++)->pos, angles++);
+            matrixFrame(&(node++)->pos, angles++);
             matrixRotateYXZ(torsoAngle.x, torsoAngle.y, torsoAngle.z);
             drawMesh(*mesh++);
 
@@ -495,15 +501,15 @@ void drawLaraNodes(const ItemObj* lara, const AnimFrame* frameA)
                     matrixSetBasis(matrixGet(), basis);
                     matrixRotateYXZ(arm->angle.x, arm->angle.y, arm->angle.z);
                 }
-                matrixFrame(_vec3s(0, 0, 0), anglesArm[i]++);
+                matrixFrame(&ZERO_POS, anglesArm[i]++);
                 drawMesh(*mesh++);
 
                 { // JOINT_ARM_2
-                    matrixFrame((node++)->pos, anglesArm[i]++);
+                    matrixFrame(&(node++)->pos, anglesArm[i]++);
                     drawMesh(*mesh++);
 
                     { // JOINT_ARM_3
-                        matrixFrame((node++)->pos, anglesArm[i]);
+                        matrixFrame(&(node++)->pos, anglesArm[i]);
                         drawMesh(*mesh++);
 
                         if (arm->flash.timer) { // muzzle flash
@@ -515,7 +521,7 @@ void drawLaraNodes(const ItemObj* lara, const AnimFrame* frameA)
             }
 
             { // JOINT_HEAD
-                matrixFrame((node++)->pos, angles + 3 * LARA_ARM_MAX);
+                matrixFrame(&(node++)->pos, angles + 3 * LARA_ARM_MAX);
                 matrixRotateYXZ(extraL->head.angle.x, extraL->head.angle.y, extraL->head.angle.z);
                 drawMesh(*mesh++);
             }
@@ -564,9 +570,11 @@ void drawLaraNodesLerp(const ItemObj* lara, const AnimFrame* frameA, const AnimF
             // additional torso animation for shotgun
             if (extraL->weapon == WEAPON_SHOTGUN && i == LARA_ARM_R)
             {
-                vec3s ang;
-                DECODE_ANGLES((uint32*)(frame->angles + 1) + JOINT_TORSO, ang.x, ang.y, ang.z);
-                torsoAngle += ang - DEF_TORSO_ANGLE;
+                int32 aX, aY, aZ;
+                DECODE_ANGLES(*((uint32*)(frame->angles + 1) + JOINT_TORSO), aX, aY, aZ);
+                torsoAngle.x = torsoAngle.x + aX - DEF_TORSO_ANGLE_X;
+                torsoAngle.y = torsoAngle.y + aY - DEF_TORSO_ANGLE_Y;
+                torsoAngle.z = torsoAngle.z + aZ - DEF_TORSO_ANGLE_Z;
             }
         }
     }
@@ -582,27 +590,27 @@ void drawLaraNodesLerp(const ItemObj* lara, const AnimFrame* frameA, const AnimF
     { // JOINT_HIPS
         int32 t = GET_FRAME_T(frameDelta, frameRate);
 
-        vec3s posLerp;
+        vec4s posLerp;
         posLerp.x = frameA->pos.x + ((frameB->pos.x - frameA->pos.x) * t >> 16);
         posLerp.y = frameA->pos.y + ((frameB->pos.y - frameA->pos.y) * t >> 16);
         posLerp.z = frameA->pos.z + ((frameB->pos.z - frameA->pos.z) * t >> 16);
 
-        matrixFrameLerp(posLerp, anglesA++, anglesB++, frameDelta, frameRate);
+        matrixFrameLerp(&posLerp, anglesA++, anglesB++, frameDelta, frameRate);
         drawMesh(*mesh++);
 
         for (int32 i = 0; i < 2; i++) // draw Left & Right legs
         {
             matrixPush();
             { // JOINT_LEG_1
-                matrixFrameLerp((node++)->pos, anglesA++, anglesB++, frameDelta, frameRate);
+                matrixFrameLerp(&(node++)->pos, anglesA++, anglesB++, frameDelta, frameRate);
                 drawMesh(*mesh++);
 
                 { // JOINT_LEG_2
-                    matrixFrameLerp((node++)->pos, anglesA++, anglesB++, frameDelta, frameRate);
+                    matrixFrameLerp(&(node++)->pos, anglesA++, anglesB++, frameDelta, frameRate);
                     drawMesh(*mesh++);
 
                     { // JOINT_LEG_3
-                        matrixFrameLerp((node++)->pos, anglesA++, anglesB++, frameDelta, frameRate);
+                        matrixFrameLerp(&(node++)->pos, anglesA++, anglesB++, frameDelta, frameRate);
                         drawMesh(*mesh++);
                     }
                 }
@@ -611,7 +619,7 @@ void drawLaraNodesLerp(const ItemObj* lara, const AnimFrame* frameA, const AnimF
         }
 
         { // JOINT_TORSO
-            matrixFrameLerp((node++)->pos, anglesA++, anglesB++, frameDelta, frameRate);
+            matrixFrameLerp(&(node++)->pos, anglesA++, anglesB++, frameDelta, frameRate);
             matrixRotateYXZ(torsoAngle.x, torsoAngle.y, torsoAngle.z);
             drawMesh(*mesh++);
 
@@ -631,25 +639,25 @@ void drawLaraNodesLerp(const ItemObj* lara, const AnimFrame* frameA, const AnimF
                 bool useLerp = frameRateArm[i] > 1; // armed hands always use frameRate == 1 (i.e. useLerp == false)
 
                 if (useLerp) {
-                    matrixFrameLerp(_vec3s(0, 0, 0), anglesArmA[i]++, anglesArmB[i]++, frameDelta, frameRate);
+                    matrixFrameLerp(&ZERO_POS, anglesArmA[i]++, anglesArmB[i]++, frameDelta, frameRate);
                 } else {
-                    matrixFrame(_vec3s(0, 0, 0), anglesArmA[i]++);
+                    matrixFrame(&ZERO_POS, anglesArmA[i]++);
                 }
                 drawMesh(*mesh++);
 
                 { // JOINT_ARM_2
                     if (useLerp) {
-                        matrixFrameLerp((node++)->pos, anglesArmA[i]++, anglesArmB[i]++, frameDelta, frameRate);
+                        matrixFrameLerp(&(node++)->pos, anglesArmA[i]++, anglesArmB[i]++, frameDelta, frameRate);
                     } else {
-                        matrixFrame((node++)->pos, anglesArmA[i]++);
+                        matrixFrame(&(node++)->pos, anglesArmA[i]++);
                     }
                     drawMesh(*mesh++);
 
                     { // JOINT_ARM_3
                         if (useLerp) {
-                            matrixFrameLerp((node++)->pos, anglesArmA[i], anglesArmB[i], frameDelta, frameRate);
+                            matrixFrameLerp(&(node++)->pos, anglesArmA[i], anglesArmB[i], frameDelta, frameRate);
                         } else {
-                            matrixFrame((node++)->pos, anglesArmA[i]);
+                            matrixFrame(&(node++)->pos, anglesArmA[i]);
                         }
                         drawMesh(*mesh++);
 
@@ -662,7 +670,7 @@ void drawLaraNodesLerp(const ItemObj* lara, const AnimFrame* frameA, const AnimF
             }
 
             { // JOINT_HEAD
-                matrixFrameLerp((node++)->pos, anglesA + 3 * LARA_ARM_MAX, anglesB + 3 * LARA_ARM_MAX, frameDelta, frameRate);
+                matrixFrameLerp(&(node++)->pos, anglesA + 3 * LARA_ARM_MAX, anglesB + 3 * LARA_ARM_MAX, frameDelta, frameRate);
                 matrixRotateYXZ(extraL->head.angle.x, extraL->head.angle.y, extraL->head.angle.z);
                 drawMesh(*mesh++);
             }
@@ -831,7 +839,7 @@ void drawRoom(const Room* room, Camera* camera)
 
         matrixPush();
         matrixTranslateAbs(pos.x, pos.y, pos.z);
-        matrixRotateY(STATIC_MESH_ROT(mesh->flags));
+        matrixRotateYQ(STATIC_MESH_QUADRANT(mesh->flags));
 
         int32 vis = boxIsVisible(&staticMesh->vbox);
         if (vis != 0) {

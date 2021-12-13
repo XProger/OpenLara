@@ -153,10 +153,6 @@
     #define MAX_ENEMIES 8
 #endif
 
-#ifndef ANIM_LERP_ANGLE
-    #define ANIM_LERP_MATRIX
-#endif
-
 // ============================================================================
 
 #if defined(_MSC_VER)
@@ -555,6 +551,9 @@ struct vec3s {
 
 #define _vec3s(x,y,z) vec3s::create(x, y, z)
 
+struct vec4s {
+    int16 x, y, z, w;
+};
 
 struct vec3i {
     int32 x, y, z;
@@ -702,6 +701,16 @@ struct AABBi
     int32 maxY;
     int32 minZ;
     int32 maxZ;
+
+    X_INLINE AABBi() {}
+    X_INLINE AABBi(const AABBs &b) :
+        minX(b.minX), maxX(b.maxX), minY(b.minY), maxY(b.maxY), minZ(b.minZ), maxZ(b.maxZ) {}
+    X_INLINE AABBi(int32 minX, int32 maxX, int32 minY, int32 maxY, int32 minZ, int32 maxZ) :
+        minX(minX), maxX(maxX), minY(minY), maxY(maxY), minZ(minZ), maxZ(maxZ) {}
+
+    X_INLINE vec3i getCenter() const {
+        return _vec3i((maxX + minX) >> 1, (maxY + minY) >> 1, (maxZ + minZ) >> 1);
+    }
 };
 
 struct Sphere
@@ -771,8 +780,9 @@ struct Light
     uint8 intensity;
 };
 
-#define STATIC_MESH_ID(flags)  ((flags) & 0x3F)
-#define STATIC_MESH_ROT(flags) ((((flags) >> 6) - 2) * ANGLE_90)
+#define STATIC_MESH_ID(flags)       ((flags) & 0x3F)
+#define STATIC_MESH_QUADRANT(flags) ((flags) >> 6)
+#define STATIC_MESH_ROT(flags)      ((STATIC_MESH_QUADRANT(flags) - 2) * ANGLE_90)
 
 struct RoomMesh
 {
@@ -865,8 +875,8 @@ enum NodeFlag {
 };
 
 struct ModelNode {
-    uint16 flags;
     vec3s pos;
+    uint16 flags;
 };
 
 struct Model {
@@ -2031,7 +2041,6 @@ struct IMA_STATE
 extern uint32 keys;
 extern RectMinMax viewport;
 extern vec3i cameraViewPos;
-extern vec3i cameraViewOffset;
 extern Matrix* matrixPtr;
 extern Matrix matrixStack[MAX_MATRICES];
 extern int32 gVerticesCount;
@@ -2069,8 +2078,6 @@ int32 rand_draw();
 #define RAND_LOGIC(r) (rand_logic() * (r) >> 15)
 #define RAND_DRAW(r)  (rand_draw() * (r) >> 15)
 
-int32 phd_sin(int32 x);
-int32 phd_cos(int32 x);
 int32 phd_atan(int32 x, int32 y);
 uint32 phd_sqrt(uint32 x);
 
@@ -2098,100 +2105,89 @@ X_INLINE int16 angleLerp(int16 a, int16 b, int32 w)
 
 #define angleDec(angle, value) angleLerp(angle, 0, value)
 
-AABBs boxRotate(const AABBs &box, int16 angle);
-void boxTranslate(AABBs &box, const vec3i &offset);
-bool boxIntersect(const AABBs &a, const AABBs &b);
-bool boxContains(const AABBs &a, const vec3i &p);
-vec3i boxPushOut(const AABBs &a, const AABBs &b);
+bool boxIntersect(const AABBi &i, const AABBi &b);
+bool boxContains(const AABBi &a, const vec3i &p);
+vec3i boxPushOut(const AABBi &a, const AABBi &b);
 
+#ifdef CPU_BIG_ENDIAN
 #define DECODE_ANGLES(a,x,y,z)\
-    x = (((uint16*)(a))[1] & 0x3FF0) << 2;\
-    y = (((uint16*)(a))[1] & 0x000F) << 12 | (((uint16*)(a))[0] & 0xFC00) >> 4;\
-    z = (((uint16*)(a))[0] & 0x03FF) << 6;
-
-#ifdef USE_MATRIX_ASM
-    extern "C" void matrixLerp_asm(const Matrix &n, int32 pmul, int32 pdiv);
-
-    #define matrixLerp matrixLerp_asm
+    x = (a & 0x3FF0) << 2;\
+    y = (a & 0x000F) << 12 | ((a >> 16) & 0xFC00) >> 4;\
+    z = ((a >> 16) & 0x03FF) << 6;
 #else
-    #define LERP_1_2(a, b)   a = (b + a) >> 1
-    #define LERP_1_3(a, b)   a = a + (b - a) / 3
-    #define LERP_2_3(a, b)   a = b - (b - a) / 3
-    #define LERP_1_4(a, b)   a = a + ((b - a) >> 2)
-    #define LERP_3_4(a, b)   a = b - ((b - a) >> 2)
-    #define LERP_1_5(a, b)   a = a + (b - a) / 5
-    #define LERP_2_5(a, b)   a = a + ((b - a) << 1) / 5
-    #define LERP_3_5(a, b)   a = b - ((b - a) << 1) / 5
-    #define LERP_4_5(a, b)   a = b - (b - a) / 5
-    #define LERP_SLOW(a, b)  a = a + ((b - a) * t >> 8)
-
-    #define LERP_ROW(lerp_func, a, b, row) \
-        lerp_func(a.e##row##0, b.e##row##0); \
-        lerp_func(a.e##row##1, b.e##row##1); \
-        lerp_func(a.e##row##2, b.e##row##2); \
-        lerp_func(a.e##row##3, b.e##row##3);
-
-    #define LERP_MATRIX(lerp_func) \
-        LERP_ROW(lerp_func, m, n, 0); \
-        LERP_ROW(lerp_func, m, n, 1); \
-        LERP_ROW(lerp_func, m, n, 2);
-
-    void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv);
-
-    #define matrixLerp matrixLerp_c
+#define DECODE_ANGLES(a,x,y,z)\
+    x = ((a >> 16) & 0x3FF0) << 2;\
+    y = ((a >> 16) & 0x000F) << 12 | (a & 0xFC00) >> 4;\
+    z = (a & 0x03FF) << 6;
 #endif
 
-X_INLINE Matrix& matrixGet()
-{
-    return *matrixPtr;
-}
+#define matrixGet() *matrixPtr
 
 #ifdef USE_ASM
-    extern "C" void matrixPush_asm();
-    #define matrixPush() matrixPush_asm();
-#else
-    #define matrixPush() matrixPush_c();
+    extern "C" {
+        int32 phd_sin_asm(int32 x);
+        void matrixPush_asm();
+        void matrixSetIdentity_asm();
+        void matrixSetBasis_asm(Matrix &dst, const Matrix &src);
+        void matrixLerp_asm(const Matrix &n, int32 pmul, int32 pdiv);
+        void matrixTranslate_asm(int32 x, int32 y, int32 z);
+        void matrixTranslateAbs_asm(int32 x, int32 y, int32 z);
+        void matrixRotateYQ_asm(int32 quadrant);
+        void boxTranslate_asm(AABBi &box, int32 x, int32 y, int32 z);
+        void boxRotateYQ_asm(AABBi &box, int32 quadrant);
+    }
 
-X_INLINE void matrixPush_c()
-{
-    ASSERT(matrixPtr - matrixStack < MAX_MATRICES);
-    memcpy(matrixPtr + 1, matrixPtr, sizeof(Matrix));
-    matrixPtr++;
-}
+    #define phd_sin                 phd_sin_asm
+    #define matrixPush              matrixPush_asm
+    #define matrixSetIdentity       matrixSetIdentity_asm
+    #define matrixSetBasis          matrixSetBasis_asm
+    #define matrixLerp              matrixLerp_asm
+    #define matrixTranslate         matrixTranslate_asm
+    #define matrixTranslateAbs      matrixTranslateAbs_asm
+    #define matrixRotateYQ          matrixRotateYQ_asm
+    #define boxTranslate            boxTranslate_asm
+    #define boxRotateYQ             boxRotateYQ_asm
+#else
+    #define phd_sin                 phd_sin_c
+    #define matrixPush              matrixPush_c
+    #define matrixSetIdentity       matrixSetIdentity_c
+    #define matrixSetBasis          matrixSetBasis_c
+    #define matrixLerp              matrixLerp_c
+    #define matrixTranslate         matrixTranslate_c
+    #define matrixTranslateAbs      matrixTranslateAbs_c
+    #define matrixRotateYQ          matrixRotateYQ_c
+    #define boxTranslate            boxTranslate_c
+    #define boxRotateYQ             boxRotateYQ_c
+
+    int32 phd_sin_c(int32 x);
+    
+    void matrixPush_c();
+    void matrixSetIdentity_c();
+    void matrixSetBasis_c(Matrix &dst, const Matrix &src);
+    void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv);
+    void matrixTranslate_c(int32 x, int32 y, int32 z);
+    void matrixTranslateAbs_c(int32 x, int32 y, int32 z);
+    void matrixRotateYQ_c(int32 quadrant);
+
+    void boxTranslate_c(AABBi &box, int32 x, int32 y, int32 z);
+    void boxRotateYQ_c(AABBi &box, int32 quadrant);
 #endif
 
-#define matrixPop() matrixPtr--
-
-X_INLINE void matrixSetBasis(Matrix &dst, const Matrix &src)
-{
-    dst.e00 = src.e00;
-    dst.e01 = src.e01;
-    dst.e02 = src.e02;
-
-    dst.e10 = src.e10;
-    dst.e11 = src.e11;
-    dst.e12 = src.e12;
-
-    dst.e10 = src.e10;
-    dst.e11 = src.e11;
-    dst.e12 = src.e12;
-}
+#define phd_cos(x)      phd_sin((x) + ANGLE_90)
+#define matrixPop()     matrixPtr--
 
 X_INLINE vec3i matrixGetDir(const Matrix &m)
 {
     return _vec3i(m.e20, m.e21, m.e22);
 }
 
-void matrixTranslate(int32 x, int32 y, int32 z);
-void matrixTranslateAbs(int32 x, int32 y, int32 z);
 void matrixRotateX(int32 angle);
 void matrixRotateY(int32 angle);
 void matrixRotateZ(int32 angle);
 void matrixRotateYXZ(int32 angleX, int32 angleY, int32 angleZ);
 void matrixRotateZXY(int32 angleX, int32 angleY, int32 angleZ);
-void matrixFrame(const vec3s &pos, const uint32* angles);
-void matrixFrameLerp(const vec3s &pos, const uint32* anglesA, const uint32* anglesB, int32 delta, int32 rate);
-void matrixSetIdentity();
+void matrixFrame(const void* pos, const void* angles);
+void matrixFrameLerp(const void* pos, const void* anglesA, const void* anglesB, int32 delta, int32 rate);
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY);
 
 void setGamma(int32 value);

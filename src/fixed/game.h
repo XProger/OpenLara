@@ -89,7 +89,9 @@ struct Game
         }
 
     // gym
+        //resetLara(0, 7, _vec3i(39038, -1280, 51712), ANGLE_90); // start
         //resetLara(0, 8, _vec3i(55994, 0, 52603), ANGLE_90); // piano
+        //resetLara(0, 9, _vec3i(47672, 256, 40875), ANGLE_90); // hall
         //resetLara(0, 13, _vec3i(38953, 3328, 63961), ANGLE_90 + ANGLE_45); // pool
     // level 1
         //resetLara(0, 0, _vec3i(74588, 3072, 19673), ANGLE_0); // first darts
@@ -111,11 +113,6 @@ struct Game
         //resetLara(0, 44, _vec3i(73798, 2304, 9819), ANGLE_90); // uw gears
 
         drawInit();
-
-    #ifdef __3DO__
-        //players[0]->angle.y += ANGLE_180;
-        //players[0]->pos.x += 1024;
-    #endif
     }
 
     void resetLara(int32 index, int32 roomIndex, const vec3i &pos, int32 angleY)

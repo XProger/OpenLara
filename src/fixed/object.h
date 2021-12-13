@@ -713,7 +713,7 @@ struct TrapFloor : Object
             return;
         }
 
-        if (flags.gravity) {
+        if (state == STATE_FALL) {
             updateRoom();
         }
 
