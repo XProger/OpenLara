@@ -147,7 +147,7 @@ void sndInit()
 
     StartInstrument(sndMixer, NULL);
 
-    musicThread = CreateThread("music", 180, musicProc, 4096);
+    musicThread = CreateThread("music", 180, musicProc, 2048);
 }
 
 void sndInitSamples()
@@ -272,10 +272,9 @@ void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode)
 // stop a longest playing sample
     if (maxPosIndex != -1)
     {
-        Channel* ch = channels + maxPosIndex;
+        sndStopSample(maxPosIndex);
 
-        StopInstrument(ch->sampler, NULL);
-        DetachSample(ch->attach);
+        Channel* ch = channels + maxPosIndex;
 
         ch->setVolume(volume);
         ch->setPitch(pitch);
@@ -312,10 +311,21 @@ bool sndTrackIsPlaying()
 
 void sndStopSample(int32 index)
 {
+    Channel* ch = channels + index;
+    if (!ch->playing)
+        return;
 
+    StopInstrument(ch->sampler, NULL);
+    DetachSample(ch->attach);
+    ch->index = -1;
+    ch->playing = false;
 }
 
 void sndStop()
 {
-    sndStopTrack();
+    //sndStopTrack(); // TODO wait for signal?
+    for (int32 i = 0; i < SND_CHANNELS - 1; i++)
+    {
+        sndStopSample(i);
+    }
 }

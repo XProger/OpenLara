@@ -771,9 +771,9 @@ void drawRoom(const Room* room, Camera* camera)
     int32 rz = info->z << 8;
 
     matrixPush();
-    matrixTranslateAbs(info->x << 8, info->yTop, info->z << 8);
+    matrixTranslateAbs(rx, info->yTop, rz);
 
-    camera->updateFrustum(info->x << 8, info->yTop, info->z << 8);
+    camera->updateFrustum(rx, info->yTop, rz);
 
     setPaletteIndex(ROOM_FLAG_WATER(info->flags) ? 1 : 0);
 
@@ -833,9 +833,9 @@ void drawRoom(const Room* room, Camera* camera)
         if (!(staticMesh->flags & STATIC_MESH_FLAG_VISIBLE)) continue; // invisible
 
         vec3i pos;
-        pos.x = mesh->pos.x + (info->x << 8);
+        pos.x = mesh->pos.x + rx;
         pos.y = mesh->pos.y;
-        pos.z = mesh->pos.z + (info->z << 8);
+        pos.z = mesh->pos.z + rz;
 
         matrixPush();
         matrixTranslateAbs(pos.x, pos.y, pos.z);
@@ -843,7 +843,7 @@ void drawRoom(const Room* room, Camera* camera)
 
         int32 vis = boxIsVisible(&staticMesh->vbox);
         if (vis != 0) {
-            enableClipping =vis < 0; // TODO wrong visibility BBox?
+            enableClipping = vis < 0; // TODO wrong visibility BBox?
 
             calcLightingStatic(mesh->intensity << 5);
             drawMesh(staticMesh->meshIndex);
@@ -899,7 +899,9 @@ void drawRooms(Camera* camera)
         }
     }
 
+#ifndef MODEHW
     flush();
+#endif
 
     setPaletteIndex(0);
     setViewport(camera->view.room->clip);

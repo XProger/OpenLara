@@ -10,6 +10,8 @@ Matrix* matrixPtr = matrixStack;
     AABBi frustumAABB;
 #endif
 
+EWRAM_DATA Sphere gSpheres[2][MAX_SPHERES];
+
 const FloorData* gLastFloorData;
 FloorData gLastFloorSlant;
 TargetInfo tinfo;
@@ -773,6 +775,7 @@ void matrixSetBasis_c(Matrix &dst, const Matrix &src)
     dst.e12 = src.e12;
 }
 
+#ifndef IWRAM_MATRIX_LERP
 #define LERP_1_2(a, b)   a = (b + a) >> 1
 #define LERP_1_3(a, b)   a = a + (b - a) / 3
 #define LERP_2_3(a, b)   a = b - (b - a) / 3
@@ -832,6 +835,7 @@ void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv)
         LERP_MATRIX(LERP_SLOW);
     }
 }
+#endif
 
 void matrixTranslate_c(int32 x, int32 y, int32 z)
 {

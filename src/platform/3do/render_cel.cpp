@@ -143,30 +143,6 @@ void setPaletteIndex(int32 index)
     gPalette = (uint16*)(intptr_t(RAM_TEX) + paletteOffset + index * level.tilesCount * sizeof(uint16) * 16);
 }
 
-int32 rectIsVisible(const RectMinMax* rect)
-{
-    if (rect->x0 > rect->x1 ||
-        rect->x0 > viewport.x1 ||
-        rect->x1 < viewport.x0 ||
-        rect->y0 > viewport.y1 ||
-        rect->y1 < viewport.y0) return 0; // not visible
-
-    if (rect->x0 < viewport.x0 ||
-        rect->x1 > viewport.x1 ||
-        rect->y0 < viewport.y0 ||
-        rect->y1 > viewport.y1) return -1; // clipped
-
-    return 1; // fully visible
-}
-
-int32 boxIsVisible(const AABBs* box)
-{
-    RectMinMax rect;
-    if (!transformBoxRect(box, &rect))
-        return 0; // not visible
-    return rectIsVisible(&rect);
-}
-
 X_INLINE int32 cross(const Vertex *a, const Vertex *b, const Vertex *c)
 {
     return (b->x - a->x) * (c->y - a->y) -
@@ -710,9 +686,8 @@ void faceAddMeshTrianglesFlat_c(const MeshTriangle* polys, int32 count, uint32 s
         ccbMap3(f, v0, v1, v2, 20 | (16 << 8));
     }
 }
-#endif
 
-bool transformBoxRect(const AABBs* box, RectMinMax* rect)
+bool transformBoxRect_c(const AABBs* box, RectMinMax* rect)
 {
     Matrix &m = matrixGet();
 
@@ -720,12 +695,14 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
         return false;
     }
 
-    int32 minX = box->minX << F16_SHIFT;
-    int32 maxX = box->maxX << F16_SHIFT;
-    int32 minY = box->minY << F16_SHIFT;
-    int32 maxY = box->maxY << F16_SHIFT;
-    int32 minZ = box->minZ << F16_SHIFT;
-    int32 maxZ = box->maxZ << F16_SHIFT;
+    const int32* ptr = (int32*)box;
+
+    int32 minX = ptr[0] >> 16 << F16_SHIFT;
+    int32 maxX = ptr[0] << 16 >> (16 - F16_SHIFT);
+    int32 minY = ptr[1] >> 16 << F16_SHIFT;
+    int32 maxY = ptr[1] << 16 >> (16 - F16_SHIFT);
+    int32 minZ = ptr[2] >> 16 << F16_SHIFT;
+    int32 maxZ = ptr[2] << 16 >> (16 - F16_SHIFT);
 
     gVertices[0].x = minX; gVertices[0].y = minY; gVertices[0].z = minZ;
     gVertices[1].x = maxX; gVertices[1].y = minY; gVertices[1].z = minZ;
@@ -738,7 +715,10 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
 
     projectVertices(8);
 
-    *rect = RectMinMax( INT_MAX, INT_MAX, INT_MIN, INT_MIN );
+    int32 x0 = INT_MAX;
+    int32 y0 = INT_MAX;
+    int32 x1 = INT_MIN;
+    int32 y1 = INT_MIN;
 
     const Vertex* v = gVertices;
 
@@ -748,21 +728,46 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
         int32 y = v->y;
         int32 z = v->z;
 
-        if ((z & CLIP_MASK) & (CLIP_NEAR | CLIP_FAR))
+        if (z & (CLIP_NEAR | CLIP_FAR))
             continue;
 
-        if (x < rect->x0) rect->x0 = x;
-        if (x > rect->x1) rect->x1 = x;
-        if (y < rect->y0) rect->y0 = y;
-        if (y > rect->y1) rect->y1 = y;
+        if (x < x0) x0 = x;
+        if (y < y0) y0 = y;
+        if (x > x1) x1 = x;
+        if (y > y1) y1 = y;
     }
 
-    rect->x0 += (FRAME_WIDTH  / 2);
-    rect->y0 += (FRAME_HEIGHT / 2);
-    rect->x1 += (FRAME_WIDTH  / 2);
-    rect->y1 += (FRAME_HEIGHT / 2);
+    rect->x0 = x0 + (FRAME_WIDTH  / 2);
+    rect->y0 = y0 + (FRAME_HEIGHT / 2);
+    rect->x1 = x1 + (FRAME_WIDTH  / 2);
+    rect->y1 = y1 + (FRAME_HEIGHT / 2);
 
     return true;
+}
+#endif
+
+int32 rectIsVisible(const RectMinMax* rect)
+{
+    if (rect->x0 > rect->x1 ||
+        rect->x0 > viewport.x1 ||
+        rect->x1 < viewport.x0 ||
+        rect->y0 > viewport.y1 ||
+        rect->y1 < viewport.y0) return 0; // not visible
+
+    if (rect->x0 < viewport.x0 ||
+        rect->x1 > viewport.x1 ||
+        rect->y0 < viewport.y0 ||
+        rect->y1 > viewport.y1) return -1; // clipped
+
+    return 1; // fully visible
+}
+
+int32 boxIsVisible(const AABBs* box)
+{
+    RectMinMax rect;
+    if (!transformBoxRect(box, &rect))
+        return 0; // not visible
+    return rectIsVisible(&rect);
 }
 
 void transformRoom(const Room* room)

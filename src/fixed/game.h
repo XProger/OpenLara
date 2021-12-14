@@ -29,6 +29,7 @@ struct Game
 
         animTexFrame = 0;
 
+        sndStop();
         sndFreeSamples();
 
         void* data = osLoadLevel(name);

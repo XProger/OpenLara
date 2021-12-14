@@ -3121,12 +3121,12 @@ struct Lara : ItemObj
 
             if (arm->target && arm->target->health > 0)
             {
-                Sphere spheres[MAX_SPHERES];
+                Sphere* spheres = gSpheres[0];
                 int32 spheresCount = arm->target->getSpheres(spheres, false);
 
                 for (int32 i = 0; i < spheresCount; i++)
                 {
-                    Sphere &s = spheres[i];
+                    const Sphere &s = spheres[i];
 
                     if (abs(s.center.x) >= s.radius)
                         continue;

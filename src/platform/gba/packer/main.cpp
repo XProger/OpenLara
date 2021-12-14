@@ -1319,7 +1319,7 @@ struct LevelPC
     {
         uint16 id;
         uint16 meshIndex;
-        uint16 flags;
+        uint32 flags;
         MinMax vbox;
         MinMax cbox;
 
@@ -2771,8 +2771,6 @@ struct LevelPC
 
         header.frameData = f.align4();
         f.write(frameData, frameDataSize);
-        
-        static int32 maxMeshes = 0;
 
         header.models = f.align4();
         for (int32 i = 0; i < modelsCount; i++)
@@ -4175,8 +4173,6 @@ struct LevelPC
 
         header.frameData = f.align4();
         f.write(frameData, frameDataSize);
-        
-        static int32 maxMeshes = 0;
 
         header.models = f.align4();
         for (int32 i = 0; i < modelsCount; i++)

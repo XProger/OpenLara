@@ -987,8 +987,8 @@ uint32 ItemObj::collideSpheres(Lara* lara) const
     return 0xFFFFFFFF;
 #endif
 
-    Sphere a[MAX_SPHERES];
-    Sphere b[MAX_SPHERES];
+    Sphere *a = gSpheres[0];
+    Sphere *b = gSpheres[1];
 
     int32 aCount = getSpheres(a, true);
     int32 bCount = lara->getSpheres(b, true);

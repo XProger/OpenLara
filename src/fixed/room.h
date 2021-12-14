@@ -300,6 +300,10 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
     {
         const Room* room = *nearRoom++;
 
+        int32 rx = p.x - (room->info->x << 8);
+        int32 ry = p.y;
+        int32 rz = p.z - (room->info->z << 8);
+
         for (int i = 0; i < room->info->meshesCount; i++)
         {
             const RoomMesh* mesh = room->data.meshes + i;
@@ -314,10 +318,12 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
             if (staticMesh->flags & STATIC_MESH_FLAG_NO_COLLISION)
                 continue;
 
-        // TODO align RoomInfo::Mesh (room relative int16?)
-            int32 x = mesh->pos.x - p.x + (room->info->x << 8);
-            int32 y = mesh->pos.y - p.y;
-            int32 z = mesh->pos.z - p.z + (room->info->z << 8);
+            int32 x = mesh->pos.x - rx;
+            int32 y = mesh->pos.y - ry;
+            int32 z = mesh->pos.z - rz;
+
+            if (abs(x) > MAX_STATIC_MESH_RADIUS || abs(z) > MAX_STATIC_MESH_RADIUS || abs(y) > MAX_STATIC_MESH_RADIUS)
+                continue;
 
             AABBi meshBox(staticMesh->cbox);
             boxRotateYQ(meshBox, STATIC_MESH_QUADRANT(mesh->flags));
