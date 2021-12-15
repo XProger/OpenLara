@@ -9,115 +9,184 @@
 
 boxArg  RN r0
 rectArg RN r1
-m       RN r2
-vert    RN r3
-vptr    RN r4
-rect    RN r5   ; must be in r4-r6
-minX    RN boxArg
-maxX    RN rectArg
-minY    RN m
-maxY    RN r6
-minZ    RN r12
-maxZ    RN lr
+divLUT  RN r2
+m       RN r3
+vx      RN r4
+vy      RN r5
+vz      RN r6
+x       RN r7
+y       RN r8
+z       RN r9
+rMinX   RN r10
+rMinY   RN r11
+rMaxX   RN r12
+rMaxY   RN lr
 
-xx      RN maxX
-yy      RN maxY
-zz      RN maxZ
-rMinX   RN boxArg
-rMinY   RN rectArg
-rMaxX   RN m
-rMaxY   RN maxY
-vx      RN vptr
-vy      RN minZ
-vz      RN maxZ
+bz      RN divLUT
+offset  RN m
+xx      RN rMinX
+yy      RN rMinY
+zz      RN rMaxX
+min     RN rMaxY
+max     RN rMaxY
+w       RN x
+h       RN y
+mx      RN boxArg
+my      RN rectArg
+mz      RN divLUT
 
-INT_MIN EQU 0x80000000
-INT_MAX EQU 0x7FFFFFFF
+minX    RN x
+minY    RN y
+minZ    RN z
+maxX    RN mx
+maxY    RN my
+maxZ    RN mz
+
+MAX_X   EQU (0 * 3 * 4)
+MIN_X   EQU (1 * 3 * 4)
+MAX_Y   EQU (2 * 3 * 4)
+MIN_Y   EQU (3 * 3 * 4)
+MAX_Z   EQU (4 * 3 * 4)
+MIN_Z   EQU (5 * 3 * 4)
+SIZE    EQU (6 * 3 * 4)
 
     MACRO
-$index  check
-        ldmia vert!, {vx, vy, vz}
-        tst vz, #(CLIP_NEAR | CLIP_FAR)
-        bne $index.skip
-        cmp vx, rMinX
-        movlt rMinX, vx
-        cmp vy, rMinY
-        movlt rMinY, vy
-        cmp vx, rMaxX
-        movgt rMaxX, vx
-        cmp vy, rMaxY
-        movgt rMaxY, vy
+$index  project $dx, $dy, $dz
+        add offset, sp, $dz
+        ldmia offset, {x, y, z}
+
+        add offset, sp, $dy
+        ldmia offset, {vx, vy, vz}
+        add x, x, vx
+        add y, y, vy
+        add z, z, vz
+
+        add offset, sp, $dx
+        ldmia offset, {vx, vy, vz}
+        add z, z, vz
+
+        ; check z clipping
+        sub offset, z, #VIEW_MIN_F
+        cmp offset, #(VIEW_MAX_F - VIEW_MIN_F)
+        bhi $index.skip
+
+        add x, x, vx
+        add y, y, vy
+
+        mov z, z, lsr #(FIXED_SHIFT + PROJ_SHIFT)   ; z is positive
+        ldr z, [divLUT, z, lsl #2]
+        mul x, z, x
+        mul y, z, y
+
+        cmp x, rMinX
+        movlt rMinX, x
+        cmp y, rMinY
+        movlt rMinY, y
+        cmp x, rMaxX
+        movgt rMaxX, x
+        cmp y, rMaxY
+        movgt rMaxY, y
 $index.skip
     MEND
 
 transformBoxRect_asm
         ldr m, =matrixPtr
         ldr m, [m]
-        ldr m, [m, #(11 * 4)]
-        cmp m, #VIEW_MIN_F
-        movlt r0, #0
-        movlt pc, lr
-        cmp m, #VIEW_MAX_F
-        movge r0, #0
-        movge pc, lr
+        ldr bz, [m, #(11 * 4)]
+        sub bz, bz, #VIEW_MIN_F
+        cmp bz, #(VIEW_MAX_F - VIEW_MIN_F)
+        movhi r0, #0
+        movhi pc, lr
 
-        stmfd sp!, {r4-r6, lr}
+        stmfd sp!, {rectArg, r4-r11, lr}
 
-        mov rect, rectArg   ; to use after projectVertices_asm call
         ldmia boxArg, {xx, yy, zz}
 
-        mov minX, xx, asr #16
-        mov maxX, xx, lsl #16
-        mov maxX, maxX, asr #(16 - F16_SHIFT)
-        mov minX, minX, lsl #2
+        add m, m, #(12 * 4)
 
-        mov minY, yy, asr #16
-        mov maxY, yy, lsl #16
-        mov maxY, maxY, asr #(16 - F16_SHIFT)
-        mov minY, minY, lsl #2
+        ; pre-transform min/max Z
+        ldmdb m!, {mx, my, mz, vx, vy, vz}
+        mov min, zz, asr #16
+        mla minX, min, mx, vx
+        mla minY, min, my, vy
+        mla minZ, min, mz, vz
+        mov minX, minX, asr #FIXED_SHIFT
+        mov minY, minY, asr #FIXED_SHIFT
 
-        mov minZ, zz, asr #16
-        mov maxZ, zz, lsl #16
-        mov maxZ, maxZ, asr #(16 - F16_SHIFT)
-        mov minZ, minZ, lsl #2
+        mov max, zz, lsl #16
+        mov max, max, asr #16
+        mla maxX, max, mx, vx
+        mla maxY, max, my, vy
+        mla maxZ, max, mz, vz
+        mov maxX, maxX, asr #FIXED_SHIFT
+        mov maxY, maxY, asr #FIXED_SHIFT
+        stmdb sp!, {maxX, maxY, maxZ, minX, minY, minZ}
 
-        ldr vptr, =gVertices
+        ; pre-transform min/max Y
+        ldmdb m!, {mx, my, mz}
 
-        mov vert, vptr
-        stmia vert!, {minX, minY, minZ}
-        stmia vert!, {maxX, minY, minZ}
-        stmia vert!, {minX, maxY, minZ}
-        stmia vert!, {maxX, maxY, minZ}
-        stmia vert!, {minX, minY, maxZ}
-        stmia vert!, {maxX, minY, maxZ}
-        stmia vert!, {minX, maxY, maxZ}
-        stmia vert!, {maxX, maxY, maxZ}
+        mov min, yy, asr #16
+        mul minX, mx, min
+        mul minY, my, min
+        mul minZ, mz, min
+        mov minX, minX, asr #FIXED_SHIFT
+        mov minY, minY, asr #FIXED_SHIFT
 
-        mov r0, #8
-        bl projectVertices_asm  ; TODO compare with non-SWI version
+        mov max, yy, lsl #16
+        mov max, max, asr #16
+        mul maxX, max, mx
+        mul maxY, max, my
+        mul maxZ, max, mz
+        mov maxX, maxX, asr #FIXED_SHIFT
+        mov maxY, maxY, asr #FIXED_SHIFT
+        stmdb sp!, {maxX, maxY, maxZ, minX, minY, minZ}
 
-        mov rMinX, #INT_MAX
-        mov rMinY, #INT_MAX
-        mov rMaxX, #INT_MIN
-        mov rMaxY, #INT_MIN
+        ; pre-transform min/max X
+        ldmdb m!, {mx, my, mz}
 
-        mov vert, vptr
-_0      check
-_1      check
-_2      check
-_3      check
-_4      check
-_5      check
-_6      check
-_7      check
+        mov min, xx, asr #16
+        mul minX, mx, min
+        mul minY, my, min
+        mul minZ, mz, min
+        mov minX, minX, asr #FIXED_SHIFT
+        mov minY, minY, asr #FIXED_SHIFT
 
-_done   add rMinX, rMinX, #(FRAME_WIDTH >> 1)
-        add rMinY, rMinY, #(FRAME_HEIGHT >> 1)
-        add rMaxX, rMaxX, #(FRAME_WIDTH >> 1)
-        add rMaxY, rMaxY, #(FRAME_HEIGHT >> 1)
+        mov max, xx, lsl #16
+        mov max, max, asr #16
+        mul maxX, max, mx
+        mul maxY, max, my
+        mul maxZ, max, mz
+        mov maxX, maxX, asr #FIXED_SHIFT
+        mov maxY, maxY, asr #FIXED_SHIFT
+        stmdb sp!, {maxX, maxY, maxZ, minX, minY, minZ}
 
-        stmia rect, {rMinX, rMinY, rMaxX, rMaxY}
+        ldr divLUT, =divTable
+        mov rMinX, #MAX_INT32
+        mov rMinY, #MAX_INT32
+        mov rMaxX, #MIN_INT32
+        mov rMaxY, #MIN_INT32
+
+_0      project #MIN_X, #MIN_Y, #MIN_Z
+_1      project #MAX_X, #MIN_Y, #MIN_Z
+_2      project #MIN_X, #MAX_Y, #MIN_Z
+_3      project #MAX_X, #MAX_Y, #MIN_Z
+_4      project #MIN_X, #MIN_Y, #MAX_Z
+_5      project #MAX_X, #MIN_Y, #MAX_Z
+_6      project #MIN_X, #MAX_Y, #MAX_Z
+_7      project #MAX_X, #MAX_Y, #MAX_Z
+
+_done   mov w, #(FRAME_WIDTH >> 1)
+        mov h, #(FRAME_HEIGHT >> 1)
+        add rMinX, w, rMinX, asr #(16 - PROJ_SHIFT)
+        add rMinY, h, rMinY, asr #(16 - PROJ_SHIFT)
+        add rMaxX, w, rMaxX, asr #(16 - PROJ_SHIFT)
+        add rMaxY, h, rMaxY, asr #(16 - PROJ_SHIFT)
+
+        add sp, sp, #SIZE
+        ldmfd sp!, {rectArg}
+
+        stmia rectArg, {rMinX, rMinY, rMaxX, rMaxY}
 
         mov r0, #1
-        ldmfd sp!, {r4-r6, pc}
+        ldmfd sp!, {r4-r11, pc}
     END

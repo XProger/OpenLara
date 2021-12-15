@@ -696,7 +696,7 @@ bool transformBoxRect_c(const AABBs* box, RectMinMax* rect)
     }
 
     const int32* ptr = (int32*)box;
-
+#if 0
     int32 minX = ptr[0] >> 16 << F16_SHIFT;
     int32 maxX = ptr[0] << 16 >> (16 - F16_SHIFT);
     int32 minY = ptr[1] >> 16 << F16_SHIFT;
@@ -741,6 +741,107 @@ bool transformBoxRect_c(const AABBs* box, RectMinMax* rect)
     rect->y0 = y0 + (FRAME_HEIGHT / 2);
     rect->x1 = x1 + (FRAME_WIDTH  / 2);
     rect->y1 = y1 + (FRAME_HEIGHT / 2);
+#else
+    enum {
+        MAX_X,
+        MIN_X,
+        MAX_Y,
+        MIN_Y,
+        MAX_Z,
+        MIN_Z,
+        MIN_MAX_SIZE
+    };
+
+    int32 mm[MIN_MAX_SIZE][3];
+    int32 min, max, minX, minY, minZ, maxX, maxY, maxZ;
+
+    #define PROJECT(dx,dy,dz){\
+        int32 x, y, z;\
+        x = mm[dx][0] + mm[dy][0] + mm[dz][0];\
+        y = mm[dx][1] + mm[dy][1] + mm[dz][1];\
+        z = mm[dx][2] + mm[dy][2] + mm[dz][2];\
+        if (z >= VIEW_MIN_F && z <= VIEW_MAX_F) {\
+            z = divTable[z >> (FIXED_SHIFT + PROJ_SHIFT)];\
+            x = x * z;\
+            y = y * z;\
+            if (x < rMinX) rMinX = x;\
+            if (y < rMinY) rMinY = y;\
+            if (x > rMaxX) rMaxX = x;\
+            if (y > rMaxY) rMaxY = y;\
+        }\
+    }
+
+    int32 xx = ptr[0];
+    int32 yy = ptr[1];
+    int32 zz = ptr[2];
+
+    // pre-transform min/max Z
+    min = zz >> 16;
+    minX = m.e02 * min + m.e03;
+    minY = m.e12 * min + m.e13;
+    minZ = m.e22 * min + m.e23;
+    max = zz << 16 >> 16;
+    maxX = m.e02 * max + m.e03;
+    maxY = m.e12 * max + m.e13;
+    maxZ = m.e22 * max + m.e23;
+    mm[MAX_Z][0] = maxX >> FIXED_SHIFT;
+    mm[MAX_Z][1] = maxY >> FIXED_SHIFT;
+    mm[MAX_Z][2] = maxZ;
+    mm[MIN_Z][0] = minX >> FIXED_SHIFT;
+    mm[MIN_Z][1] = minY >> FIXED_SHIFT;
+    mm[MIN_Z][2] = minZ;
+
+    // pre-transform min/max Y
+    min = yy >> 16;
+    minX = m.e01 * min;
+    minY = m.e11 * min;
+    minZ = m.e21 * min;
+    max = yy << 16 >> 16;
+    maxX = m.e01 * max;
+    maxY = m.e11 * max;
+    maxZ = m.e21 * max;
+    mm[MAX_Y][0] = maxX >> FIXED_SHIFT;
+    mm[MAX_Y][1] = maxY >> FIXED_SHIFT;
+    mm[MAX_Y][2] = maxZ;
+    mm[MIN_Y][0] = minX >> FIXED_SHIFT;
+    mm[MIN_Y][1] = minY >> FIXED_SHIFT;
+    mm[MIN_Y][2] = minZ;
+
+    // pre-transform min/max X
+    min = xx >> 16;
+    minX = m.e00 * min;
+    minY = m.e10 * min;
+    minZ = m.e20 * min;
+    max = xx << 16 >> 16;
+    maxX = m.e00 * max;
+    maxY = m.e10 * max;
+    maxZ = m.e20 * max;
+    mm[MAX_X][0] = maxX >> FIXED_SHIFT;
+    mm[MAX_X][1] = maxY >> FIXED_SHIFT;
+    mm[MAX_X][2] = maxZ;
+    mm[MIN_X][0] = minX >> FIXED_SHIFT;
+    mm[MIN_X][1] = minY >> FIXED_SHIFT;
+    mm[MIN_X][2] = minZ;
+
+    int32 rMinX = INT_MAX;
+    int32 rMinY = INT_MAX;
+    int32 rMaxX = INT_MIN;
+    int32 rMaxY = INT_MIN;
+
+    PROJECT(MIN_X, MIN_Y, MIN_Z);
+    PROJECT(MAX_X, MIN_Y, MIN_Z);
+    PROJECT(MIN_X, MAX_Y, MIN_Z);
+    PROJECT(MAX_X, MAX_Y, MIN_Z);
+    PROJECT(MIN_X, MIN_Y, MAX_Z);
+    PROJECT(MAX_X, MIN_Y, MAX_Z);
+    PROJECT(MIN_X, MAX_Y, MAX_Z);
+    PROJECT(MAX_X, MAX_Y, MAX_Z);
+
+    rect->x0 = (rMinX >> (16 - PROJ_SHIFT)) + (FRAME_WIDTH  / 2);
+    rect->y0 = (rMinY >> (16 - PROJ_SHIFT)) + (FRAME_HEIGHT / 2);
+    rect->x1 = (rMaxX >> (16 - PROJ_SHIFT)) + (FRAME_WIDTH  / 2);
+    rect->y1 = (rMaxY >> (16 - PROJ_SHIFT)) + (FRAME_HEIGHT / 2);
+#endif
 
     return true;
 }

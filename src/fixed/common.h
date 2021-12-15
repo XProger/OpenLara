@@ -2001,14 +2001,16 @@ struct IMA_STATE
 };
 
 #if defined(MODEHW)
-    #define PERSPECTIVE_DZ(z) (z >> 4)
+    #define PROJ_SHIFT 4
+
+    #define PERSPECTIVE_DZ(z) (z >> PROJ_SHIFT)
 
     #define PERSPECTIVE(x, y, z) {\
         int32 dz = PERSPECTIVE_DZ(z);\
         if (dz >= DIV_TABLE_SIZE) dz = DIV_TABLE_SIZE - 1;\
         int32 d = FixedInvU(dz);\
-        x = (x * d) >> 12;\
-        y = (y * d) >> 12;\
+        x = (x * d) >> (16 - PROJ_SHIFT);\
+        y = (y * d) >> (16 - PROJ_SHIFT);\
     }
 #elif defined(MODE13)
     #define PERSPECTIVE(x, y, z) {\
