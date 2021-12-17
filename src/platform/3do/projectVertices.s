@@ -89,5 +89,5 @@ loop    ldmia vertex, {x, y, z}     ; read transformed vertex
         cmp vertex, last
         blt loop
 
-done    ldmfd sp!, {r4-r11, pc}
+        ldmfd sp!, {r4-r11, pc}
     END

@@ -9,7 +9,7 @@ unpackRoom_asm
 
 data     RN r0
 vCount   RN r1
-vx0      RN r1
+vx0      RN vCount
 vy0      RN r2
 vz0      RN r3
 vx1      RN r4
@@ -38,7 +38,7 @@ loop    ldmia data!, {n0, n1} ; load four encoded vertices
         cmp data, last
 
         ; n0 = z1:5, y1:6, x1:5, z0:5, y0:6, x0:5
-        ; n0 = z3:5, y3:6, x3:5, z2:5, y2:6, x2:5
+        ; n1 = z3:5, y3:6, x3:5, z2:5, y2:6, x2:5
 
     ; 1st vertex
         and vx0, maskH, n0, lsl #12     ; decode x0

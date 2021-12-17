@@ -3,13 +3,11 @@
 
     INCLUDE common_asm.inc
 
-    IMPORT projectVertices_asm
+    EXPORT boxIsVisible_asm
 
-    EXPORT transformBoxRect_asm
-
-boxArg  RN r0
-rectArg RN r1
-divLUT  RN r2
+mx      RN r0
+my      RN r1
+mz      RN r2
 m       RN r3
 vx      RN r4
 vy      RN r5
@@ -22,6 +20,9 @@ rMinY   RN r11
 rMaxX   RN r12
 rMaxY   RN lr
 
+boxArg  RN mx
+divLUT  RN mz
+
 bz      RN divLUT
 offset  RN m
 xx      RN rMinX
@@ -29,11 +30,9 @@ yy      RN rMinY
 zz      RN rMaxX
 min     RN rMaxY
 max     RN rMaxY
-w       RN x
-h       RN y
-mx      RN boxArg
-my      RN rectArg
-mz      RN divLUT
+vMinXY  RN x
+vMaxXY  RN y
+vp      RN x
 
 minX    RN x
 minY    RN y
@@ -89,7 +88,7 @@ $index  project $dx, $dy, $dz
 $index.skip
     MEND
 
-transformBoxRect_asm
+boxIsVisible_asm
         ldr m, =matrixPtr
         ldr m, [m]
         ldr bz, [m, #(11 * 4)]
@@ -98,7 +97,7 @@ transformBoxRect_asm
         movhi r0, #0
         movhi pc, lr
 
-        stmfd sp!, {rectArg, r4-r11, lr}
+        stmfd sp!, {r4-r11, lr}
 
         ldmia boxArg, {xx, yy, zz}
 
@@ -175,18 +174,32 @@ _5      project #MAX_X, #MIN_Y, #MAX_Z
 _6      project #MIN_X, #MAX_Y, #MAX_Z
 _7      project #MAX_X, #MAX_Y, #MAX_Z
 
-_done   mov w, #(FRAME_WIDTH >> 1)
-        mov h, #(FRAME_HEIGHT >> 1)
-        add rMinX, w, rMinX, asr #(16 - PROJ_SHIFT)
-        add rMinY, h, rMinY, asr #(16 - PROJ_SHIFT)
-        add rMaxX, w, rMaxX, asr #(16 - PROJ_SHIFT)
-        add rMaxY, h, rMaxY, asr #(16 - PROJ_SHIFT)
+        mov r0, #0
 
-        add sp, sp, #SIZE
-        ldmfd sp!, {rectArg}
+        mov rMinX, rMinX, asr #(16 - PROJ_SHIFT)
+        mov rMaxX, rMaxX, asr #(16 - PROJ_SHIFT)
 
-        stmia rectArg, {rMinX, rMinY, rMaxX, rMaxY}
+        cmp rMinX, rMaxX
+        beq _done
+
+        ; rect Y must remain shifted up by 16
+        mov rMinY, rMinY, lsl #PROJ_SHIFT
+        mov rMaxY, rMaxY, lsl #PROJ_SHIFT
+
+    ; check xy clipping
+        ldr vp, =viewportRel
+        ldmia vp, {vMinXY, vMaxXY}
+
+        cmp rMaxX, vMinXY, asr #16
+        blt _done
+        cmp rMaxY, vMinXY, lsl #16
+        blt _done
+        cmp rMinX, vMaxXY, asr #16
+        bgt _done
+        cmp rMinY, vMaxXY, lsl #16
+        bgt _done
 
         mov r0, #1
+_done   add sp, sp, #SIZE
         ldmfd sp!, {r4-r11, pc}
     END

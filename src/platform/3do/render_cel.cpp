@@ -31,8 +31,8 @@ struct ListOT {
 ListOT gOT[OT_SIZE];
 
 struct ViewportRel {
-    int16 x0, y0;
-    int16 x1, y1;
+    int32 minXY;
+    int32 maxXY;
 };
 
 ViewportRel viewportRel;
@@ -131,10 +131,13 @@ void setViewport(const RectMinMax &vp)
 {
     viewport = vp;
 
-    viewportRel.x0 = vp.x0 - (FRAME_WIDTH  >> 1);
-    viewportRel.y0 = vp.y0 - (FRAME_HEIGHT >> 1);
-    viewportRel.x1 = vp.x1 - (FRAME_WIDTH  >> 1);
-    viewportRel.y1 = vp.y1 - (FRAME_HEIGHT >> 1);
+    int32 minX = vp.x0 - (FRAME_WIDTH  >> 1);
+    int32 minY = vp.y0 - (FRAME_HEIGHT >> 1);
+    int32 maxX = vp.x1 - (FRAME_WIDTH  >> 1);
+    int32 maxY = vp.y1 - (FRAME_HEIGHT >> 1);
+
+    viewportRel.minXY = (minX << 16) | (minY & 0xFFFF);
+    viewportRel.maxXY = (maxX << 16) | (maxY & 0xFFFF);
 }
 
 void setPaletteIndex(int32 index)
@@ -227,7 +230,7 @@ X_INLINE void ccbSetColor(uint32 flags, Face* face)
 #ifdef USE_ASM
     #define unpackRoom                  unpackRoom_asm                  // -53%
     #define unpackMesh                  unpackMesh_asm                  // -48%
-    #define projectVertices             projectVertices_asm             // -32%
+    #define projectVertices             projectVertices_asm             // -18%
     #define faceAddRoomQuads            faceAddRoomQuads_asm            // -46%
     #define faceAddRoomTriangles        faceAddRoomTriangles_asm        // -30%
     #define faceAddMeshQuads            faceAddMeshQuads_asm            // -36%
@@ -343,18 +346,19 @@ void projectVertices_c(int32 vCount)
 
         PERSPECTIVE(x, y, z);
 
-        int32 minX = viewportRel.x0;
-        int32 minY = viewportRel.y0;
-        int32 maxX = viewportRel.x1;
-        int32 maxY = viewportRel.y1;
+    // Y is shifted left by 16
+        y <<= 16;
 
-        if (x < minX) clip |= CLIP_LEFT;
-        if (y < minY) clip |= CLIP_TOP;
-        if (x > maxX) clip |= CLIP_RIGHT;
-        if (y > maxY) clip |= CLIP_BOTTOM;
+        int32 vMinXY = viewportRel.minXY;
+        int32 vMaxXY = viewportRel.maxXY;
+
+        if (x < (vMinXY >> 16)) clip |= CLIP_LEFT;
+        if (y < (vMinXY << 16)) clip |= CLIP_TOP;
+        if (x > (vMaxXY >> 16)) clip |= CLIP_RIGHT;
+        if (y > (vMaxXY << 16)) clip |= CLIP_BOTTOM;
 
         v->x = x;
-        v->y = y;
+        v->y = y >> 16;
         v->z = (z << CLIP_SHIFT) | clip;
         v++;
     } while (v < last);
@@ -687,7 +691,7 @@ void faceAddMeshTrianglesFlat_c(const MeshTriangle* polys, int32 count, uint32 s
     }
 }
 
-bool transformBoxRect_c(const AABBs* box, RectMinMax* rect)
+int32 boxIsVisible_c(const AABBs* box)
 {
     Matrix &m = matrixGet();
 
@@ -696,52 +700,7 @@ bool transformBoxRect_c(const AABBs* box, RectMinMax* rect)
     }
 
     const int32* ptr = (int32*)box;
-#if 0
-    int32 minX = ptr[0] >> 16 << F16_SHIFT;
-    int32 maxX = ptr[0] << 16 >> (16 - F16_SHIFT);
-    int32 minY = ptr[1] >> 16 << F16_SHIFT;
-    int32 maxY = ptr[1] << 16 >> (16 - F16_SHIFT);
-    int32 minZ = ptr[2] >> 16 << F16_SHIFT;
-    int32 maxZ = ptr[2] << 16 >> (16 - F16_SHIFT);
 
-    gVertices[0].x = minX; gVertices[0].y = minY; gVertices[0].z = minZ;
-    gVertices[1].x = maxX; gVertices[1].y = minY; gVertices[1].z = minZ;
-    gVertices[2].x = minX; gVertices[2].y = maxY; gVertices[2].z = minZ;
-    gVertices[3].x = maxX; gVertices[3].y = maxY; gVertices[3].z = minZ;
-    gVertices[4].x = minX; gVertices[4].y = minY; gVertices[4].z = maxZ;
-    gVertices[5].x = maxX; gVertices[5].y = minY; gVertices[5].z = maxZ;
-    gVertices[6].x = minX; gVertices[6].y = maxY; gVertices[6].z = maxZ;
-    gVertices[7].x = maxX; gVertices[7].y = maxY; gVertices[7].z = maxZ;
-
-    projectVertices(8);
-
-    int32 x0 = INT_MAX;
-    int32 y0 = INT_MAX;
-    int32 x1 = INT_MIN;
-    int32 y1 = INT_MIN;
-
-    const Vertex* v = gVertices;
-
-    for (int32 i = 0; i < 8; i++, v++)
-    {
-        int32 x = v->x;
-        int32 y = v->y;
-        int32 z = v->z;
-
-        if (z & (CLIP_NEAR | CLIP_FAR))
-            continue;
-
-        if (x < x0) x0 = x;
-        if (y < y0) y0 = y;
-        if (x > x1) x1 = x;
-        if (y > y1) y1 = y;
-    }
-
-    rect->x0 = x0 + (FRAME_WIDTH  / 2);
-    rect->y0 = y0 + (FRAME_HEIGHT / 2);
-    rect->x1 = x1 + (FRAME_WIDTH  / 2);
-    rect->y1 = y1 + (FRAME_HEIGHT / 2);
-#else
     enum {
         MAX_X,
         MIN_X,
@@ -837,39 +796,26 @@ bool transformBoxRect_c(const AABBs* box, RectMinMax* rect)
     PROJECT(MIN_X, MAX_Y, MAX_Z);
     PROJECT(MAX_X, MAX_Y, MAX_Z);
 
-    rect->x0 = (rMinX >> (16 - PROJ_SHIFT)) + (FRAME_WIDTH  / 2);
-    rect->y0 = (rMinY >> (16 - PROJ_SHIFT)) + (FRAME_HEIGHT / 2);
-    rect->x1 = (rMaxX >> (16 - PROJ_SHIFT)) + (FRAME_WIDTH  / 2);
-    rect->y1 = (rMaxY >> (16 - PROJ_SHIFT)) + (FRAME_HEIGHT / 2);
-#endif
+    rMinX >>= (16 - PROJ_SHIFT);
+    rMaxX >>= (16 - PROJ_SHIFT);
 
-    return true;
+    if (rMinX > rMaxX) return 0;
+
+    // rect Y is shifted left by 16
+    rMinY <<= PROJ_SHIFT;
+    rMaxY <<= PROJ_SHIFT;
+
+    int32 vMinXY = viewportRel.minXY;
+    int32 vMaxXY = viewportRel.maxXY;
+
+    if (rMaxX < (vMinXY >> 16) ||
+        rMaxY < (vMinXY << 16) ||
+        rMinX > (vMaxXY >> 16) ||
+        rMinY > (vMaxXY << 16)) return 0;
+
+    return 1;
 }
 #endif
-
-int32 rectIsVisible(const RectMinMax* rect)
-{
-    if (rect->x0 > rect->x1 ||
-        rect->x0 > viewport.x1 ||
-        rect->x1 < viewport.x0 ||
-        rect->y0 > viewport.y1 ||
-        rect->y1 < viewport.y0) return 0; // not visible
-
-    if (rect->x0 < viewport.x0 ||
-        rect->x1 > viewport.x1 ||
-        rect->y0 < viewport.y0 ||
-        rect->y1 > viewport.y1) return -1; // clipped
-
-    return 1; // fully visible
-}
-
-int32 boxIsVisible(const AABBs* box)
-{
-    RectMinMax rect;
-    if (!transformBoxRect(box, &rect))
-        return 0; // not visible
-    return rectIsVisible(&rect);
-}
 
 void transformRoom(const Room* room)
 {
@@ -974,10 +920,13 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     y0 += y;
     y1 += y;
 
-    if (x0 >= viewportRel.x1) return;
-    if (y0 >= viewportRel.y1) return;
-    if (x1 <= viewportRel.x0) return;
-    if (y1 <= viewportRel.y0) return;
+    int32 vMinXY = viewportRel.minXY;
+    int32 vMaxXY = viewportRel.maxXY;
+
+    if (x0 > (vMaxXY >> 16) ||
+        x1 < (vMinXY >> 16) ||
+        y0 > (vMaxXY << 16 >> 16) ||
+        y1 < (vMinXY << 16 >> 16)) return;
 
     int32 depth = X_MAX(0, z - 128) >> OT_SHIFT; // depth hack
 

@@ -1001,13 +1001,13 @@ void matrixFrame(const void* pos, const void* angles)
     uint32 zu = ((uint32*)pos)[1];
 
 #ifdef CPU_BIG_ENDIAN
-    int16 posX = int16(xy >> 16);
-    int16 posY = int16(xy & 0xFFFF);
-    int16 posZ = int16(zu >> 16);
+    int32 posX = int16(xy >> 16);
+    int32 posY = int16(xy & 0xFFFF);
+    int32 posZ = int16(zu >> 16);
 #else
-    int16 posX = int16(xy & 0xFFFF);
-    int16 posY = int16(xy >> 16);
-    int16 posZ = int16(zu & 0xFFFF);
+    int32 posX = int16(xy & 0xFFFF);
+    int32 posY = int16(xy >> 16);
+    int32 posZ = int16(zu & 0xFFFF);
 #endif
 
     matrixTranslate(posX, posY, posZ);
@@ -1026,13 +1026,13 @@ void matrixFrameLerp(const void* pos, const void* anglesA, const void* anglesB, 
     uint32 zu = ((uint32*)pos)[1];
 
 #ifdef CPU_BIG_ENDIAN
-    int16 posX = int16(xy >> 16);
-    int16 posY = int16(xy & 0xFFFF);
-    int16 posZ = int16(zu >> 16);
+    int32 posX = int16(xy >> 16);
+    int32 posY = int16(xy & 0xFFFF);
+    int32 posZ = int16(zu >> 16);
 #else
-    int16 posX = int16(xy & 0xFFFF);
-    int16 posY = int16(xy >> 16);
-    int16 posZ = int16(zu & 0xFFFF);
+    int32 posX = int16(xy & 0xFFFF);
+    int32 posY = int16(xy >> 16);
+    int32 posZ = int16(zu & 0xFFFF);
 #endif
 
     matrixTranslate(posX, posY, posZ);

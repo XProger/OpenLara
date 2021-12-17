@@ -406,8 +406,7 @@ extern int32 fps;
     #define MAX_VERTICES (5*1024) // for frame
 #endif
 
-#define MAX_UPDATE_FRAMES 10
-
+#define MAX_UPDATE_FRAMES   10
 #define MAX_PLAYERS         1 // TODO 2 players for non-potato platforms
 #define MAX_SPHERES         32
 #define MAX_MATRICES        8
@@ -2139,7 +2138,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
         void matrixRotateYQ_asm(int32 quadrant);
         void boxTranslate_asm(AABBi &box, int32 x, int32 y, int32 z);
         void boxRotateYQ_asm(AABBi &box, int32 quadrant);
-        bool transformBoxRect_asm(const AABBs* box, RectMinMax* rect);
+        int32 boxIsVisible_asm(const AABBs* box);
     }
 
     #define phd_sin                 phd_sin_asm
@@ -2152,7 +2151,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define matrixRotateYQ          matrixRotateYQ_asm
     #define boxTranslate            boxTranslate_asm
     #define boxRotateYQ             boxRotateYQ_asm
-    #define transformBoxRect        transformBoxRect_asm
+    #define boxIsVisible            boxIsVisible_asm
 #else
     #define phd_sin                 phd_sin_c
     #define matrixPush              matrixPush_c
@@ -2164,7 +2163,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define matrixRotateYQ          matrixRotateYQ_c
     #define boxTranslate            boxTranslate_c
     #define boxRotateYQ             boxRotateYQ_c
-    #define transformBoxRect        transformBoxRect_c
+    #define boxIsVisible            boxIsVisible_c
 
     int32 phd_sin_c(int32 x);
     
@@ -2178,8 +2177,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
 
     void boxTranslate_c(AABBi &box, int32 x, int32 y, int32 z);
     void boxRotateYQ_c(AABBi &box, int32 quadrant);
-
-    bool transformBoxRect_c(const AABBs* box, RectMinMax* rect);
+    int32 boxIsVisible_c(const AABBs* box);
 #endif
 
 #define phd_cos(x)      phd_sin((x) + ANGLE_90)
@@ -2206,8 +2204,6 @@ void renderInit();
 void setViewport(const RectMinMax &vp);
 void setPaletteIndex(int32 index);
 void clear();
-int32 rectIsVisible(const RectMinMax* rect);
-int32 boxIsVisible(const AABBs* box);
 void transformRoom(const Room* room);
 void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal);
 void faceAddQuad(uint32 flags, const Index* indices);

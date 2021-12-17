@@ -178,7 +178,7 @@ void drawMesh(int32 meshIndex)
 
     const Mesh* mesh = (Mesh*)ptr; ptr += sizeof(Mesh);
 
-    int16 vCount = mesh->vCount;
+    int32 vCount = mesh->vCount;
 
     bool hasNormals = true;
     if (vCount < 0) {
@@ -694,13 +694,7 @@ void drawModel(const ItemObj* item)
     matrixTranslateAbs(item->pos.x, item->pos.y, item->pos.z);
     matrixRotateYXZ(item->angle.x, item->angle.y, item->angle.z);
 
-    int32 vis;
-    RectMinMax rect;
-    if (transformBoxRect(&frameA->box, &rect)) {
-        vis = rectIsVisible(&rect);
-    } else {
-        vis = 0;
-    }
+    int32 vis = boxIsVisible(&frameA->box);
 
     if (vis)
     {
@@ -716,7 +710,7 @@ void drawModel(const ItemObj* item)
         #endif
     #endif
 
-        enableClipping = vis < 0;
+        enableClipping = true;
 
         int32 intensity = item->intensity << 5;
 
@@ -842,8 +836,8 @@ void drawRoom(const Room* room, Camera* camera)
         matrixRotateYQ(STATIC_MESH_QUADRANT(mesh->flags));
 
         int32 vis = boxIsVisible(&staticMesh->vbox);
-        if (vis != 0) {
-            enableClipping = vis < 0; // TODO wrong visibility BBox?
+        if (vis) {
+            enableClipping = true;
 
             calcLightingStatic(mesh->intensity << 5);
             drawMesh(staticMesh->meshIndex);
