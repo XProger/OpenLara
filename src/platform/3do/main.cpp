@@ -124,6 +124,11 @@ void osSetPalette(const uint16* palette)
     //
 }
 
+void osSetGamma(int32 value)
+{
+    //
+}
+
 int32 osGetSystemTimeMS()
 {
     return GetMSecTime(irqTimer);

@@ -837,17 +837,18 @@ void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv)
 }
 #endif
 
+#define MATRIX_TRANSLATE(x,y,z)\
+    Matrix &m = matrixGet();\
+    int32 tx = DP33(m.e00, m.e01, m.e02, x, y, z);\
+    int32 ty = DP33(m.e10, m.e11, m.e12, x, y, z);\
+    int32 tz = DP33(m.e20, m.e21, m.e22, x, y, z);
+
 void matrixTranslate_c(int32 x, int32 y, int32 z)
 {
-    Matrix &m = matrixGet();
-
-    int32 dx = DP33(m.e00, m.e01, m.e02, x, y, z);
-    int32 dy = DP33(m.e10, m.e11, m.e12, x, y, z);
-    int32 dz = DP33(m.e20, m.e21, m.e22, x, y, z);
-
-    m.e03 += dx;
-    m.e13 += dy;
-    m.e23 += dz;
+    MATRIX_TRANSLATE(x, y, z);
+    m.e03 += tx;
+    m.e13 += ty;
+    m.e23 += tz;
 }
 
 void matrixTranslateAbs_c(int32 x, int32 y, int32 z)
@@ -855,11 +856,18 @@ void matrixTranslateAbs_c(int32 x, int32 y, int32 z)
     x -= cameraViewPos.x;
     y -= cameraViewPos.y;
     z -= cameraViewPos.z;
+    MATRIX_TRANSLATE(x, y, z);
+    m.e03 = tx;
+    m.e13 = ty;
+    m.e23 = tz;
+}
 
-    Matrix &m = matrixGet();
-    m.e03 = DP33(m.e00, m.e01, m.e02, x, y, z);
-    m.e13 = DP33(m.e10, m.e11, m.e12, x, y, z);
-    m.e23 = DP33(m.e20, m.e21, m.e22, x, y, z);
+void matrixTranslateSet_c(int32 x, int32 y, int32 z)
+{
+    MATRIX_TRANSLATE(x, y, z);
+    m.e03 = tx;
+    m.e13 = ty;
+    m.e23 = tz;
 }
 
 void matrixRotateYQ_c(int32 quadrant)
@@ -1100,28 +1108,4 @@ void CollisionInfo::setSide(CollisionInfo::SideType st, int32 floor, int32 ceili
     s->slantType = slantType;
     s->floor     = floor;
     s->ceiling   = ceiling;
-}
-
-// TODO osSetGamma
-void setGamma(int32 value)
-{
-    if (value == 0) {
-        osSetPalette(level.palette);
-        return;
-    }
-
-    uint16 pal[256];
-    for (int32 i = 0; i < 256; i++)
-    {
-        int32 r = 31 & (level.palette[i]);
-        int32 g = 31 & (level.palette[i] >> 5);
-        int32 b = 31 & (level.palette[i] >> 10);
-
-        r = X_MIN(31, r + (((r * r >> 2) - r) * value >> 8));
-        g = X_MIN(31, g + (((g * g >> 2) - g) * value >> 8));
-        b = X_MIN(31, b + (((b * b >> 2) - b) * value >> 8));
-
-        pal[i] = r | (g << 5) | (b << 10);
-    }
-    osSetPalette(pal);
 }

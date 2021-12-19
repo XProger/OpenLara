@@ -235,6 +235,7 @@ X_INLINE int32 abs(int32 x) {
 extern int32 osGetSystemTimeMS();
 extern void osJoyVibrate(int32 index, int32 L, int32 R);
 extern void osSetPalette(const uint16* palette);
+extern void osSetGamma(int32 value);
 extern void* osLoadLevel(const char* name);
 
 #ifdef PROFILING
@@ -780,15 +781,15 @@ struct Light
     uint8 intensity;
 };
 
-#define STATIC_MESH_ID(flags)       ((flags) & 0x3F)
-#define STATIC_MESH_QUADRANT(flags) ((flags) >> 6)
-#define STATIC_MESH_ROT(flags)      ((STATIC_MESH_QUADRANT(flags) - 2) * ANGLE_90)
+#define STATIC_MESH_ID(flags)           ((flags) & 0x3F)
+#define STATIC_MESH_QUADRANT(flags)     (((flags) >> 6) & 63)
+#define STATIC_MESH_ROT(flags)          ((STATIC_MESH_QUADRANT(flags) - 2) * ANGLE_90)
+#define STATIC_MESH_INTENSITY(flags)    ((((flags) >> 8) & 0xFF) << 5)
 
 struct RoomMesh
 {
-    vec3s pos;
-    uint8 intensity;
-    uint8 flags;
+    uint32 xy; // (x << 16) | y
+    uint32 zf; // (z << 16) | (intensity << 8) | flags
 };
 
 struct ItemObj;
@@ -901,10 +902,16 @@ struct Mesh {
     // data...
 };
 
+struct Sphere16 {
+    uint32 xy;
+    uint32 zr;
+};
+
 struct StaticMesh {
     uint16 id;
     uint16 meshIndex;
     uint32 flags;
+    Sphere16 vs;
     AABBs vbox;
     AABBs cbox;
 };
@@ -2135,10 +2142,13 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
         void matrixLerp_asm(const Matrix &n, int32 pmul, int32 pdiv);
         void matrixTranslate_asm(int32 x, int32 y, int32 z);
         void matrixTranslateAbs_asm(int32 x, int32 y, int32 z);
+        void matrixTranslateSet_asm(int32 x, int32 y, int32 z);
         void matrixRotateYQ_asm(int32 quadrant);
         void boxTranslate_asm(AABBi &box, int32 x, int32 y, int32 z);
         void boxRotateYQ_asm(AABBi &box, int32 quadrant);
         int32 boxIsVisible_asm(const AABBs* box);
+        int32 sphereIsVisible_asm(int32 x, int32 y, int32 z, int32 r);
+        void faceAddShadow_asm(int32 x, int32 z, int32 sx, int32 sz);
     }
 
     #define phd_sin                 phd_sin_asm
@@ -2148,10 +2158,13 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define matrixLerp              matrixLerp_asm
     #define matrixTranslate         matrixTranslate_asm
     #define matrixTranslateAbs      matrixTranslateAbs_asm
+    #define matrixTranslateSet      matrixTranslateSet_asm
     #define matrixRotateYQ          matrixRotateYQ_asm
     #define boxTranslate            boxTranslate_asm
     #define boxRotateYQ             boxRotateYQ_asm
     #define boxIsVisible            boxIsVisible_asm
+    #define sphereIsVisible         sphereIsVisible_asm
+    #define faceAddShadow           faceAddShadow_asm
 #else
     #define phd_sin                 phd_sin_c
     #define matrixPush              matrixPush_c
@@ -2160,24 +2173,30 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define matrixLerp              matrixLerp_c
     #define matrixTranslate         matrixTranslate_c
     #define matrixTranslateAbs      matrixTranslateAbs_c
+    #define matrixTranslateSet      matrixTranslateSet_c
     #define matrixRotateYQ          matrixRotateYQ_c
     #define boxTranslate            boxTranslate_c
     #define boxRotateYQ             boxRotateYQ_c
     #define boxIsVisible            boxIsVisible_c
+    #define sphereIsVisible         sphereIsVisible_c
+    #define faceAddShadow           faceAddShadow_c
 
     int32 phd_sin_c(int32 x);
-    
+
     void matrixPush_c();
     void matrixSetIdentity_c();
     void matrixSetBasis_c(Matrix &dst, const Matrix &src);
     void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv);
     void matrixTranslate_c(int32 x, int32 y, int32 z);
     void matrixTranslateAbs_c(int32 x, int32 y, int32 z);
+    void matrixTranslateSet_c(int32 x, int32 y, int32 z);
     void matrixRotateYQ_c(int32 quadrant);
 
     void boxTranslate_c(AABBi &box, int32 x, int32 y, int32 z);
     void boxRotateYQ_c(AABBi &box, int32 quadrant);
     int32 boxIsVisible_c(const AABBs* box);
+    int32 sphereIsVisible_c(int32 x, int32 y, int32 z, int32 r);
+    void faceAddShadow_c(int32 x, int32 z, int32 sx, int32 sz);
 #endif
 
 #define phd_cos(x)      phd_sin((x) + ANGLE_90)
@@ -2197,7 +2216,6 @@ void matrixFrame(const void* pos, const void* angles);
 void matrixFrameLerp(const void* pos, const void* anglesA, const void* anglesB, int32 delta, int32 rate);
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY);
 
-void setGamma(int32 value);
 void drawGlyph(const Sprite *sprite, int32 x, int32 y);
 
 void renderInit();
@@ -2208,7 +2226,6 @@ void transformRoom(const Room* room);
 void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal);
 void faceAddQuad(uint32 flags, const Index* indices);
 void faceAddTriangle(uint32 flags, const Index* indices);
-void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz);
 void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index);
 void faceAddGlyph(int32 vx, int32 vy, int32 index);
 void faceAddRoom(const Room* room);

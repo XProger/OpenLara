@@ -115,7 +115,7 @@ int32 ItemObj::getFrames(const AnimFrame* &frameA, const AnimFrame* &frameB, int
     frameA = (AnimFrame*)(level.animFrames + (anim->frameOffset >> 1) + indexA * frameSize);
     frameB = (AnimFrame*)(level.animFrames + (anim->frameOffset >> 1) + indexB * frameSize);
 
-    if (!frameDelta)
+    if (!frameDelta || frameA == frameB)
         return 0;
 
     indexB *= animFrameRate;
@@ -984,7 +984,8 @@ void ItemObj::collide(Lara* lara, CollisionInfo* cinfo)
 uint32 ItemObj::collideSpheres(Lara* lara) const
 {
 #ifdef __3DO__ // TODO_3DO damn slow!
-    return 0xFFFFFFFF;
+    if (type != ITEM_TRAP_SWING_BLADE)
+        return 0xFFFFFFFF;
 #endif
 
     Sphere *a = gSpheres[0];

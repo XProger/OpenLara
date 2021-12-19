@@ -4,6 +4,7 @@
     IMPORT gFacesBase
     IMPORT gOT
     IMPORT gPalette
+    IMPORT gShadowQuads
     IMPORT cameraViewPos
     IMPORT shadeTable
     IMPORT divTable

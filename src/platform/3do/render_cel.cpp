@@ -1,6 +1,7 @@
 #include "common.h"
 
 //#define DEBUG_CLIPPING
+//#define CHECK_LIMITS
 
 struct Vertex
 {
@@ -110,6 +111,12 @@ extern "C" const uint32 shadeTable[32] = {
     SHADE_3,
     SHADE_2,
     SHADE_1
+};
+
+extern "C" const MeshQuad gShadowQuads[] = {
+    0, (0 | (1 << 8) | (2 << 16) | (7 << 24)),
+    0, (7 | (2 << 8) | (3 << 16) | (6 << 24)),
+    0, (6 | (3 << 8) | (4 << 16) | (5 << 24)),
 };
 
 void renderInit()
@@ -696,7 +703,7 @@ int32 boxIsVisible_c(const AABBs* box)
     Matrix &m = matrixGet();
 
     if ((m.e23 < VIEW_MIN_F) || (m.e23 >= VIEW_MAX_F)) {
-        return false;
+        return 0;
     }
 
     const int32* ptr = (int32*)box;
@@ -815,6 +822,81 @@ int32 boxIsVisible_c(const AABBs* box)
 
     return 1;
 }
+
+int32 sphereIsVisible_c(int32 x, int32 y, int32 z, int32 r)
+{
+    Matrix &m = matrixGet();
+
+    //if (abs(x) < r && abs(y) < r && abs(z) < r)
+    //    return 1;
+
+    int32 vx = DP33(m.e00, m.e01, m.e02, x, y, z);
+    int32 vy = DP33(m.e10, m.e11, m.e12, x, y, z);
+    int32 vz = DP33(m.e20, m.e21, m.e22, x, y, z);
+
+    if (vz < 0 || vz > VIEW_MAX_F)
+        return 0;
+
+    x = vx >> FIXED_SHIFT;
+    y = vy >> FIXED_SHIFT;
+    z = vz >> FIXED_SHIFT;
+
+    z = PERSPECTIVE_DZ(z);
+    int32 d = FixedInvU(z);
+    x = (x * d) >> (16 - PROJ_SHIFT);
+    y = (y * d) << PROJ_SHIFT;
+    r = (r * d);
+
+    int32 rMinX = x - (r >> (16 - PROJ_SHIFT));
+    int32 rMaxX = x + (r >> (16 - PROJ_SHIFT));
+    int32 rMinY = y - (r << PROJ_SHIFT);
+    int32 rMaxY = y + (r << PROJ_SHIFT);
+
+    int32 vMinXY = viewportRel.minXY;
+    int32 vMaxXY = viewportRel.maxXY;
+
+    if (rMaxX < (vMinXY >> 16) ||
+        rMaxY < (vMinXY << 16) ||
+        rMinX > (vMaxXY >> 16) ||
+        rMinY > (vMaxXY << 16)) return 0;
+
+    return 1;
+}
+
+void faceAddShadow_c(int32 x, int32 z, int32 sx, int32 sz)
+{
+#ifdef CHECK_LIMITS
+    if (gFacesCount + 3 > MAX_FACES)
+        return;
+    gFacesCount += 3;
+#endif
+    x <<= F16_SHIFT;
+    z <<= F16_SHIFT;
+    sx <<= F16_SHIFT;
+    sz <<= F16_SHIFT;
+
+    int32 xns1 = x - sx;
+    int32 xps1 = x + sx;
+    int32 xns2 = xns1 - sx;
+    int32 xps2 = xps1 + sx;
+
+    int32 zns1 = z - sz;
+    int32 zps1 = z + sz;
+    int32 zns2 = zns1 - sz;
+    int32 zps2 = zps1 + sz;
+
+    gVertices[0].x = xns1; gVertices[0].y = 0; gVertices[0].z = zps2;
+    gVertices[1].x = xps1; gVertices[1].y = 0; gVertices[1].z = zps2;
+    gVertices[2].x = xps2; gVertices[2].y = 0; gVertices[2].z = zps1;
+    gVertices[3].x = xps2; gVertices[3].y = 0; gVertices[3].z = zns1;
+    gVertices[4].x = xps1; gVertices[4].y = 0; gVertices[4].z = zns2;
+    gVertices[5].x = xns1; gVertices[5].y = 0; gVertices[5].z = zns2;
+    gVertices[6].x = xns2; gVertices[6].y = 0; gVertices[6].z = zns1;
+    gVertices[7].x = xns2; gVertices[7].y = 0; gVertices[7].z = zps1;
+
+    projectVertices(8);
+    faceAddMeshQuadsFlat(gShadowQuads, 3, SHADE_SHADOW);
+}
 #endif
 
 void transformRoom(const Room* room)
@@ -826,7 +908,9 @@ void transformRoom(const Room* room)
     unpackRoom(room->data.vertices, vCount);
     projectVertices(vCount);
 
+#ifdef CHECK_LIMITS
     gVerticesCount += vCount;
+#endif
 }
 
 void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal)
@@ -837,50 +921,18 @@ void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vInte
     unpackMesh(vertices, vCount);
     projectVertices(vCount);
 
+#ifdef CHECK_LIMITS
     gVerticesCount += vCount;
-}
-
-void faceAddShadow(int32 x, int32 z, int32 sx, int32 sz)
-{
-    if (gFacesCount + 3 > MAX_FACES)
-        return;
-    gFacesCount += 3;
-
-    x <<= F16_SHIFT;
-    z <<= F16_SHIFT;
-    sx <<= F16_SHIFT;
-    sz <<= F16_SHIFT;
-
-    int32 sx2 = sx << 1;
-    int32 sz2 = sz << 1;
-
-    MeshVertex v[8] = {
-        { x - sx,  0, z + sz2 }, // 0
-        { x + sx,  0, z + sz2 }, // 1
-        { x + sx2, 0, z + sz  }, // 2
-        { x + sx2, 0, z - sz  }, // 3
-        { x + sx,  0, z - sz2 }, // 4
-        { x - sx,  0, z - sz2 }, // 5
-        { x - sx2, 0, z - sz  }, // 6
-        { x - sx2, 0, z + sz  }  // 7
-    };
-
-    transformMesh(v, 8, NULL, NULL);
-
-    static const MeshQuad quads[] = {
-        0, (0 | (1 << 8) | (2 << 16) | (7 << 24)),
-        0, (7 | (2 << 8) | (3 << 16) | (6 << 24)),
-        0, (6 | (3 << 8) | (4 << 16) | (5 << 24)),
-    };
-
-    faceAddMeshQuadsFlat(quads, 3, SHADE_SHADOW);
+#endif
 }
 
 void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
 {
+#ifdef CHECK_LIMITS
     if (gFacesCount >= MAX_FACES)
         return;
     gFacesCount++;
+#endif
 
     const Matrix &m = matrixGet();
 
@@ -961,9 +1013,11 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
 
 void faceAddGlyph(int32 vx, int32 vy, int32 index)
 {
+#ifdef CHECK_LIMITS
     if (gFacesCount >= MAX_FACES)
         return;
     gFacesCount++;
+#endif
 
     const Sprite* sprite = level.sprites + index;
 
@@ -1002,8 +1056,9 @@ void faceAddRoom(const Room* room)
     }
 
 //        gFacesBase = face; } memset(gOT, 0, sizeof(gOT));
-
+#ifdef CHECK_LIMITS
     gFacesCount = gFacesBase - gFaces;
+#endif
 }
 
 void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTriangle* tFaces, const MeshTriangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount)
@@ -1034,8 +1089,9 @@ void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTria
     }
 
 //        gFacesBase = face; } memset(gOT, 0, sizeof(gOT));
-
+#ifdef CHECK_LIMITS
     gFacesCount = gFacesBase - gFaces;
+#endif
 }
 
 void flush()
@@ -1043,7 +1099,7 @@ void flush()
     Face* facesHead = NULL;
     Face* facesTail = NULL;
 
-    if (gFacesCount)
+    if (gFaces != gFacesBase)
     {
         PROFILE(CNT_FLUSH);
 

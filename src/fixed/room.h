@@ -313,20 +313,20 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
                 continue;
         #endif
 
-            const StaticMesh* staticMesh = level.staticMeshes + STATIC_MESH_ID(mesh->flags);
+            const StaticMesh* staticMesh = level.staticMeshes + STATIC_MESH_ID(mesh->zf);
 
             if (staticMesh->flags & STATIC_MESH_FLAG_NO_COLLISION)
                 continue;
 
-            int32 x = mesh->pos.x - rx;
-            int32 y = mesh->pos.y - ry;
-            int32 z = mesh->pos.z - rz;
+            int32 x = (int32(mesh->xy) >> 16) - rx;
+            int32 y = (int32(mesh->xy) << 16 >> 16) - ry;
+            int32 z = (int32(mesh->zf) >> 16) - rz;
 
             if (abs(x) > MAX_STATIC_MESH_RADIUS || abs(z) > MAX_STATIC_MESH_RADIUS || abs(y) > MAX_STATIC_MESH_RADIUS)
                 continue;
 
             AABBi meshBox(staticMesh->cbox);
-            boxRotateYQ(meshBox, STATIC_MESH_QUADRANT(mesh->flags));
+            boxRotateYQ(meshBox, STATIC_MESH_QUADRANT(mesh->zf));
             boxTranslate(meshBox, x, y, z);
 
             if (!boxIntersect(meshBox, objBox))

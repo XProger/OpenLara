@@ -1134,11 +1134,10 @@ struct LevelPC
 
             void write(FileStream &f) const
             {
-                f.write(pos.x);
-                f.write(pos.y);
-                f.write(pos.z);
-                f.write(intensity);
-                f.write(flags);
+                uint32 xy = (pos.x << 16) | uint16(pos.y);
+                uint32 zf = (pos.z << 16) | (intensity << 8) | flags;
+                f.write(xy);
+                f.write(zf);
             }
         };
 
@@ -1306,6 +1305,19 @@ struct LevelPC
         }
     };
 
+    struct Sphere16
+    {
+        int16 x, y, z, radius;
+
+        void write(FileStream &f) const
+        {
+            uint32 xy = (x << 16) | uint16(y);
+            uint32 zr = (z << 16) | uint16(radius);
+            f.write(xy);
+            f.write(zr);
+        }
+    };
+   
     struct StaticMesh
     {
         uint32 id;
@@ -1320,14 +1332,27 @@ struct LevelPC
         uint16 id;
         uint16 meshIndex;
         uint32 flags;
+        //Sphere16 vs;
         MinMax vbox;
         MinMax cbox;
 
         void write(FileStream &f) const
         {
+            Sphere16 vs;
+            vs.x = (vbox.maxX + vbox.minX) >> 1;
+            vs.y = (vbox.maxY + vbox.minY) >> 1;
+            vs.z = (vbox.maxZ + vbox.minZ) >> 1;
+
+            int32 dx = (vbox.maxX - vbox.minX) >> 1;
+            int32 dy = (vbox.maxY - vbox.minY) >> 1;
+            int32 dz = (vbox.maxZ - vbox.minZ) >> 1;
+
+            vs.radius = int32(sqrtf(float(dx * dx + dy * dy + dz * dz)));
+
             f.write(id);
             f.write(meshIndex);
             f.write(flags);
+            vs.write(f);
             vbox.write(f);
             cbox.write(f);
         }
@@ -2374,6 +2399,56 @@ struct LevelPC
             model->start = meshOffsetsCount - 1;
             model->animIndex = animsCount - 1;
             model->nodeIndex = (uint32*)node - nodesData;
+        }
+    }
+
+    void hideRoom(int32 roomIndex)
+    {
+        Room &room = rooms[roomIndex];
+        room.vCount = 0;
+        room.qCount = 0;
+        room.tCount = 0;
+        room.sCount = 0;
+        room.pCount = 0;
+        room.lCount = 0;
+        room.mCount = 0;
+        room.zSectors = 0;
+        room.xSectors = 0;
+        room.alternateRoom = -1;
+
+        for (int32 i = 0; i < roomsCount; i++)
+        {
+            Room &room = rooms[i];
+
+            int32 j = room.pCount - 1;
+            while (j >= 0)
+            {
+                if (room.portals[j].roomIndex == roomIndex)
+                {
+                    room.pCount--;
+                    room.portals[j] = room.portals[room.pCount];
+                }
+                j--;
+            }
+        }
+    }
+
+    void cutData(const char* name)
+    {
+        if (strcmp(name, "GYM") == 0)
+        {
+            hideRoom(0);
+            hideRoom(1);
+            hideRoom(2);
+            hideRoom(3);
+            hideRoom(4);
+            hideRoom(5);
+            hideRoom(6);
+            hideRoom(15);
+            hideRoom(16);
+            hideRoom(17);
+            hideRoom(18);
+            // TODO remove unused textures & models
         }
     }
 
@@ -4390,8 +4465,10 @@ struct LevelPC
 #define COLOR_THRESHOLD_SQ (8 * 8)
 
 const char* levelNames[] = {
-#if 0
+#if 1
     "GYM",
+    "LEVEL1",
+    "LEVEL2",
 #else
     "TITLE",
     "GYM",
@@ -5352,6 +5429,7 @@ int main()
         sprintf(path, "levels/%s.PHD", levelNames[i]);
         levels[i] = new LevelPC(path);
         levels[i]->generateLODs();
+        levels[i]->cutData(levelNames[i]);
 
         sprintf(path, "../data/%s.PKD", levelNames[i]);
         levels[i]->convertGBA(path);

@@ -2795,7 +2795,7 @@ struct Lara : ItemObj
 
             gamma = X_CLAMP(gamma, 0, 256);
             if (gamma != gSaveGame.gamma) {
-                setGamma(gSaveGame.gamma = gamma);
+                osSetGamma(gSaveGame.gamma = gamma);
             }
         }
     #endif

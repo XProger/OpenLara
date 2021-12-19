@@ -762,12 +762,13 @@ void drawRoom(const Room* room, Camera* camera)
         return;
 
     int32 rx = info->x << 8;
+    int32 ry = info->yTop;
     int32 rz = info->z << 8;
 
     matrixPush();
-    matrixTranslateAbs(rx, info->yTop, rz);
+    matrixTranslateAbs(rx, ry, rz);
 
-    camera->updateFrustum(rx, info->yTop, rz);
+    camera->updateFrustum(rx, ry, rz);
 
     setPaletteIndex(ROOM_FLAG_WATER(info->flags) ? 1 : 0);
 
@@ -814,6 +815,10 @@ void drawRoom(const Room* room, Camera* camera)
         faceAddSprite(sprite->pos.x + rx, sprite->pos.y, sprite->pos.z + rz, sprite->g << 5, sprite->index);
     }
 
+    rx -= cameraViewPos.x;
+    ry = -cameraViewPos.y;
+    rz -= cameraViewPos.z;
+
     for (int32 i = 0; i < info->meshesCount; i++)
     {
         const RoomMesh* mesh = data.meshes + i;
@@ -822,24 +827,50 @@ void drawRoom(const Room* room, Camera* camera)
         if (STATIC_MESH_ID(mesh->flags) < 10) continue;
     #endif
 
-        const StaticMesh* staticMesh = level.staticMeshes + STATIC_MESH_ID(mesh->flags);
+        const StaticMesh* staticMesh = level.staticMeshes + STATIC_MESH_ID(mesh->zf);
 
         if (!(staticMesh->flags & STATIC_MESH_FLAG_VISIBLE)) continue; // invisible
 
-        vec3i pos;
-        pos.x = mesh->pos.x + rx;
-        pos.y = mesh->pos.y;
-        pos.z = mesh->pos.z + rz;
+        int32 px = rx + (int32(mesh->xy) >> 16);
+        int32 py = ry + (int32(mesh->xy) << 16 >> 16);
+        int32 pz = rz + (int32(mesh->zf) >> 16);
+
+        int32 sx = (int32(staticMesh->vs.xy) >> 16);
+        int32 sy = (int32(staticMesh->vs.xy) << 16 >> 16);
+        int32 sz = (int32(staticMesh->vs.zr) >> 16);
+        int32 sr = (int32(staticMesh->vs.zr) << 16 >> 16);
+
+        // rotate visible sphere offset
+        int32 q = STATIC_MESH_QUADRANT(mesh->zf);
+        if (q == 0) {
+            sx = -sx;
+            sz = -sz;
+        } else if (q == 1) {
+            int32 t = sx;
+            sx = -sz;
+            sz = t;
+        } else if (q == 3) {
+            int32 t = sz;
+            sz = -sx;
+            sx = t;
+        }
+
+        sx += px;
+        sy += py;
+        sz += pz;
+
+        if (!sphereIsVisible(sx, sy, sz, sr))
+            continue;
 
         matrixPush();
-        matrixTranslateAbs(pos.x, pos.y, pos.z);
-        matrixRotateYQ(STATIC_MESH_QUADRANT(mesh->flags));
+        matrixTranslateSet(px, py, pz);
+        matrixRotateYQ(q);
 
         int32 vis = boxIsVisible(&staticMesh->vbox);
         if (vis) {
             enableClipping = true;
 
-            calcLightingStatic(mesh->intensity << 5);
+            calcLightingStatic(STATIC_MESH_INTENSITY(mesh->zf));
             drawMesh(staticMesh->meshIndex);
         }
 
