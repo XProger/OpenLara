@@ -46,10 +46,13 @@ void Camera::init(ItemObj* lara)
 
 Location Camera::getLocationForAngle(int32 angle, int32 distH, int32 distV)
 {
+    int32 s, c;
+    sincos(angle, s, c);
+
     Location res;
-    res.pos.x = target.pos.x - (distH * phd_sin(angle) >> FIXED_SHIFT);
+    res.pos.x = target.pos.x - (distH * s >> FIXED_SHIFT);
     res.pos.y = target.pos.y + (distV);
-    res.pos.z = target.pos.z - (distH * phd_cos(angle) >> FIXED_SHIFT);
+    res.pos.z = target.pos.z - (distH * c >> FIXED_SHIFT);
     res.room = target.room;
     return res;
 }
@@ -111,8 +114,11 @@ void Camera::clip(Location &loc)
 
 Location Camera::getBestLocation(bool clip)
 {
-    int32 distH = targetDist * phd_cos(targetAngle.x) >> FIXED_SHIFT;
-    int32 distV = targetDist * phd_sin(targetAngle.x) >> FIXED_SHIFT;
+    int32 s, c;
+    sincos(targetAngle.x, s, c);
+
+    int32 distH = targetDist * c >> FIXED_SHIFT;
+    int32 distV = targetDist * s >> FIXED_SHIFT;
 
     Location best = getLocationForAngle(targetAngle.y, distH, distV);
 
@@ -375,8 +381,10 @@ void Camera::update()
         if (center)
         {
             int32 offset = (box.minZ + box.maxZ) >> 1;
-            target.pos.x += (phd_sin(item->angle.y) * offset) >> FIXED_SHIFT;
-            target.pos.z += (phd_cos(item->angle.y) * offset) >> FIXED_SHIFT;
+            int32 s, c;
+            sincos(item->angle.y, s, c);
+            target.pos.x += (s * offset) >> FIXED_SHIFT;
+            target.pos.z += (c * offset) >> FIXED_SHIFT;
         }
 
         lastFixed = (int32(lastFixed) ^ int32(isFixed)) != 0; // armcpp 3DO compiler (lastFixed ^= isFixed)

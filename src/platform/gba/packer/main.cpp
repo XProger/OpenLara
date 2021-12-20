@@ -3914,6 +3914,8 @@ struct LevelPC
                 }
 
                 info.portals = f.align4();
+                f.writeObj(room->portals, room->pCount);
+                /*
                 for (int32 i = 0; i < room->pCount; i++)
                 {
                     const Room::Portal* portal = room->portals + i;
@@ -3956,7 +3958,7 @@ struct LevelPC
                     }
 
                     comp.write(f);
-                }
+                }*/
 
                 info.sectors = f.align4();
                 f.writeObj(room->sectors, room->zSectors * room->xSectors);

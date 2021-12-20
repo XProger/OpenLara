@@ -94,7 +94,10 @@ struct Object : ItemObj
         vec3i d = lara->pos - pos;
 
         matrixSetIdentity();
-        matrixRotateZXY(-angle.x, -angle.y, -angle.z);
+        matrixRotateZ(-angle.z);
+        matrixRotateX(-angle.x);
+        matrixRotateY(-angle.y);
+
         const Matrix &m = matrixGet();
 
         vec3i p;
@@ -152,8 +155,10 @@ struct SpriteEffect : ItemObj
 
         if (hSpeed)
         {
-            pos.x += phd_sin(angle.y) * hSpeed >> FIXED_SHIFT;
-            pos.z += phd_cos(angle.y) * hSpeed >> FIXED_SHIFT;
+            int32 s, c;
+            sincos(angle.y, s, c);
+            pos.x += s * hSpeed >> FIXED_SHIFT;
+            pos.z += c * hSpeed >> FIXED_SHIFT;
         }
     }
 };
@@ -184,8 +189,9 @@ struct Bubble : ItemObj
         angle.x += ANGLE(9);
         angle.z += ANGLE(13);
 
-        int32 dx = phd_sin(angle.x);
-        int32 dz = phd_sin(angle.z);
+        int32 dx, dz, c;
+        sincos(angle.x, dx, c);
+        sincos(angle.z, dz, c);
 
         pos.x += dx * 11 >> FIXED_SHIFT;
         pos.z += dz * 8 >> FIXED_SHIFT;

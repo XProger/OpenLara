@@ -150,8 +150,10 @@ struct Enemy : ItemObj
 
         if (headOffset)
         {
-            dx -= phd_sin(angle.y) * headOffset >> FIXED_SHIFT;
-            dz -= phd_cos(angle.y) * headOffset >> FIXED_SHIFT;
+            int32 s, c;
+            sincos(angle.y, s, c);
+            dx -= s * headOffset >> FIXED_SHIFT;
+            dz -= c * headOffset >> FIXED_SHIFT;
         }
 
         int16 rot = phd_atan(dz, dx);

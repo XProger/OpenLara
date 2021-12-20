@@ -20,7 +20,9 @@ void drawInit()
     for (int32 i = 0; i < MAX_CAUSTICS; i++)
     {
         int16 rot = i * (ANGLE_90 * 4) / MAX_CAUSTICS;
-        caustics[i] = phd_sin(rot) * 768 >> FIXED_SHIFT;
+        int32 s, c;
+        sincos(rot, s, c);
+        caustics[i] = s * 768 >> FIXED_SHIFT;
     }
 }
 
@@ -84,6 +86,7 @@ void calcLightingStatic(int32 intensity)
     int32 fogZ = m.e23 >> FIXED_SHIFT;
     if (fogZ > FOG_MIN) {
         lightAmbient += (fogZ - FOG_MIN) << FOG_SHIFT;
+        lightAmbient = X_MIN(lightAmbient, 8191);
     }
 }
 
@@ -298,7 +301,7 @@ void drawSprite(const ItemObj* item)
 void drawFlash(const ExtraInfoLara::Arm::Flash &flash)
 {
     matrixPush();
-    matrixTranslate(0, flash.offset, 55);
+    matrixTranslateRel(0, flash.offset, 55);
     matrixRotateYXZ(-ANGLE_90, 0, flash.angle);
 
     int32 tmp = lightAmbient;
@@ -495,7 +498,7 @@ void drawLaraNodes(const ItemObj* lara, const AnimFrame* frameA)
 
                 matrixPush();
                 // JOINT_ARM_1
-                matrixTranslate(node->pos.x, node->pos.y, node->pos.z);
+                matrixTranslateRel(node->pos.x, node->pos.y, node->pos.z);
                 node++;
                 if (arm->useBasis) { // hands are rotated relative to the basis
                     matrixSetBasis(matrixGet(), basis);
@@ -629,7 +632,7 @@ void drawLaraNodesLerp(const ItemObj* lara, const AnimFrame* frameA, const AnimF
 
                 matrixPush();
                 // JOINT_ARM_1
-                matrixTranslate(node->pos.x, node->pos.y, node->pos.z);
+                matrixTranslateRel(node->pos.x, node->pos.y, node->pos.z);
                 node++;
                 if (arm->useBasis) { // hands are rotated relative to the basis
                     matrixSetBasis(matrixGet(), basis);
@@ -824,7 +827,7 @@ void drawRoom(const Room* room, Camera* camera)
         const RoomMesh* mesh = data.meshes + i;
 
     #ifdef NO_STATIC_MESH_PLANTS
-        if (STATIC_MESH_ID(mesh->flags) < 10) continue;
+        if (STATIC_MESH_ID(mesh->zf) < 10) continue;
     #endif
 
         const StaticMesh* staticMesh = level.staticMeshes + STATIC_MESH_ID(mesh->zf);

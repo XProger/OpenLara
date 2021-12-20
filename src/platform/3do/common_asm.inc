@@ -8,7 +8,7 @@
     IMPORT cameraViewPos
     IMPORT shadeTable
     IMPORT divTable
-    IMPORT sinTable
+    IMPORT gSinCosTable
     IMPORT level
 
 CCB_NOBLK       EQU 0x00000010

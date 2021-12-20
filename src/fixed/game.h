@@ -36,6 +36,7 @@ struct Game
         loadLevel(data);
 
         sndInitSamples();
+        sndPlayTrack(getAmbientTrack());
     }
 
     void loadLevel(const void* data)

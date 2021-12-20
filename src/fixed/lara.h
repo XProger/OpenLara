@@ -457,9 +457,12 @@ struct Lara : ItemObj
     {
         rot += angle.y;
 
-        int32 x = pos.x + (phd_sin(rot) >> (FIXED_SHIFT - 8));
+        int32 s, c;
+        sincos(rot, s, c);
+
+        int32 x = pos.x + (s >> (FIXED_SHIFT - 8));
         int32 y = pos.y - LARA_HEIGHT;
-        int32 z = pos.z + (phd_cos(rot) >> (FIXED_SHIFT - 8));
+        int32 z = pos.z + (c >> (FIXED_SHIFT - 8));
 
         Room* roomFront = room->getRoom(x, y, z);
         const Sector* sector = roomFront->getSector(x, z);
@@ -484,19 +487,6 @@ struct Lara : ItemObj
 // state control
     bool s_checkFront(int16 angleDelta, int32 radius) 
     {
-        /*
-        int16 frontAngle = angle.y + angleDelta;
-
-        int32 x = pos.x + ((phd_sin(frontAngle) * radius) >> FIXED_SHIFT);
-        int32 y = pos.y - LARA_HEIGHT;
-        int32 z = pos.z + ((phd_cos(frontAngle) * radius) >> FIXED_SHIFT);
-
-        const Room* nextRoom = room->getRoom(x, y, z);
-        const Sector* sector = nextRoom->getSector(x, z);
-        int32 floor = sector->getFloor(x, y, z);
-
-        return (floor != WALL && (pos.y - floor) < LARA_STEP_HEIGHT);
-    */
         CollisionInfo tmpInfo = cinfo;
         int16 tmpAngle = extraL->moveAngle;
 
@@ -1817,8 +1807,10 @@ struct Lara : ItemObj
                 vSpeed = 1;
             }
         } else if (cinfo.type == CT_FLOOR_CEILING) {
-            pos.x -= (phd_sin(cinfo.angle) * LARA_RADIUS) >> FIXED_SHIFT;
-            pos.z -= (phd_cos(cinfo.angle) * LARA_RADIUS) >> FIXED_SHIFT;
+            int32 s, c;
+            sincos(cinfo.angle, s, c);
+            pos.x -= (s * LARA_RADIUS) >> FIXED_SHIFT;
+            pos.z -= (c * LARA_RADIUS) >> FIXED_SHIFT;
             cinfo.m.floor = 0;
             hSpeed = 0;
             if (vSpeed <= 0) {
@@ -2221,8 +2213,10 @@ struct Lara : ItemObj
 
         if (input == (IN_UP | IN_ACTION)) // to check front climb up from STOP state
         {
-            pos.x += (phd_sin(cinfo.angle) * 4) >> FIXED_SHIFT;
-            pos.z += (phd_cos(cinfo.angle) * 4) >> FIXED_SHIFT;
+            int32 s, c;
+            sincos(cinfo.angle, s, c);
+            pos.x += (s * 4) >> FIXED_SHIFT;
+            pos.z += (c * 4) >> FIXED_SHIFT;
         }
 
         c_default();
@@ -3046,8 +3040,11 @@ struct Lara : ItemObj
 
         angle.z = angleDec(angle.z, ANGLE(2));
 
-        pos.x += (phd_sin(extraL->moveAngle) * vSpeed) >> 16;
-        pos.z += (phd_cos(extraL->moveAngle) * vSpeed) >> 16;
+        int32 s, c;
+        sincos(extraL->moveAngle, s, c);
+
+        pos.x += (s * vSpeed) >> 16;
+        pos.z += (c * vSpeed) >> 16;
 
         extraL->camera.targetAngle.x = ANGLE(-22);
     }
@@ -3074,12 +3071,14 @@ struct Lara : ItemObj
         angle.x = X_CLAMP(angle.x, ANGLE(-85), ANGLE(85));
         angle.z = X_CLAMP(angle.z, ANGLE(-22), ANGLE(22));
 
-        int32 c = phd_cos(angle.x);
-        int32 s = phd_sin(angle.x);
+        int32 sx, cx;
+        int32 sy, cy;
+        sincos(angle.x, sx, cx);
+        sincos(angle.y, sy, cy);
 
-        pos.y -= (s * vSpeed) >> 16;
-        pos.x += (c * ((phd_sin(angle.y) * vSpeed) >> 16)) >> FIXED_SHIFT;
-        pos.z += (c * ((phd_cos(angle.y) * vSpeed) >> 16)) >> FIXED_SHIFT;
+        pos.y -= (sx * vSpeed) >> 16;
+        pos.x += (cx * ((sy * vSpeed) >> 16)) >> FIXED_SHIFT;
+        pos.z += (cx * ((cy * vSpeed) >> 16)) >> FIXED_SHIFT;
     }
 
     bool weaponFire(const ExtraInfoLara::Arm* arm)
@@ -3594,8 +3593,8 @@ struct Lara : ItemObj
         p.x = (box.minX + box.maxX) >> 1;
         p.y = box.minY + (box.maxY - box.minY) / 3;
         p.z = (box.minZ + box.maxZ) >> 1;
-        int32 s = phd_sin(target->angle.y);
-        int32 c = phd_cos(target->angle.y);
+        int32 s, c;
+        sincos(target->angle.y, s, c);
         X_ROTXY(p.x, p.z, -s, c);
 
         point.pos = target->pos + p;

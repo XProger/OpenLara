@@ -309,7 +309,7 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
             const RoomMesh* mesh = room->data.meshes + i;
 
         #ifdef NO_STATIC_MESH_PLANTS
-            if (STATIC_MESH_ID(mesh->flags) < 10)
+            if (STATIC_MESH_ID(mesh->zf) < 10)
                 continue;
         #endif
 
@@ -381,7 +381,7 @@ bool Room::checkPortal(const Portal* portal)
     Matrix &m = matrixGet();
 
     vec3i pv[4];
-
+/*
 #ifdef __3DO__
     int32 axis = 0;
     if (d.x >= 0) axis |= (2 << 0);
@@ -393,10 +393,10 @@ bool Room::checkPortal(const Portal* portal)
 
     if (!(portal->normalMask & axis))
         return false;
-#else
+#else*/
     if (DP33(portal->n.x, portal->n.y, portal->n.z, d.x, d.y, d.z) >= 0)
         return false;
-#endif
+//#endif
 
     int32 x0 = clip.x1;
     int32 y0 = clip.y1;

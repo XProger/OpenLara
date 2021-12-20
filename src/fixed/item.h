@@ -171,28 +171,31 @@ void ItemObj::move()
 {
     const Anim* anim = level.anims + animIndex;
 
-    int32 s = anim->speed;
+    int32 sp = anim->speed;
 
     if (flags.gravity)
     {
-        s += anim->accel * (frameIndex - anim->frameBegin - 1);
-        hSpeed -= s >> 16;
-        s += anim->accel;
-        hSpeed += s >> 16;
+        sp += anim->accel * (frameIndex - anim->frameBegin - 1);
+        hSpeed -= sp >> 16;
+        sp += anim->accel;
+        hSpeed += sp >> 16;
 
         vSpeed += (vSpeed < 128) ? GRAVITY : 1;
 
         pos.y += vSpeed;
     } else {
-        s += anim->accel * (frameIndex - anim->frameBegin);
+        sp += anim->accel * (frameIndex - anim->frameBegin);
     
-        hSpeed = s >> 16;
+        hSpeed = sp >> 16;
     }
 
     int16 realAngle = (type == ITEM_LARA) ? extraL->moveAngle : angle.y;
 
-    pos.x += phd_sin(realAngle) * hSpeed >> FIXED_SHIFT;
-    pos.z += phd_cos(realAngle) * hSpeed >> FIXED_SHIFT;
+    int32 s, c;
+    sincos(realAngle, s, c);
+
+    pos.x += s * hSpeed >> FIXED_SHIFT;
+    pos.z += c * hSpeed >> FIXED_SHIFT;
 }
 
 const Anim* ItemObj::animSet(int32 newAnimIndex, bool resetState, int32 frameOffset)
@@ -260,8 +263,8 @@ void ItemObj::animCmd(bool fx, const Anim* anim)
             {
                 if (!fx)
                 {
-                    int32 s = phd_sin(angle.y);
-                    int32 c = phd_cos(angle.y);
+                    int32 s, c;
+                    sincos(angle.y, s, c);
                     int32 x = ptr[0];
                     int32 z = ptr[2];
                     pos.x += X_ROTX(x, z, -s, c);
@@ -829,7 +832,7 @@ vec3i ItemObj::getJoint(int32 jointIndex, const vec3i &offset) const
         node++;
     }
 
-    matrixTranslate(offset.x, offset.y, offset.z);
+    matrixTranslateRel(offset.x, offset.y, offset.z);
 
     Matrix &m = matrixGet();
     vec3i result = _vec3i(m.e03 >> FIXED_SHIFT, m.e13 >> FIXED_SHIFT, m.e23 >> FIXED_SHIFT);
@@ -873,7 +876,7 @@ int32 ItemObj::getSpheres(Sphere* spheres, bool flag) const
     matrixPush();
     {
         const Mesh* mesh = *meshPtr;
-        matrixTranslate(mesh->center.x, mesh->center.y, mesh->center.z);
+        matrixTranslateRel(mesh->center.x, mesh->center.y, mesh->center.z);
         Matrix &m = matrixGet();
         sphere->center.x = x + (m.e03 >> FIXED_SHIFT);
         sphere->center.y = y + (m.e13 >> FIXED_SHIFT);
@@ -896,7 +899,7 @@ int32 ItemObj::getSpheres(Sphere* spheres, bool flag) const
         matrixPush();
         {
             const Mesh* mesh = *meshPtr;
-            matrixTranslate(mesh->center.x, mesh->center.y, mesh->center.z);
+            matrixTranslateRel(mesh->center.x, mesh->center.y, mesh->center.z);
             Matrix &m = matrixGet();
             sphere->center.x = x + (m.e03 >> FIXED_SHIFT);
             sphere->center.y = y + (m.e13 >> FIXED_SHIFT);
@@ -1033,8 +1036,8 @@ bool ItemObj::collideBounds(Lara* lara, CollisionInfo* cinfo) const
     int32 dx = lara->pos.x - pos.x;
     int32 dz = lara->pos.z - pos.z;
 
-    int32 s = phd_sin(angle.y);
-    int32 c = phd_cos(angle.y);
+    int32 s, c;
+    sincos(angle.y, s, c);
 
     int32 px = X_ROTX(dx, dz, s, c);
     int32 pz = X_ROTY(dx, dz, s, c);
@@ -1052,8 +1055,8 @@ void ItemObj::collidePush(Lara* lara, CollisionInfo* cinfo, bool enemyHit) const
     int32 dx = lara->pos.x - pos.x;
     int32 dz = lara->pos.z - pos.z;
 
-    int32 s = phd_sin(angle.y);
-    int32 c = phd_cos(angle.y);
+    int32 s, c;
+    sincos(angle.y, s, c);
 
     int32 px = X_ROTX(dx, dz, s, c);
     int32 pz = X_ROTY(dx, dz, s, c);
@@ -1156,27 +1159,30 @@ void ItemObj::collideRoom(int32 height, int32 yOffset) const
     vec3i f, l, r;
     int32 R = cinfo.radius;
 
+    int32 s, c;
+    sincos(cinfo.angle, s, c);
+
     switch (cinfo.quadrant) {
         case 0 : {
-            f = _vec3i((R * phd_sin(cinfo.angle)) >> FIXED_SHIFT, 0, R);
+            f = _vec3i((R * s) >> FIXED_SHIFT, 0, R);
             l = _vec3i(-R, 0,  R);
             r = _vec3i( R, 0,  R);
             break;
         }
         case 1 : {
-            f = _vec3i( R, 0, (R * phd_cos(cinfo.angle)) >> FIXED_SHIFT);
+            f = _vec3i( R, 0, (R * c) >> FIXED_SHIFT);
             l = _vec3i( R, 0,  R);
             r = _vec3i( R, 0, -R);
             break;
         }
         case 2 : {
-            f = _vec3i((R * phd_sin(cinfo.angle)) >> FIXED_SHIFT, 0, -R);
+            f = _vec3i((R * s) >> FIXED_SHIFT, 0, -R);
             l = _vec3i( R, 0, -R);
             r = _vec3i(-R, 0, -R);
             break;
         }
         case 3 : {
-            f = _vec3i(-R, 0, (R * phd_cos(cinfo.angle)) >> FIXED_SHIFT);
+            f = _vec3i(-R, 0, (R * c) >> FIXED_SHIFT);
             l = _vec3i(-R, 0, -R);
             r = _vec3i(-R, 0,  R);
             break;

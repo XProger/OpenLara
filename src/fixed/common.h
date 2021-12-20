@@ -1,6 +1,6 @@
 #ifndef H_COMMON
 #define H_COMMON
-
+//#define STATIC_ITEMS
 //#define PROFILING
 #ifdef PROFILING
     #define STATIC_ITEMS
@@ -49,7 +49,7 @@
     #define SND_BUFFER_SIZE     (4 * BLOCK_SIZE_CD)
     #define SND_BUFFERS         4
 
-    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 31) // 34 for LEVEL10C! >_<
+    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 30) // 34 for LEVEL10C! >_<
     #define MAX_RAM_TEX         (BLOCK_SIZE_VRAM * 44)
     #define MAX_RAM_CEL         (MAX_FACES * sizeof(CCB))
     #define MAX_RAM_SND         (SND_BUFFERS * SND_BUFFER_SIZE)
@@ -121,7 +121,7 @@
 // disable some plants environment to reduce overdraw of transparent geometry
     #define NO_STATIC_MESH_PLANTS
 // disable anim interpolation if item projected box is less than
-    #define LOD_ANIM (FRAME_HEIGHT / 4)
+    //#define LOD_ANIM (FRAME_HEIGHT / 4)
 // use IWRAM_CODE section that faster for matrix interpolation (GBA only)
     #define IWRAM_MATRIX_LERP
 // the maximum of active enemies
@@ -746,15 +746,15 @@ struct MeshVertex
 
 struct Portal
 {
-#ifdef __3DO__
+/*#ifdef __3DO__
     uint32 roomIndex;
     uint32 normalMask;
     vec3i v[4];
-#else
+#else*/
     uint16 roomIndex;
     vec3s n;
     vec3s v[4];
-#endif
+//#endif
 };
 
 struct Sector
@@ -2054,6 +2054,7 @@ extern Matrix* matrixPtr;
 extern Matrix matrixStack[MAX_MATRICES];
 extern int32 gVerticesCount;
 extern int32 gFacesCount;
+extern const uint32 gSinCosTable[4096];
 
 #ifndef MODEHW
     extern AABBi frustumAABB;
@@ -2087,6 +2088,12 @@ int32 rand_draw();
 
 #define RAND_LOGIC(r) (rand_logic() * (r) >> 15)
 #define RAND_DRAW(r)  (rand_draw() * (r) >> 15)
+
+#define sincos(x,s,c) {\
+    uint32 sc = gSinCosTable[uint32(x << 16) >> 20];\
+    s = int32(sc) >> 16;\
+    c = int32(sc) << 16 >> 16;\
+}
 
 int32 phd_atan(int32 x, int32 y);
 uint32 phd_sqrt(uint32 x);
@@ -2135,15 +2142,18 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
 
 #ifdef USE_ASM
     extern "C" {
-        int32 phd_sin_asm(int32 x);
         void matrixPush_asm();
         void matrixSetIdentity_asm();
         void matrixSetBasis_asm(Matrix &dst, const Matrix &src);
         void matrixLerp_asm(const Matrix &n, int32 pmul, int32 pdiv);
-        void matrixTranslate_asm(int32 x, int32 y, int32 z);
+        void matrixTranslateRel_asm(int32 x, int32 y, int32 z);
         void matrixTranslateAbs_asm(int32 x, int32 y, int32 z);
         void matrixTranslateSet_asm(int32 x, int32 y, int32 z);
+        void matrixRotateX_asm(int32 angle);
+        void matrixRotateY_asm(int32 angle);
+        void matrixRotateZ_asm(int32 angle);
         void matrixRotateYQ_asm(int32 quadrant);
+        void matrixRotateYXZ_asm(int32 angleX, int32 angleY, int32 angleZ);
         void boxTranslate_asm(AABBi &box, int32 x, int32 y, int32 z);
         void boxRotateYQ_asm(AABBi &box, int32 quadrant);
         int32 boxIsVisible_asm(const AABBs* box);
@@ -2151,46 +2161,54 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
         void faceAddShadow_asm(int32 x, int32 z, int32 sx, int32 sz);
     }
 
-    #define phd_sin                 phd_sin_asm
     #define matrixPush              matrixPush_asm
     #define matrixSetIdentity       matrixSetIdentity_asm
     #define matrixSetBasis          matrixSetBasis_asm
     #define matrixLerp              matrixLerp_asm
-    #define matrixTranslate         matrixTranslate_asm
+    #define matrixTranslateRel      matrixTranslateRel_asm
     #define matrixTranslateAbs      matrixTranslateAbs_asm
     #define matrixTranslateSet      matrixTranslateSet_asm
+    #define matrixRotateX           matrixRotateX_asm
+    #define matrixRotateY           matrixRotateY_asm
+    #define matrixRotateZ           matrixRotateZ_asm
     #define matrixRotateYQ          matrixRotateYQ_asm
+    #define matrixRotateYXZ         matrixRotateYXZ_asm
     #define boxTranslate            boxTranslate_asm
     #define boxRotateYQ             boxRotateYQ_asm
     #define boxIsVisible            boxIsVisible_asm
     #define sphereIsVisible         sphereIsVisible_asm
     #define faceAddShadow           faceAddShadow_asm
 #else
-    #define phd_sin                 phd_sin_c
     #define matrixPush              matrixPush_c
     #define matrixSetIdentity       matrixSetIdentity_c
     #define matrixSetBasis          matrixSetBasis_c
     #define matrixLerp              matrixLerp_c
-    #define matrixTranslate         matrixTranslate_c
+    #define matrixTranslateRel      matrixTranslateRel_c
     #define matrixTranslateAbs      matrixTranslateAbs_c
     #define matrixTranslateSet      matrixTranslateSet_c
+    #define matrixRotateX           matrixRotateX_c
+    #define matrixRotateY           matrixRotateY_c
+    #define matrixRotateZ           matrixRotateZ_c
     #define matrixRotateYQ          matrixRotateYQ_c
+    #define matrixRotateYXZ         matrixRotateYXZ_c
     #define boxTranslate            boxTranslate_c
     #define boxRotateYQ             boxRotateYQ_c
     #define boxIsVisible            boxIsVisible_c
     #define sphereIsVisible         sphereIsVisible_c
     #define faceAddShadow           faceAddShadow_c
 
-    int32 phd_sin_c(int32 x);
-
     void matrixPush_c();
     void matrixSetIdentity_c();
     void matrixSetBasis_c(Matrix &dst, const Matrix &src);
     void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv);
-    void matrixTranslate_c(int32 x, int32 y, int32 z);
+    void matrixTranslateRel_c(int32 x, int32 y, int32 z);
     void matrixTranslateAbs_c(int32 x, int32 y, int32 z);
     void matrixTranslateSet_c(int32 x, int32 y, int32 z);
+    void matrixRotateX_c(int32 angle);
+    void matrixRotateY_c(int32 angle);
+    void matrixRotateZ_c(int32 angle);
     void matrixRotateYQ_c(int32 quadrant);
+    void matrixRotateYXZ_c(int32 angleX, int32 angleY, int32 angleZ);
 
     void boxTranslate_c(AABBi &box, int32 x, int32 y, int32 z);
     void boxRotateYQ_c(AABBi &box, int32 quadrant);
@@ -2199,7 +2217,6 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     void faceAddShadow_c(int32 x, int32 z, int32 sx, int32 sz);
 #endif
 
-#define phd_cos(x)      phd_sin((x) + ANGLE_90)
 #define matrixPop()     matrixPtr--
 
 X_INLINE vec3i matrixGetDir(const Matrix &m)
@@ -2207,11 +2224,6 @@ X_INLINE vec3i matrixGetDir(const Matrix &m)
     return _vec3i(m.e20, m.e21, m.e22);
 }
 
-void matrixRotateX(int32 angle);
-void matrixRotateY(int32 angle);
-void matrixRotateZ(int32 angle);
-void matrixRotateYXZ(int32 angleX, int32 angleY, int32 angleZ);
-void matrixRotateZXY(int32 angleX, int32 angleY, int32 angleZ);
 void matrixFrame(const void* pos, const void* angles);
 void matrixFrameLerp(const void* pos, const void* anglesA, const void* anglesB, int32 delta, int32 rate);
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY);
