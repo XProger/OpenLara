@@ -208,7 +208,7 @@ X_INLINE void ccbSetTexture(uint32 flags, Face* face, const Texture* texture)
         (flags >> (8 + FACE_MIP_SHIFT + FACE_MIP_SHIFT) << 5); // set CCB_BGND (0x20 == 1 << 5)
 
     face->ccb_SourcePtr = (CelData*)texture->data;
-    face->ccb_PLUTPtr = gPalette + (texture->shift >> 16) * 16;
+    face->ccb_PLUTPtr = (uint8*)gPalette + (texture->shift >> 16);
 }
 
 X_INLINE void ccbSetColor(uint32 flags, Face* face)

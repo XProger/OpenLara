@@ -210,10 +210,9 @@ skip    cmp fPolys, fLast
         stmia face!, {flags, nextPtr}
         ldmia tex, {dataPtr, shift}
 
-        ; plutPtr = plutOffset + (tex->shift >> 16) * sizeof(PLUT)
+        ; plutPtr = plutOffset + (tex->shift >> 16)
         ldr plutOffset, [sp, #SP_PALETTE]
-        mov plutPtr, shift, lsr #16
-        add plutPtr, plutOffset, plutPtr, lsl #5
+        add plutPtr, plutOffset, shift, lsr #16
 
         ldmia vp2, {vx2, vy2}
         sub vx2, vx2, vx0

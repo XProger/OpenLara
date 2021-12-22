@@ -3005,6 +3005,11 @@ struct LevelPC
     }
 
 // 3DO ========================================================================
+    struct PLUT {
+        uint16 colors[16];
+    } PLUTs[MAX_TEXTURES];
+    int32 plutsCount;
+
     struct Texture3DO {
         int32 data;
         int32 plut;
@@ -3024,7 +3029,8 @@ struct LevelPC
 
         void write(FileStream &f) const
         {
-            uint32 shift = wShift | (hShift << 8) | (plut << 16);
+            ASSERT(plut * sizeof(PLUT) < 0xFFFF);
+            uint32 shift = wShift | (hShift << 8) | ((plut * sizeof(PLUT)) << 16);
             f.write(data);
             f.write(shift);
         }
@@ -3040,11 +3046,6 @@ struct LevelPC
     } textures3DO[MAX_TEXTURES];
 
     int32 spritesBaseIndex;
-
-    struct PLUT {
-        uint16 colors[16];
-    } PLUTs[MAX_TEXTURES];
-    int32 plutsCount;
 
     uint32 nextPow2(uint32 x) {
         x--;
