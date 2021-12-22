@@ -177,9 +177,6 @@ enum ClipFlags {
 
 X_INLINE Face* faceAdd(int32 depth)
 {
-    if (depth < 0) depth = 0;
-    if (depth > OT_SIZE - 1) depth = OT_SIZE - 1;
-
     Face* face = gFacesBase++;
 
     if (gOT[depth].head) {
@@ -343,10 +340,10 @@ void projectVertices_c(int32 vCount)
 
         int32 clip = 0;
 
-        if (z < (VIEW_MIN_F >> FIXED_SHIFT)) {
+        if (z <= (VIEW_MIN_F >> FIXED_SHIFT)) {
             z = (VIEW_MIN_F >> FIXED_SHIFT);
             clip = CLIP_NEAR;
-        } else if (z > (VIEW_MAX_F >> FIXED_SHIFT)) {
+        } else if (z >= (VIEW_MAX_F >> FIXED_SHIFT)) {
             z = (VIEW_MAX_F >> FIXED_SHIFT);
             clip = CLIP_FAR;
         }
@@ -608,10 +605,10 @@ void faceAddMeshTriangles_c(const MeshTriangle* polys, int32 count, uint32 shade
         if ((c0 & c1 & c2) & CLIP_MASK)
             continue;
 
+        int32 depth = DEPTH_T_AVG(v0->z, v1->z, v2->z);
+
         if (cross(v0, v1, v2) <= 0)
             continue;
-
-        int32 depth = DEPTH_T_AVG(v0->z, v1->z, v2->z);
 
         Face* f = faceAdd(depth);
         f->ccb_PIXC = shade;
@@ -648,10 +645,10 @@ void faceAddMeshQuadsFlat_c(const MeshQuad* polys, int32 count, uint32 shade)
         if ((c0 & c1 & c2 & c3) & CLIP_MASK)
             continue;
 
+        int32 depth = DEPTH_Q_AVG(v0->z, v1->z, v2->z, v3->z);
+
         if (cross(v0, v1, v3) <= 0)
             continue;
-
-        int32 depth = DEPTH_Q_AVG(v0->z, v1->z, v2->z, v3->z);
 
         Face* f = faceAdd(depth);
         f->ccb_PIXC = shade;
@@ -684,10 +681,10 @@ void faceAddMeshTrianglesFlat_c(const MeshTriangle* polys, int32 count, uint32 s
         if ((c0 & c1 & c2) & CLIP_MASK)
             continue;
 
+        int32 depth = DEPTH_T_AVG(v0->z, v1->z, v2->z);
+
         if (cross(v0, v1, v2) <= 0)
             continue;
-
-        int32 depth = DEPTH_T_AVG(v0->z, v1->z, v2->z);
 
         Face* f = faceAdd(depth);
         f->ccb_PIXC = shade;

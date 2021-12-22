@@ -52,8 +52,9 @@ VIEW_DIST       EQU (1024 * 10)     ; max = DIV_TABLE_END << PROJ_SHIFT
 FOG_SHIFT       EQU 1
 FOG_MAX         EQU VIEW_DIST
 FOG_MIN         EQU (FOG_MAX - (8192 >> FOG_SHIFT))
-VIEW_MIN_F      EQU (256 << FIXED_SHIFT)
+VIEW_MIN_F      EQU (64 << FIXED_SHIFT)
 VIEW_MAX_F      EQU (VIEW_DIST << FIXED_SHIFT)
+VIEW_OFF_F      EQU (1024 << FIXED_SHIFT)
 OT_SHIFT        EQU 4
 OT_SIZE         EQU ((VIEW_MAX_F >> (FIXED_SHIFT + OT_SHIFT)) + 1)
 
@@ -65,3 +66,67 @@ MIN_INT32       EQU 0x80000000
 MAX_INT32       EQU 0x7FFFFFFF
 
 MulManyVec3Mat33_F16 EQU (0x50000 + 2)
+
+
+; max depth = max(z0, z1, z2, z3) >> (CLIP_SHIFT + OT_SHIFT)
+    MACRO
+        MAX_Z4 $depth, $z0, $z1, $z2, $z3
+        mov $depth, $z0, asr #(CLIP_SHIFT + OT_SHIFT)
+        cmp $depth, $z1, asr #(CLIP_SHIFT + OT_SHIFT)
+        movlt $depth, $z1, asr #(CLIP_SHIFT + OT_SHIFT)
+        cmp $depth, $z2, asr #(CLIP_SHIFT + OT_SHIFT)
+        movlt $depth, $z2, asr #(CLIP_SHIFT + OT_SHIFT)
+        cmp $depth, $z3, asr #(CLIP_SHIFT + OT_SHIFT)
+        movlt $depth, $z3, asr #(CLIP_SHIFT + OT_SHIFT)
+    MEND
+
+
+; max depth = max(z0, z1, z2) >> (CLIP_SHIFT + OT_SHIFT)
+    MACRO
+        MAX_Z3 $depth, $z0, $z1, $z2, $z3
+        mov $depth, $z0, asr #(CLIP_SHIFT + OT_SHIFT)
+        cmp $depth, $z1, asr #(CLIP_SHIFT + OT_SHIFT)
+        movlt $depth, $z1, asr #(CLIP_SHIFT + OT_SHIFT)
+        cmp $depth, $z2, asr #(CLIP_SHIFT + OT_SHIFT)
+        movlt $depth, $z2, asr #(CLIP_SHIFT + OT_SHIFT)
+    MEND
+
+
+; average depth = (z0 + z1 + z2 + z2) / 4 >> (CLIP_SHIFT + OT_SHIFT)
+    MACRO
+        AVG_Z4 $depth, $z0, $z1, $z2, $z3
+        add $depth, $z0, $z1
+        add $depth, $depth, $z2
+        add $depth, $depth, $z3
+        mov $depth, $depth, asr #(2 + CLIP_SHIFT + OT_SHIFT)
+    MEND
+
+
+; average depth = (z0 + z1 + z2 + z2) / 4 >> (CLIP_SHIFT + OT_SHIFT)
+    MACRO
+        AVG_Z3 $depth, $z0, $z1, $z2
+        add $depth, $z0, $z1
+        add $depth, $depth, $z2, lsl #1
+        mov $depth, $depth, asr #(2 + CLIP_SHIFT + OT_SHIFT)
+    MEND
+
+
+; back facing check
+    MACRO
+        CCW $cross, $dx0, $dy0, $dx1, $dy1, $skip
+        mul $cross, $dy0, $dx1
+        rsb $cross, cross, #0
+        mlas $cross, $dx0, $dy1, $cross
+        ble skip
+    MEND
+
+
+; back/front facing check depending on sign
+    MACRO
+        CCW_SIGN $cross, $sign, $dx0, $dy0, $dx1, $dy1, $skip
+        mul $cross, $dy0, $dx1
+        rsb $cross, cross, #0
+        mla $cross, $dx0, $dy1, $cross
+        teq $cross, $sign
+        bmi skip
+    MEND

@@ -92,8 +92,8 @@ boxIsVisible_asm
         ldr m, =matrixPtr
         ldr m, [m]
         ldr bz, [m, #(11 * 4)]
-        sub bz, bz, #VIEW_MIN_F
-        cmp bz, #(VIEW_MAX_F - VIEW_MIN_F)
+        add bz, bz, #VIEW_OFF_F
+        cmp bz, #(VIEW_OFF_F + VIEW_MAX_F)
         movhi r0, #0
         movhi pc, lr
 

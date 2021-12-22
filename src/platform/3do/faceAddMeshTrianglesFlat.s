@@ -112,10 +112,10 @@ skip    cmp fPolys, fLast
         ldmia fPolys!, {flags, indices}
 
         ; get vertex pointers
-        and vp0, indices, #0xFF
-        mov vp1, indices, lsr #8
-        and vp1, vp1, #0xFF
-        mov vp2, indices, lsr #16
+        mov mask, #0xFF
+        and vp0, mask, indices
+        and vp1, mask, indices, lsr #8
+        and vp2, mask, indices, lsr #16
 
         add vp0, vp0, vp0, lsl #1
         add vp1, vp1, vp1, lsl #1
@@ -136,9 +136,7 @@ skip    cmp fPolys, fLast
         tst mask, #CLIP_MASK
         bne skip
 
-        ; depth = (vz0 + vz1 + vz2 + vz3) (DEPTH_T_AVG)
-        add depth, vz0, vz1
-        add depth, depth, vz2, lsl #1
+        AVG_Z3 depth, vz0, vz1, vz2
 
         ; (vx1 - vx0) * (vy2 - vy0) - (vy1 - vy0) * (vx2 - vx0) <= 0
         ldmia vp0, {vx0, vy0}
@@ -148,17 +146,11 @@ skip    cmp fPolys, fLast
         sub hdy0, vy1, vy0
         sub vdx0, vx2, vx0
         sub vdy0, vy2, vy0
-        mul cross, hdy0, vdx0
-        rsb cross, cross, #0
-        mlas cross, hdx0, vdy0, cross
-        ble skip
+
+        CCW cross, hdx0, hdy0, vdx0, vdy0, skip
 
         ; poly is visible, store fPolys on the stack to reuse the reg
         str fPolys, [sp, #SP_POLYS]
-
-        ; depth = max(0, (depth / 4) >> (CLIP_SHIFT + OT_SHIFT))
-        movs depth, depth, lsr #(2 + CLIP_SHIFT + OT_SHIFT)
-        movmi depth, #0
 
         ; get color index from flags
         and colorIndex, flags, #0xFF
@@ -170,8 +162,6 @@ skip    cmp fPolys, fLast
         add dataPtr, plutOffset, colorIndex, lsl #1
 
         ; faceAdd
-        cmp depth, #(OT_SIZE - 1)
-        movgt depth, #(OT_SIZE - 1)
         add ot, ot, depth, lsl #3   ; mul by size of OT element
 
         ldr face, [faceBase]

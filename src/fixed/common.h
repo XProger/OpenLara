@@ -435,7 +435,7 @@ extern int32 fps;
 #define FOG_SHIFT       1
 #define FOG_MAX         VIEW_DIST
 #define FOG_MIN         (FOG_MAX - (8192 >> FOG_SHIFT))
-#define VIEW_MIN_F      (256 << FIXED_SHIFT)
+#define VIEW_MIN_F      (64 << FIXED_SHIFT)
 #define VIEW_MAX_F      (VIEW_DIST << FIXED_SHIFT)
 
 #define FRUSTUM_FAR_X   (5 << 10)
@@ -2249,6 +2249,7 @@ void drawFree();
 void drawModel(const ItemObj* item);
 void drawItem(const ItemObj* item);
 void drawRooms(Camera* camera);
+void drawBox(const AABBi &box);
 
 void checkTrigger(const FloorData* fd, ItemObj* lara);
 void readLevel(const uint8 *data);

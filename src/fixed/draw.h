@@ -935,4 +935,42 @@ void drawRooms(Camera* camera)
     setViewport(camera->view.room->clip);
 }
 
+
+#define MESH_FACE(flags, i0, i1, i2, i3) { flags, (i0 | (i1 << 8) | (i2 << 16) | (i3 << 24)) }
+
+const MeshQuad gBoxFaces[6] = {
+    MESH_FACE(15, 0, 4, 5, 1),
+    MESH_FACE(15, 1, 5, 6, 2),
+    MESH_FACE(15, 2, 6, 7, 3),
+    MESH_FACE(15, 3, 7, 4, 0),
+    MESH_FACE(15, 0, 1, 2, 3),
+    MESH_FACE(15, 7, 6, 5, 4)
+};
+
+MeshVertex boxVertices[8];
+
+void drawBox(const AABBi &box)
+{
+    lightAmbient = 4096;
+    int32 minX = box.minX << 2;
+    int32 minY = box.minY << 2;
+    int32 minZ = box.minZ << 2;
+    int32 maxX = box.maxX << 2;
+    int32 maxY = box.maxY << 2;
+    int32 maxZ = box.maxZ << 2;
+
+    boxVertices[0].x = minX; boxVertices[0].y = minY; boxVertices[0].z = minZ;
+    boxVertices[1].x = maxX; boxVertices[1].y = minY; boxVertices[1].z = minZ;
+    boxVertices[2].x = maxX; boxVertices[2].y = minY; boxVertices[2].z = maxZ;
+    boxVertices[3].x = minX; boxVertices[3].y = minY; boxVertices[3].z = maxZ;
+    boxVertices[4].x = minX; boxVertices[4].y = maxY; boxVertices[4].z = minZ;
+    boxVertices[5].x = maxX; boxVertices[5].y = maxY; boxVertices[5].z = minZ;
+    boxVertices[6].x = maxX; boxVertices[6].y = maxY; boxVertices[6].z = maxZ;
+    boxVertices[7].x = minX; boxVertices[7].y = maxY; boxVertices[7].z = maxZ;
+
+    transformMesh(boxVertices, 8, NULL, NULL);
+    faceAddMesh(NULL, gBoxFaces, NULL, NULL, 0, 6, 0, 0);
+}
+
+
 #endif

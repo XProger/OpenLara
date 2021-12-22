@@ -61,9 +61,9 @@ loop    ldmia vertex, {x, y, z}     ; read transformed vertex
 
     ; check z clipping
         cmp z, minZ
-        orrlt z, minZ, #CLIP_NEAR
+        orrle z, minZ, #CLIP_NEAR
         cmp z, maxZ
-        orrgt z, maxZ, #CLIP_FAR
+        orrge z, maxZ, #CLIP_FAR
 
     ; projection
         mov dz, z, lsr #(PROJ_SHIFT + CLIP_SHIFT)   ; z is positive

@@ -118,7 +118,7 @@ skip    cmp fPolys, fLast
 
         ldmia fPolys!, {flags, i0, i1}
 
-        ; get vertex pointers
+        ; get vertex pointers (indices are pre-multiplied by 12)
         add vp0, fVertices, i0, lsr #16
         mov i0, i0, lsl #16
         add vp1, fVertices, i0, lsr #16
@@ -136,12 +136,7 @@ skip    cmp fPolys, fLast
         tst mask, #CLIP_MASK
         bne skip
 
-        ; depth = max(vz0, vz1, vz2) (DEPTH_T_MAX)
-        mov depth, vz0
-        cmp depth, vz1
-        movlt depth, vz1
-        cmp depth, vz2
-        movlt depth, vz2
+        MAX_Z3 depth, vz0, vz1, vz2
 
         ; (vx1 - vx0) * (vy2 - vy0) <= (vy1 - vy0) * (vx2 - vx0)
         ldmia vp0, {vx0, vy0}
@@ -151,17 +146,11 @@ skip    cmp fPolys, fLast
         sub hdy0, vy1, vy0
         sub vdx0, vx2, vx0
         sub vdy0, vy2, vy0
-        mul cross, hdy0, vdx0
-        rsb cross, cross, #0
-        mlas cross, hdx0, vdy0, cross
-        ble skip
+
+        CCW cross, hdx0, hdy0, vdx0, vdy0, skip
 
         ; poly is visible, store fPolys on the stack to reuse the reg
         str fPolys, [sp, #SP_POLYS]
-
-        ; depth = max(0, depth >> (CLIP_SHIFT + OT_SHIFT))
-        movs depth, depth, lsr #(CLIP_SHIFT + OT_SHIFT)
-        movmi depth, #0
 
         ; fog = max(0, (depth - (FOG_MIN >> OT_SHIFT)) >> 1)
         sub fog, depth, #(FOG_MIN >> OT_SHIFT)
@@ -189,8 +178,6 @@ skip    cmp fPolys, fLast
         add tex, tex, texIndex, lsr #(32 - FACE_MIP_SHIFT - 3)  ; sizeof(Texture) = 2^3
 
         ; faceAdd
-        cmp depth, #(OT_SIZE - 1)
-        movgt depth, #(OT_SIZE - 1)
         add ot, ot, depth, lsl #3   ; mul by size of OT element
 
         mov depth, faceBase     ; use depth reg due face vs faceBase reg collision

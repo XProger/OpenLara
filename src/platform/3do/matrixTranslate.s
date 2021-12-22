@@ -10,13 +10,10 @@
 x   RN r0
 y   RN r1
 z   RN r2
-
 m   RN r3
-
 e0  RN r4
 e1  RN r5
 e2  RN r6
-
 dx  RN r7
 dy  RN r12
 dz  RN lr
@@ -26,28 +23,27 @@ matrixTranslateRel_asm
 
         ldr m, =matrixPtr
         ldr m, [m]
+        add m, m, #(12 * 4)
 
-        ldmia m!, {e0, e1, e2}
-        mul dx, e0, x
-        mul dy, e1, x
-        mul dz, e2, x
+        ldmdb m!, {dx, dy, dz}
 
-        ldmia m!, {e0, e1, e2}
-        mla dx, e0, y, dx
-        mla dy, e1, y, dy
-        mla dz, e2, y, dz
-
-        ldmia m!, {e0, e1, e2}
+        ldmdb m!, {e0, e1, e2}
         mla dx, e0, z, dx
         mla dy, e1, z, dy
         mla dz, e2, z, dz
 
-        ldmia m, {e0, e1, e2}
-        add e0, e0, dx
-        add e1, e1, dy
-        add e2, e2, dz
+        ldmdb m!, {e0, e1, e2}
+        mla dx, e0, y, dx
+        mla dy, e1, y, dy
+        mla dz, e2, y, dz
 
-        stmia m!, {e0, e1, e2}
+        ldmdb m!, {e0, e1, e2}
+        mla dx, e0, x, dx
+        mla dy, e1, x, dy
+        mla dz, e2, x, dz
+
+        add m, m, #(9 * 4)
+        stmia m!, {dx, dy, dz}
 
         ldmfd sp!, {r4-r7, pc}
 
