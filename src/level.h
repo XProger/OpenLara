@@ -3050,10 +3050,10 @@ struct Level : IGame {
         //    Core::setDepthTest(true);
         //    Debug::Level::meshes(level);
         //    Debug::Level::entities(level);
-        //    Debug::Level::zones(level, lara);
+        //    Debug::Level::zones(this, players[0]);
         //    Debug::Level::blocks(level);
-        //    Debug::Level::path(level, (Enemy*)level.entities[105].controller);
-        //    Debug::Level::debugOverlaps(level, lara->box);
+        //    Debug::Level::path(level, (Enemy*)level.entities[21].controller);
+        //    Debug::Level::debugOverlaps(level, players[0]->box);
         //    Debug::Level::debugBoxes(level, lara->dbgBoxes, lara->dbgBoxesCount);
             Core::setDepthTest(true);
             Core::setBlendMode(bmNone);

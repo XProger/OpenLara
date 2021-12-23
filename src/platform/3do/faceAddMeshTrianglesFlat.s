@@ -5,8 +5,6 @@
 
     EXPORT faceAddMeshTrianglesFlat_asm
 
-faceAddMeshTrianglesFlat_asm
-
 polysArg    RN r0
 countArg    RN r1
 shadeArg    RN r2
@@ -88,6 +86,7 @@ SP_FACEBASE EQU 20
 SP_PALETTE  EQU 24
 SP_SIZE     EQU 28
 
+faceAddMeshTrianglesFlat_asm
         stmfd sp!, {r4-r11, lr}
         sub sp, sp, #SP_SIZE
 
@@ -186,10 +185,10 @@ skip    cmp fPolys, fLast
         rsb hddx, hdx0, #0
         rsb hddy, hdy0, #0
 
+        add xpos, vx0, #(FRAME_WIDTH >> 1)
+        add ypos, vy0, #(FRAME_HEIGHT >> 1)
         mov xpos, vx0, lsl #16
         mov ypos, vy0, lsl #16
-        add xpos, xpos, #(FRAME_WIDTH << 15)
-        add ypos, ypos, #(FRAME_HEIGHT << 15)
 
         add face, face, #16    ; skip flags, nextPtr, dataPtr, plutPtr
 

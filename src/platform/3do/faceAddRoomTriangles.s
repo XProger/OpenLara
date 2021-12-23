@@ -5,8 +5,6 @@
 
     EXPORT faceAddRoomTriangles_asm
 
-faceAddRoomTriangles_asm
-
 polysArg    RN r0
 countArg    RN r1
 
@@ -96,6 +94,7 @@ SP_TEXTURES EQU 24
 SP_FACEBASE EQU 28
 SP_SIZE     EQU 32
 
+faceAddRoomTriangles_asm
         stmfd sp!, {r4-r11, lr}
         sub sp, sp, #SP_SIZE
 
@@ -221,10 +220,10 @@ skip    cmp fPolys, fLast
         mov hddx, hddx, asr hs
         mov hddy, hddy, asr hs
 
+        add xpos, vx0, #(FRAME_WIDTH >> 1)
+        add ypos, vy0, #(FRAME_HEIGHT >> 1)
         mov xpos, vx0, lsl #16
         mov ypos, vy0, lsl #16
-        add xpos, xpos, #(FRAME_WIDTH << 15)
-        add ypos, ypos, #(FRAME_HEIGHT << 15)
 
         stmia face, {dataPtr, plutPtr, xpos, ypos, hdx0, hdy0, vdx0, vdy0, hddx, hddy, pixc}
 

@@ -5,8 +5,6 @@
 
     EXPORT faceAddMeshTriangles_asm
 
-faceAddMeshTriangles_asm
-
 polysArg    RN r0
 countArg    RN r1
 shadeArg    RN r2
@@ -92,6 +90,7 @@ SP_FACEBASE EQU 20
 SP_TEXTURES EQU 24
 SP_SIZE     EQU 28
 
+faceAddMeshTriangles_asm
         stmfd sp!, {r4-r11, lr}
         sub sp, sp, #SP_SIZE
 
@@ -205,10 +204,10 @@ skip    cmp fPolys, fLast
         mov hddx, hddx, asr hs
         mov hddy, hddy, asr hs
 
+        add xpos, vx0, #(FRAME_WIDTH >> 1)
+        add ypos, vy0, #(FRAME_HEIGHT >> 1)
         mov xpos, vx0, lsl #16
         mov ypos, vy0, lsl #16
-        add xpos, xpos, #(FRAME_WIDTH << 15)
-        add ypos, ypos, #(FRAME_HEIGHT << 15)
 
         stmia face, {dataPtr, plutPtr, xpos, ypos, hdx0, hdy0, vdx0, vdy0, hddx, hddy, pixc}
 

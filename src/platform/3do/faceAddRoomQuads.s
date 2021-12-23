@@ -5,8 +5,6 @@
 
     EXPORT faceAddRoomQuads_asm
 
-faceAddRoomQuads_asm
-
 polysArg    RN r0
 countArg    RN r1
 
@@ -100,6 +98,7 @@ SP_FACEBASE EQU 24
 SP_PALETTE  EQU 28
 SP_SIZE     EQU 32
 
+faceAddRoomQuads_asm
         stmfd sp!, {r4-r11, lr}
         sub sp, sp, #SP_SIZE
 

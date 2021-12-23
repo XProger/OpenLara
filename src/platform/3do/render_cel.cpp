@@ -393,9 +393,8 @@ X_INLINE void ccbMap4(Face* f, const Vertex* v0, const Vertex* v1, const Vertex*
     int32 hddx = (hdx1 - hdx0) >> hs;
     int32 hddy = (hdy1 - hdy0) >> hs;
 
-    f->ccb_XPos = (x0 << 16) + (FRAME_WIDTH  << 15);
-    f->ccb_YPos = (y0 << 16) + (FRAME_HEIGHT << 15);
-
+    f->ccb_XPos = (x0 + (FRAME_WIDTH  >> 1)) << 16;
+    f->ccb_YPos = (y0 + (FRAME_HEIGHT >> 1)) << 16;
     f->ccb_HDX = hdx0;
     f->ccb_HDY = hdy0;
     f->ccb_VDX = vdx0;
@@ -425,8 +424,8 @@ X_INLINE void ccbMap3(Face* f, const Vertex* v0, const Vertex* v1, const Vertex*
     int32 vdx0 = (x2 - x0) << hs;
     int32 vdy0 = (y2 - y0) << hs;
 
-    f->ccb_XPos = (x0 << 16) + (FRAME_WIDTH  << 15);
-    f->ccb_YPos = (y0 << 16) + (FRAME_HEIGHT << 15);
+    f->ccb_XPos = (x0 + (FRAME_WIDTH  >> 1)) << 16;
+    f->ccb_YPos = (y0 + (FRAME_HEIGHT >> 1)) << 16;
     f->ccb_HDX = hdx0;
     f->ccb_HDY = hdy0;
     f->ccb_VDX = vdx0;
