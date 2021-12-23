@@ -716,9 +716,7 @@ struct Wolf : Enemy
 
     Wolf(Room* room) : Enemy(room, 6, 341, 375, AGGRESSION_LVL_2)
     {
-    #ifndef PROFILING
         frameIndex = level.anims[animIndex].frameEnd - 1;
-    #endif
     }
 
     virtual void hit(int32 damage, const vec3i &point, int32 soundId)

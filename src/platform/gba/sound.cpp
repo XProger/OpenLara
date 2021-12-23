@@ -72,6 +72,11 @@ void sndInitSamples()
     // nothing to do
 }
 
+void sndFreeSamples()
+{
+    // nothing to do
+}
+
 void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode)
 {
     const uint8 *data = level.soundData + level.soundOffsets[index];
@@ -121,6 +126,11 @@ void sndPlayTrack(int32 track)
 
     gCurTrack = track;
 
+    if (track == -1) {
+        sndStopTrack();
+        return;
+    }
+
     struct TrackInfo {
         int32 offset;
         int32 size;
@@ -142,6 +152,13 @@ void sndPlayTrack(int32 track)
 void sndStopTrack()
 {
     music.data = NULL;
+    music.size = 0;
+    music.pos = 0;
+}
+
+bool sndTrackIsPlaying()
+{
+    return music.data != NULL;
 }
 
 void sndStopSample(int32 index)

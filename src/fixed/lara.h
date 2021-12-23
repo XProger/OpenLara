@@ -2686,7 +2686,6 @@ struct Lara : ItemObj
         setWeaponState(WEAPON_STATE_FREE);
         meshSwap(ITEM_LARA, 0xFFFFFFFF);
 
-    //#ifndef PROFILING
         extern int32 gLevelID;
         bool isHome = gLevelID == 0;
 
@@ -2710,7 +2709,6 @@ struct Lara : ItemObj
         }
 
         animSet(ANIM_STAND, true, 0);
-    //#endif
 
         health = LARA_MAX_HEALTH;
         oxygen = LARA_MAX_OXYGEN;

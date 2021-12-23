@@ -2566,7 +2566,7 @@ struct LevelPC
 
                 roomVerticesCount = 0;
 
-                info.quads = f.getPos();
+                info.quads = f.align4();
                 for (int32 i = 0; i < room->qCount; i++)
                 {
                     Quad q = room->quads[i];
@@ -2577,7 +2577,7 @@ struct LevelPC
                     q.write(f);
                 }
 
-                info.triangles = f.getPos();
+                info.triangles = f.align4();
                 for (int32 i = 0; i < room->tCount; i++)
                 {
                     Triangle t = room->triangles[i];
@@ -2587,14 +2587,14 @@ struct LevelPC
                     t.write(f);
                 }
 
-                info.vertices = f.getPos();
+                info.vertices = f.align4();
                 info.verticesCount = roomVerticesCount;
                 for (int32 i = 0; i < roomVerticesCount; i++)
                 {
                     roomVertices[i].write(f);
                 }
 
-                info.sprites = f.getPos();
+                info.sprites = f.align4();
                 for (int32 i = 0; i < room->sCount; i++)
                 {
                     const Room::Sprite* sprite = room->sprites + i;
@@ -2612,13 +2612,13 @@ struct LevelPC
                     comp.write(f);
                 }
 
-                info.portals = f.getPos();
+                info.portals = f.align4();
                 f.writeObj(room->portals, room->pCount);
 
-                info.sectors = f.getPos();
+                info.sectors = f.align4();
                 f.writeObj(room->sectors, room->zSectors * room->xSectors);
             
-                info.lights = f.getPos();
+                info.lights = f.align4();
                 for (int32 i = 0; i < room->lCount; i++)
                 {
                     const Room::Light* light = room->lights + i;
@@ -2633,7 +2633,7 @@ struct LevelPC
                     comp.write(f);
                 }
 
-                info.meshes = f.getPos();
+                info.meshes = f.align4();
                 for (int32 i = 0; i < room->mCount; i++)
                 {
                     const Room::Mesh* mesh = room->meshes + i;

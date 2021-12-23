@@ -299,6 +299,29 @@ int32 fpsCounter = 0;
     void osJoyVibrate(int32 index, int32 L, int32 R) {}
 #endif
 
+void osSetGamma(int32 value)
+{
+    if (value == 0) {
+        osSetPalette(level.palette);
+        return;
+    }
+
+    uint16 pal[256];
+    for (int32 i = 0; i < 256; i++)
+    {
+        int32 r = 31 & (level.palette[i]);
+        int32 g = 31 & (level.palette[i] >> 5);
+        int32 b = 31 & (level.palette[i] >> 10);
+
+        r = X_MIN(31, r + (((r * r >> 2) - r) * value >> 8));
+        g = X_MIN(31, g + (((g * g >> 2) - g) * value >> 8));
+        b = X_MIN(31, b + (((b * b >> 2) - b) * value >> 8));
+
+        pal[i] = r | (g << 5) | (b << 10);
+    }
+    osSetPalette(pal);
+}
+
 EWRAM_DATA ALIGN16 uint8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
 
 uint32 curSoundBuffer = 0;
@@ -453,6 +476,13 @@ static const char* gLevelNames[] = {
 //    "LEVEL10B",
 //    "LEVEL10C"
 };
+
+int32 reqNextLevel = -1;
+
+void nextLevel()
+{
+    reqNextLevel = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
+}
 
 void* osLoadLevel(const char* name)
 {

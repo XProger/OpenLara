@@ -53,6 +53,8 @@ const uint8* tile;
 int32 gVerticesCount;
 int32 gFacesCount;
 
+Vertex* gVerticesBase;
+
 EWRAM_DATA Vertex gVertices[MAX_VERTICES]; // EWRAM 16k
 EWRAM_DATA Face gFaces[MAX_FACES];         // EWRAM 5k
 EWRAM_DATA Face* otFaces[OT_SIZE];
@@ -78,9 +80,8 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
 {
     const Matrix &m = matrixGet();
 
-    if ((m.e23 < VIEW_MIN_F) || (m.e23 >= VIEW_MAX_F)) {
+    if ((m.e23 < VIEW_MIN_F) || (m.e23 >= VIEW_MAX_F))
         return false;
-    }
 
     const vec3i v[8] = {
         _vec3i( box->minX, box->minY, box->minZ ),
@@ -99,12 +100,15 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
     {
         int32 z = DP43(m.e20, m.e21, m.e22, m.e23, v[i].x, v[i].y, v[i].z);
 
-        if (z < VIEW_MIN_F || z >= VIEW_MAX_F) {
+        if (z < VIEW_MIN_F || z >= VIEW_MAX_F)
             continue;
-        }
 
         int32 x = DP43(m.e00, m.e01, m.e02, m.e03, v[i].x, v[i].y, v[i].z);
         int32 y = DP43(m.e10, m.e11, m.e12, m.e13, v[i].x, v[i].y, v[i].z);
+
+        x >>= FIXED_SHIFT;
+        y >>= FIXED_SHIFT;
+        z >>= FIXED_SHIFT;
 
         PERSPECTIVE(x, y, z);
 
@@ -138,7 +142,7 @@ int32 rectIsVisible(const RectMinMax* rect)
     return 1; // fully visible
 }
 
-int32 boxIsVisible(const AABBs* box)
+int32 boxIsVisible_c(const AABBs* box)
 {
     RectMinMax rect;
     if (!transformBoxRect(box, &rect))
@@ -146,6 +150,47 @@ int32 boxIsVisible(const AABBs* box)
     return rectIsVisible(&rect);
 }
 
+int32 sphereIsVisible_c(int32 sx, int32 sy, int32 sz, int32 r)
+{
+    Matrix &m = matrixGet();
+
+    if (abs(sx) < r && abs(sy) < r && abs(sz) < r)
+        return 1;
+
+    int32 z = DP33(m.e20, m.e21, m.e22, sx, sy, sz);
+
+    if (z < 0)
+        return 0;
+
+    int32 x = DP33(m.e00, m.e01, m.e02, sx, sy, sz);
+    int32 y = DP33(m.e10, m.e11, m.e12, sx, sy, sz);
+
+    x >>= FIXED_SHIFT;
+    y >>= FIXED_SHIFT;
+    z >>= FIXED_SHIFT;
+
+    z = PERSPECTIVE_DZ(z);
+    if (z >= DIV_TABLE_SIZE) z = DIV_TABLE_SIZE - 1;
+    int32 d = FixedInvU(z);
+    x = (x * d) >> 12;
+    y = (y * d) >> 12;
+    r = (r * d) >> 12;
+
+    x += (FRAME_WIDTH  / 2);
+    y += (FRAME_HEIGHT / 2);
+
+    int32 rMinX = x - r;
+    int32 rMinY = y - r;
+    int32 rMaxX = x + r;
+    int32 rMaxY = y + r;
+
+    if (rMinX > viewport.x1 ||
+        rMaxX < viewport.x0 ||
+        rMinY > viewport.y1 ||
+        rMaxY < viewport.y0) return 0; // not visible
+
+    return 1;
+}
 
 X_INLINE int32 classify(const Vertex &v, const RectMinMax &clip)
 {
@@ -155,20 +200,16 @@ X_INLINE int32 classify(const Vertex &v, const RectMinMax &clip)
            (v.y > clip.y1 ? 8 : 0);
 }
 
-void transformRoomVertex(const RoomVertex* v, int32 caustics)
+void transformRoomVertex(Vertex* res, const RoomVertex* v, int32 caustics)
 {
     int32 vx = v->x << 10;
     int32 vz = v->z << 10;
-
-    ASSERT(gVerticesCount < MAX_VERTICES);
-
-    Vertex &res = gVertices[gVerticesCount++];
 
 #if defined(MODE4) // TODO for all modes
     if (vz < frustumAABB.minZ || vz > frustumAABB.maxZ ||
         vx < frustumAABB.minX || vx > frustumAABB.maxX)
     {
-        res.clip = 32;
+        res->clip = 32;
         return;
     }
 #endif
@@ -181,7 +222,7 @@ void transformRoomVertex(const RoomVertex* v, int32 caustics)
 
     if (z <= 0)
     {
-        res.clip = 32;
+        res->clip = 32;
         return;
     }
 
@@ -189,13 +230,13 @@ void transformRoomVertex(const RoomVertex* v, int32 caustics)
     {
         if (z < VIEW_MIN_F) z = VIEW_MIN_F;
         if (z >= VIEW_MAX_F) z = VIEW_MAX_F;
-        res.clip = 16;
+        res->clip = 16;
     } else {
-        res.clip = 0;
+        res->clip = 0;
     }
 
     int32 fogZ = z >> FIXED_SHIFT;
-    res.z = fogZ;
+    res->z = fogZ;
 
     int32 vg = v->g << 5;
 
@@ -211,78 +252,103 @@ void transformRoomVertex(const RoomVertex* v, int32 caustics)
         }
     }
 
-    res.g = vg >> 8;
+    res->g = vg >> 8;
 
     int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
     int32 y = DP43(m.e10, m.e11, m.e12, m.e13, vx, vy, vz);
+
+    x >>= FIXED_SHIFT;
+    y >>= FIXED_SHIFT;
+    z >>= FIXED_SHIFT;
 
     PERSPECTIVE(x, y, z);
 
     x = X_CLAMP(x, -GUARD_BAND, GUARD_BAND);
     y = X_CLAMP(y, -GUARD_BAND, GUARD_BAND);
 
-    res.x = x + (FRAME_WIDTH  >> 1);
-    res.y = y + (FRAME_HEIGHT >> 1);
+    res->x = x + (FRAME_WIDTH  >> 1);
+    res->y = y + (FRAME_HEIGHT >> 1);
 
-    res.clip |= classify(res, viewport);
+    res->clip |= classify(*res, viewport);
 }
 
-void transformMeshVertex(int32 vx, int32 vy, int32 vz, int32 vg)
+void transformMeshVertex(Vertex* res, int32 vx, int32 vy, int32 vz, int32 vg)
 {
-    ASSERT(gVerticesCount < MAX_VERTICES);
-
-    Vertex &res = gVertices[gVerticesCount++];
-
     const Matrix &m = matrixGet();
 
     int32 z = DP43(m.e20, m.e21, m.e22, m.e23, vx, vy, vz);
 
     if (z < VIEW_MIN_F || z >= VIEW_MAX_F)
     {
-        res.clip = 32;
+        res->clip = 32;
         return;
     }
 
     int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
     int32 y = DP43(m.e10, m.e11, m.e12, m.e13, vx, vy, vz);
 
-    res.z = z >> FIXED_SHIFT;
-    res.g = vg >> 8;
+    x >>= FIXED_SHIFT;
+    y >>= FIXED_SHIFT;
+    z >>= FIXED_SHIFT;
+
+    res->z = z;
+    res->g = vg >> 8;
 
     PERSPECTIVE(x, y, z);
 
     x = X_CLAMP(x, -GUARD_BAND, GUARD_BAND);
     y = X_CLAMP(y, -GUARD_BAND, GUARD_BAND);
 
-    res.x = x + (FRAME_WIDTH  >> 1);
-    res.y = y + (FRAME_HEIGHT >> 1);
+    res->x = x + (FRAME_WIDTH  >> 1);
+    res->y = y + (FRAME_HEIGHT >> 1);
 
-    res.clip = classify(res, viewport); // enableClipping ? classify(res, viewport) : 0; TODO fix clip boxes for static meshes
+    res->clip = classify(*res, viewport); // enableClipping ? classify(res, viewport) : 0; TODO fix clip boxes for static meshes
 }
 
-void transformRoom(const RoomVertex* vertices, int32 vCount, bool underwater)
+void transformRoom(const Room* room)
 {
+    int32 vCount = room->info->verticesCount;
+    if (vCount <= 0)
+        return;
+
+    gVerticesBase = gVertices + gVerticesCount;
+    gVerticesCount += vCount;
+    ASSERT(gVerticesCount <= MAX_VERTICES);
+
+    const RoomVertex* vertices = room->data.vertices;
+
+    bool underwater = ROOM_FLAG_WATER(room->info->flags);
+
     int32 causticsValue = 0;
 
-    for (int32 i = 0; i < vCount; i++)
+    Vertex* res = gVerticesBase;
+
+    for (int32 i = 0; i < vCount; i++, res++)
     {
         if (underwater) {
             causticsValue = caustics[(randTable[i & (MAX_RAND_TABLE - 1)] + causticsFrame) & (MAX_CAUSTICS - 1)];
         }
 
-        transformRoomVertex(vertices, causticsValue);
+        transformRoomVertex(res, vertices, causticsValue);
         vertices++;
     }
 }
 
 void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal)
 {
+    gVerticesBase = gVertices + gVerticesCount;
+
+    gVerticesCount += vCount;
+    ASSERT(gVerticesCount <= MAX_VERTICES);
+
+    Vertex* res = gVerticesBase;
+
     // TODO calc lighting for vNormal
-    for (int32 i = 0; i < vCount; i++)
+    for (int32 i = 0; i < vCount; i++, res++)
     {
         ASSERT(!vIntensity || (vIntensity[i] + lightAmbient >= 0)); // ohhh, use X_CLAMP...
 
-        transformMeshVertex(vertices->x, vertices->y, vertices->z, vIntensity ? X_MIN(vIntensity[i] + lightAmbient, 8191) : lightAmbient);
+        transformMeshVertex(res, vertices->x, vertices->y, vertices->z, vIntensity ? X_MIN(vIntensity[i] + lightAmbient, 8191) : lightAmbient);
         vertices++;
     }
 }
@@ -348,7 +414,7 @@ VertexLink* clipPoly(VertexLink* poly, VertexLink* tmp, int32 &pCount)
 
 void renderInit()
 {
-    //
+    gVerticesBase = gVertices;
 }
 
 void rasterize(const Face* face, const VertexLink *top)
@@ -589,11 +655,11 @@ X_INLINE Face* faceAdd(int32 depth)
     return face;
 }
 
-void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex)
+void faceAddQuad(uint32 flags, const Index* indices)
 {
     ASSERT(gFacesCount < MAX_FACES);
 
-    const Vertex* v = gVertices + startVertex;
+    const Vertex* v = gVerticesBase;
     const Vertex* v1 = v + indices[0];
     const Vertex* v2 = v + indices[1];
     const Vertex* v3 = v + indices[2];
@@ -629,11 +695,11 @@ void faceAddQuad(uint32 flags, const Index* indices, int32 startVertex)
     f->indices[3] = v4 - gVertices;
 }
 
-void faceAddTriangle(uint32 flags, const Index* indices, int32 startVertex)
+void faceAddTriangle(uint32 flags, const Index* indices)
 {
     ASSERT(gFacesCount < MAX_FACES);
 
-    const Vertex* v = gVertices + startVertex;
+    const Vertex* v = gVerticesBase;
     const Vertex* v1 = v + indices[0];
     const Vertex* v2 = v + indices[1];
     const Vertex* v3 = v + indices[2];
@@ -687,13 +753,18 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     int32 x = DP33(m.e00, m.e01, m.e02, vx, vy, vz);
     int32 y = DP33(m.e10, m.e11, m.e12, vx, vy, vz);
 
+    x >>= FIXED_SHIFT;
+    y >>= FIXED_SHIFT;
+    z >>= FIXED_SHIFT;
+
     const Sprite* sprite = level.sprites + index;
 
-    int32 l = x + (sprite->l << FIXED_SHIFT);
-    int32 r = x + (sprite->r << FIXED_SHIFT);
-    int32 t = y + (sprite->t << FIXED_SHIFT);
-    int32 b = y + (sprite->b << FIXED_SHIFT);
+    int32 l = x + sprite->l;
+    int32 r = x + sprite->r;
+    int32 t = y + sprite->t;
+    int32 b = y + sprite->b;
 
+    // TODO one projection
     PERSPECTIVE(l, t, z);
 
     l += (FRAME_WIDTH >> 1);
@@ -713,10 +784,9 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     if (l == r) return;
     if (t == b) return;
 
-    int32 fogZ = z >> FIXED_SHIFT;
-    if (fogZ > FOG_MIN)
+    if (z > FOG_MIN)
     {
-        vg += (fogZ - FOG_MIN) << FOG_SHIFT;
+        vg += (z - FOG_MIN) << FOG_SHIFT;
         if (vg > 8191) {
             vg = 8191;
         }
@@ -740,7 +810,7 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     ASSERT(v2.x >= v1.x);
     ASSERT(v2.y >= v1.y);
 
-    int32 depth = X_MAX(0, fogZ - 128); // depth hack
+    int32 depth = X_MAX(0, z - 128); // depth hack
 
     Face* f = faceAdd(depth >> OT_SHIFT);
     f->flags = uint16(FACE_SPRITE);
@@ -753,33 +823,40 @@ void faceAddGlyph(int32 vx, int32 vy, int32 index)
     //
 }
 
-void faceAddRoom(const Quad* quads, int32 qCount, const Triangle* triangles, int32 tCount, int32 startVertex)
+void faceAddRoom(const Room* room)
 {
-    for (int32 i = 0; i < qCount; i++) {
-        faceAddQuad(quads[i].flags, quads[i].indices, startVertex);
+    enableMaxSort = true;
+
+    const RoomQuad* quads = room->data.quads;
+    const RoomTriangle* triangles = room->data.triangles;
+
+    for (int32 i = 0; i < room->info->quadsCount; i++) {
+        faceAddQuad(quads[i].flags, quads[i].indices);
     }
 
-    for (int32 i = 0; i < tCount; i++) {
-        faceAddTriangle(triangles[i].flags, triangles[i].indices, startVertex);
+    for (int32 i = 0; i < room->info->trianglesCount; i++) {
+        faceAddTriangle(triangles[i].flags, triangles[i].indices);
     }
+
+    enableMaxSort = false;
 }
 
-void faceAddMesh(const Quad* rFaces, const Quad* crFaces, const Triangle* tFaces, const Triangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount, int32 startVertex)
+void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTriangle* tFaces, const MeshTriangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount)
 {
     for (int32 i = 0; i < rCount; i++) {
-        faceAddQuad(rFaces[i].flags, rFaces[i].indices, startVertex);
+        faceAddQuad(rFaces[i].flags, rFaces[i].indices);
     }
 
     for (int32 i = 0; i < crCount; i++) {
-        faceAddQuad(crFaces[i].flags | FACE_COLORED, crFaces[i].indices, startVertex);
+        faceAddQuad(crFaces[i].flags | FACE_COLORED, crFaces[i].indices);
     }
 
     for (int32 i = 0; i < tCount; i++) {
-        faceAddTriangle(tFaces[i].flags, tFaces[i].indices, startVertex);
+        faceAddTriangle(tFaces[i].flags, tFaces[i].indices);
     }
 
     for (int32 i = 0; i < ctCount; i++) {
-        faceAddTriangle(ctFaces[i].flags | FACE_COLORED, ctFaces[i].indices, startVertex);
+        faceAddTriangle(ctFaces[i].flags | FACE_COLORED, ctFaces[i].indices);
     }
 }
 
@@ -863,6 +940,7 @@ void flush()
     #endif
 #endif
 
+    gVerticesBase = gVertices;
     gVerticesCount = 0;
     gFacesCount = 0;
 }
@@ -873,21 +951,44 @@ void clear()
 }
 
 #ifdef IWRAM_MATRIX_LERP
-void matrixLerp(const Matrix &n, int32 multiplier, int32 divider)
+#define LERP_1_2(a, b)   a = (b + a) >> 1
+#define LERP_1_3(a, b)   a = a + (b - a) / 3
+#define LERP_2_3(a, b)   a = b - (b - a) / 3
+#define LERP_1_4(a, b)   a = a + ((b - a) >> 2)
+#define LERP_3_4(a, b)   a = b - ((b - a) >> 2)
+#define LERP_1_5(a, b)   a = a + (b - a) / 5
+#define LERP_2_5(a, b)   a = a + ((b - a) << 1) / 5
+#define LERP_3_5(a, b)   a = b - ((b - a) << 1) / 5
+#define LERP_4_5(a, b)   a = b - (b - a) / 5
+#define LERP_SLOW(a, b)  a = a + ((b - a) * t >> 8)
+
+#define LERP_ROW(lerp_func, a, b, row) \
+    lerp_func(a.e##row##0, b.e##row##0); \
+    lerp_func(a.e##row##1, b.e##row##1); \
+    lerp_func(a.e##row##2, b.e##row##2); \
+    lerp_func(a.e##row##3, b.e##row##3);
+
+#define LERP_MATRIX(lerp_func) \
+    LERP_ROW(lerp_func, m, n, 0); \
+    LERP_ROW(lerp_func, m, n, 1); \
+    LERP_ROW(lerp_func, m, n, 2);
+
+void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv)
 {
     Matrix &m = matrixGet();
 
-    if ((divider == 2) || ((divider == 4) && (multiplier == 2))) {
+    if ((pdiv == 2) || ((pdiv == 4) && (pmul == 2))) {
         LERP_MATRIX(LERP_1_2);
-    } else if (divider == 4) {
+    } else if (pdiv == 4) {
 
-        if (multiplier == 1) {
+        if (pmul == 1) {
             LERP_MATRIX(LERP_1_4);
         } else {
             LERP_MATRIX(LERP_3_4);
         }
 
     } else {
+        int32 t = pmul * FixedInvU(pdiv) >> 8;
         LERP_MATRIX(LERP_SLOW);
     }
 }

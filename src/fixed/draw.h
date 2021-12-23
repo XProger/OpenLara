@@ -935,7 +935,8 @@ void drawRooms(Camera* camera)
     setViewport(camera->view.room->clip);
 }
 
-
+//#define DEBUG_PRIMS
+#ifdef DEBUG_PRIMS
 #define MESH_FACE(flags, i0, i1, i2, i3) { flags, (i0 | (i1 << 8) | (i2 << 16) | (i3 << 24)) }
 
 const MeshQuad gBoxFaces[6] = {
@@ -971,6 +972,6 @@ void drawBox(const AABBi &box)
     transformMesh(boxVertices, 8, NULL, NULL);
     faceAddMesh(NULL, gBoxFaces, NULL, NULL, 0, 6, 0, 0);
 }
-
+#endif
 
 #endif
