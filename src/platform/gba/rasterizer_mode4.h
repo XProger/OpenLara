@@ -6,10 +6,6 @@
 extern uint8 lightmap[256 * 32];
 extern const uint8* tile;
 
-#if defined(__GBA__)
-    #define USE_ASM
-#endif
-
 #ifdef USE_ASM
     extern "C" {
         void rasterize_dummy(uint16* pixel, const VertexLink* L, const VertexLink* R);

@@ -11,8 +11,6 @@
 
 struct Game
 {
-    int32 animTexFrame;
-
     void init(const char* name)
     {
         renderInit();
@@ -26,8 +24,6 @@ struct Game
     {
         set_seed_logic(osGetSystemTimeMS() * 3);
         set_seed_draw(osGetSystemTimeMS() * 7);
-
-        animTexFrame = 0;
 
         sndStop();
         sndFreeSamples();
@@ -160,18 +156,6 @@ struct Game
         }
     }
 
-    void nextFrame(int32 frames)
-    {
-        causticsFrame += frames;
-
-        animTexFrame += frames;
-        while (animTexFrame > 5)
-        {
-            animTexturesShift();
-            animTexFrame -= 5;
-        }
-    }
-
     void update(int32 frames)
     {
         PROFILE(CNT_UPDATE);
@@ -189,7 +173,7 @@ struct Game
             updateItems();
         }
 
-        nextFrame(frames);
+        updateLevel(frames);
     }
 
     void render()

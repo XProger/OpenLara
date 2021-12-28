@@ -16,6 +16,7 @@ n1      RN r7
 n2      RN r12
 m       RN lr
 tmp     RN m0
+divLUT  RN m0
 
     MACRO
     load
@@ -84,18 +85,15 @@ tmp     RN m0
         $func    ; e00, e10, e20
         $func    ; e01, e11, e21
         $func    ; e02, e12, e22
-        b done
     MEND
 
 matrixLerp_asm
         stmfd sp!, {r4-r7, lr}
         ldr m, =matrixPtr
         ldr m, [m]
-
 check_2
         cmp pdiv, #2
         beq m1_d2
-
 check_4
         cmp pdiv, #4
         bne mX_dY
@@ -103,20 +101,20 @@ check_4
         beq m1_d4
         cmp pmul, #2
         beq m1_d2 ; 2/4 = 1/2
-        b m3_d4
-
+m3_d4
+        lerp _3_4
+        b done
+m1_d4
+        lerp _1_4
+        b done
+m1_d2
+        lerp _1_2
+        b done
 mX_dY
-        ldr tmp, =divTable
-        ldr tmp, [tmp, pdiv, lsl #2]
+        ldr divLUT, =divTable
+        ldr tmp, [divLUT, pdiv, lsl #2]
         mul tmp, pmul, tmp
         mov pmul, tmp, asr #8
         lerp _X_Y
-m1_d2
-        lerp _1_2
-m1_d4
-        lerp _1_4
-m3_d4
-        lerp _3_4
-
 done    ldmfd sp!, {r4-r7, pc}
     END

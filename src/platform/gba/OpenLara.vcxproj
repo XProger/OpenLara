@@ -21,7 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\fixed\common.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="render.cpp" />
+    <ClCompile Include="render.iwram.cpp" />
     <ClCompile Include="sound.cpp" />
   </ItemGroup>
   <ItemGroup>

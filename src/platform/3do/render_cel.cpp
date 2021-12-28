@@ -38,12 +38,15 @@ struct ViewportRel {
 
 ViewportRel viewportRel;
 
-bool enableClipping;
-
 #define SHADOW_OPACITY  3   // 50%
 #define MIP_DIST        (1024 * 5)
 
 extern Item screenItem;
+
+#define FACE_CCW        (1 << 31)
+#define FACE_MIP_SHIFT  11
+#define FACE_TEXTURE    0x07FF
+
 
 #define F16_SHIFT 2 // special f14 to f16 shift for the math co-processor
 
@@ -169,11 +172,6 @@ enum ClipFlags {
     CLIP_FAR    = 1 << 4,
     CLIP_NEAR   = 1 << 5
 };
-
-#define DEPTH_T_AVG(z0,z1,z2)    ((z0 + z1 + z2 + z2) >> (2 + CLIP_SHIFT + OT_SHIFT))
-#define DEPTH_Q_AVG(z0,z1,z2,z3) ((z0 + z1 + z2 + z3) >> (2 + CLIP_SHIFT + OT_SHIFT))
-#define DEPTH_T_MAX(z0,z1,z2)    (X_MAX(z0, X_MAX(z1, z2)) >> (CLIP_SHIFT + OT_SHIFT))
-#define DEPTH_Q_MAX(z0,z1,z2,z3) (X_MAX(z0, X_MAX(z1, X_MAX(z2, z3))) >> (CLIP_SHIFT + OT_SHIFT))
 
 X_INLINE Face* faceAdd(int32 depth)
 {
@@ -439,6 +437,11 @@ X_INLINE void ccbMap3(Face* f, const Vertex* v0, const Vertex* v1, const Vertex*
     f->ccb_PIXC = SHADE_SHADOW;
 #endif
 }
+
+#define DEPTH_Q_AVG(z0,z1,z2,z3) ((z0 + z1 + z2 + z3) >> (2 + CLIP_SHIFT + OT_SHIFT))
+#define DEPTH_T_AVG(z0,z1,z2)    ((z0 + z1 + z2 + z2) >> (2 + CLIP_SHIFT + OT_SHIFT))
+#define DEPTH_Q_MAX(z0,z1,z2,z3) (X_MAX(z0, X_MAX(z1, X_MAX(z2, z3))) >> (CLIP_SHIFT + OT_SHIFT))
+#define DEPTH_T_MAX(z0,z1,z2)    (X_MAX(z0, X_MAX(z1, z2)) >> (CLIP_SHIFT + OT_SHIFT))
 
 void faceAddRoomQuads_c(const RoomQuad* polys, int32 count)
 {
@@ -858,8 +861,32 @@ int32 sphereIsVisible_c(int32 x, int32 y, int32 z, int32 r)
 
     return 1;
 }
+#endif
 
-void faceAddShadow_c(int32 x, int32 z, int32 sx, int32 sz)
+void transformRoom(const Room* room, int32 vCount)
+{
+    unpackRoom(room->data.vertices, vCount);
+    projectVertices(vCount);
+
+#ifdef CHECK_LIMITS
+    gVerticesCount += vCount;
+#endif
+}
+
+void transformMesh(const MeshVertex* vertices, int32 vCount)
+{
+    if (vCount <= 0)
+        return;
+
+    unpackMesh(vertices, vCount);
+    projectVertices(vCount);
+
+#ifdef CHECK_LIMITS
+    gVerticesCount += vCount;
+#endif
+}
+
+void renderShadow(int32 x, int32 z, int32 sx, int32 sz)
 {
 #ifdef CHECK_LIMITS
     if (gFacesCount + 3 > MAX_FACES)
@@ -893,36 +920,8 @@ void faceAddShadow_c(int32 x, int32 z, int32 sx, int32 sz)
     projectVertices(8);
     faceAddMeshQuadsFlat(gShadowQuads, 3, SHADE_SHADOW);
 }
-#endif
 
-void transformRoom(const Room* room)
-{
-    int32 vCount = room->info->verticesCount;
-    if (vCount <= 0)
-        return;
-
-    unpackRoom(room->data.vertices, vCount);
-    projectVertices(vCount);
-
-#ifdef CHECK_LIMITS
-    gVerticesCount += vCount;
-#endif
-}
-
-void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal)
-{
-    if (vCount <= 0)
-        return;
-
-    unpackMesh(vertices, vCount);
-    projectVertices(vCount);
-
-#ifdef CHECK_LIMITS
-    gVerticesCount += vCount;
-#endif
-}
-
-void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
+void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
 {
 #ifdef CHECK_LIMITS
     if (gFacesCount >= MAX_FACES)
@@ -1007,7 +1006,7 @@ void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     f->ccb_HDDY = 0;
 }
 
-void faceAddGlyph(int32 vx, int32 vy, int32 index)
+void renderGlyph(int32 vx, int32 vy, int32 index)
 {
 #ifdef CHECK_LIMITS
     if (gFacesCount >= MAX_FACES)
@@ -1057,16 +1056,11 @@ void faceAddRoom(const Room* room)
 #endif
 }
 
-void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTriangle* tFaces, const MeshTriangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount)
+void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTriangle* tFaces, const MeshTriangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount, int32 intensity)
 {
 //        const int SIZE = 10; Face* face = gFacesBase; for (int32 i = 0; i < SIZE; i++) {
 
-    uint32 shade;
-    if (lightAmbient > 4096) {
-        shade = shadeTable[lightAmbient >> 8];
-    } else {
-        shade = SHADE_16;
-    }
+    uint32 shade = shadeTable[X_CLAMP((lightAmbient + intensity) >> 8, 0, 31)];
 
     if (rCount) {
         faceAddMeshQuads(rFaces, rCount, shade);
@@ -1122,7 +1116,7 @@ void flush()
         if (facesHead)
         {
             LAST_CEL(facesTail);
-            DrawScreenCels(screenItem, facesHead);
+            DrawScreenCels(screenItem, (CCB*)facesHead);
             UNLAST_CEL(facesTail);
         }
     }
@@ -1142,4 +1136,45 @@ void flush()
 void clear()
 {
     // we use fast clear via SPORT on vblank
+}
+
+void renderRoom(const Room* room)
+{
+    int32 vCount = room->info->verticesCount;
+    if (vCount <= 0)
+        return;
+
+    transformRoom(room, vCount);
+    faceAddRoom(room);
+}
+
+void renderMesh(const Mesh* mesh)
+{
+    int32 vCount = mesh->vCount;
+    if (vCount <= 0)
+        return;
+
+    const uint8* ptr = (uint8*)mesh + sizeof(Mesh);
+
+    const MeshVertex* vertices = (MeshVertex*)ptr;
+    ptr += vCount * sizeof(vertices[0]);
+
+    if (vCount & 1) { // data alignment
+        ptr += sizeof(MeshVertex);
+    }
+
+    MeshQuad* rFaces = (MeshQuad*)ptr;
+    ptr += mesh->rCount * sizeof(MeshQuad);
+
+    MeshTriangle* tFaces = (MeshTriangle*)ptr;
+    ptr += mesh->tCount * sizeof(MeshTriangle);
+
+    MeshQuad* crFaces = (MeshQuad*)ptr;
+    ptr += mesh->crCount * sizeof(MeshQuad);
+
+    MeshTriangle* ctFaces = (MeshTriangle*)ptr;
+    ptr += mesh->ctCount * sizeof(MeshTriangle);
+
+    transformMesh(vertices, vCount);
+    faceAddMesh(rFaces, crFaces, tFaces, ctFaces, mesh->rCount, mesh->crCount, mesh->tCount, mesh->ctCount, mesh->intensity);
 }

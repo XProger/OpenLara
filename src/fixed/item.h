@@ -986,7 +986,7 @@ void ItemObj::collide(Lara* lara, CollisionInfo* cinfo)
 
 uint32 ItemObj::collideSpheres(Lara* lara) const
 {
-#ifdef __3DO__ // TODO_3DO damn slow!
+#ifdef FAST_HITMASK
     if (type != ITEM_TRAP_SWING_BLADE)
         return 0xFFFFFFFF;
 #endif

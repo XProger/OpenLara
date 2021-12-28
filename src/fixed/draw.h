@@ -20,9 +20,7 @@ void drawInit()
     for (int32 i = 0; i < MAX_CAUSTICS; i++)
     {
         int16 rot = i * (ANGLE_90 * 4) / MAX_CAUSTICS;
-        int32 s, c;
-        sincos(rot, s, c);
-        caustics[i] = s * 768 >> FIXED_SHIFT;
+        caustics[i] = sin(rot) * 768 >> FIXED_SHIFT;
     }
 }
 
@@ -170,74 +168,14 @@ void drawText(int32 x, int32 y, const char* text, TextAlign align)
             continue;
         }
         int32 index = charRemap(c);
-        faceAddGlyph(x, y, level.models[ITEM_GLYPHS].start + index);
+        renderGlyph(x, y, level.models[ITEM_GLYPHS].start + index);
         x += char_width[index];
     }
 }
 
 void drawMesh(int32 meshIndex)
 {
-    const uint8* ptr = (uint8*)level.meshes[meshIndex];
-
-    const Mesh* mesh = (Mesh*)ptr; ptr += sizeof(Mesh);
-
-    int32 vCount = mesh->vCount;
-
-    bool hasNormals = true;
-    if (vCount < 0) {
-        hasNormals = false;
-        vCount = -vCount;
-    }
-
-    const MeshVertex* vertices = (MeshVertex*)ptr;
-    ptr += vCount * sizeof(vertices[0]);
-
-#ifdef __3DO__
-    if (vCount & 1) { // data alignment
-        ptr += sizeof(MeshVertex);
-    }
-#endif
-
-    MeshQuad* rFaces = (MeshQuad*)ptr;
-    ptr += mesh->rCount * sizeof(MeshQuad);
-
-    MeshTriangle* tFaces = (MeshTriangle*)ptr;
-    ptr += mesh->tCount * sizeof(MeshTriangle);
-
-    MeshQuad* crFaces = (MeshQuad*)ptr;
-    ptr += mesh->crCount * sizeof(MeshQuad);
-
-    MeshTriangle* ctFaces = (MeshTriangle*)ptr;
-    ptr += mesh->ctCount * sizeof(MeshTriangle);
-
-    const uint16* vIntensity = NULL;
-    const vec3s* vNormal = NULL;
-
-#ifndef __3DO__
-    if (hasNormals) { // normals
-        vNormal = (vec3s*)ptr;
-        ptr += vCount * sizeof(vec3s);
-    } else { // intensity
-        vIntensity = (uint16*)ptr;
-        ptr += vCount * sizeof(uint16);
-    }
-
-    if (MAX_VERTICES - gVerticesCount < vCount)
-        return;
-#endif
-
-    if (MAX_FACES - gFacesCount < mesh->rCount + mesh->tCount + mesh->crCount + mesh->ctCount)
-        return;
-
-    {
-        PROFILE(CNT_TRANSFORM);
-        transformMesh(vertices, vCount, vIntensity, vNormal);
-    }
-
-    {
-        PROFILE(CNT_ADD);
-        faceAddMesh(rFaces, crFaces, tFaces, ctFaces, mesh->rCount, mesh->crCount, mesh->tCount, mesh->ctCount);
-    }
+    renderMesh(level.meshes[meshIndex]);
 }
 
 void drawShadow(const ItemObj* item, int32 size)
@@ -247,8 +185,6 @@ void drawShadow(const ItemObj* item, int32 size)
 
     if (floor == WALL)
         return;
-
-    enableClipping = true;
 
     const AABBs& box = item->getBoundingBox(true);
     int32 x = (box.maxX + box.minX) >> 1;
@@ -260,42 +196,14 @@ void drawShadow(const ItemObj* item, int32 size)
     matrixTranslateAbs(item->pos.x, floor, item->pos.z);
     matrixRotateY(item->angle.y);
 
-#ifdef __3DO__
-    faceAddShadow(x, z, sx, sz);
-#else
-    int32 sx2 = sx << 1;
-    int32 sz2 = sz << 1;
-
-    MeshVertex v[8] = {
-        { x - sx,  0, z + sz2 }, // 0
-        { x + sx,  0, z + sz2 }, // 1
-        { x + sx2, 0, z + sz  }, // 2
-        { x + sx2, 0, z - sz  }, // 3
-        { x + sx,  0, z - sz2 }, // 4
-        { x - sx,  0, z - sz2 }, // 5
-        { x - sx2, 0, z - sz  }, // 6
-        { x - sx2, 0, z + sz  }  // 7
-    };
-
-    transformMesh(v, 8, NULL, NULL);
-
-    static const Index indices[] = { 
-        0, 1, 2, 7,
-        7, 2, 3, 6,
-        6, 3, 4, 5
-    };
-
-    faceAddQuad(FACE_SHADOW, indices + 0);
-    faceAddQuad(FACE_SHADOW, indices + 4);
-    faceAddQuad(FACE_SHADOW, indices + 8);
-#endif
+    renderShadow(x, z, sx, sz);
 
     matrixPop();
 }
 
 void drawSprite(const ItemObj* item)
 {
-    faceAddSprite(item->pos.x, item->pos.y, item->pos.z, item->intensity << 5, level.models[item->type].start + item->frameIndex);
+    renderSprite(item->pos.x, item->pos.y, item->pos.z, item->intensity << 5, level.models[item->type].start + item->frameIndex);
 }
 
 void drawFlash(const ExtraInfoLara::Arm::Flash &flash)
@@ -701,20 +609,6 @@ void drawModel(const ItemObj* item)
 
     if (vis)
     {
-    #ifndef NO_ANIM_LERP
-        #ifdef LOD_ANIM
-            if ((item->type != ITEM_LARA) && (item->type != ITEM_CRYSTAL))
-            {
-                int32 d = X_MAX(rect.x1 - rect.x0, rect.y1 - rect.y0);
-                if (d < LOD_ANIM) {
-                    frameDelta = 0; // don't use matrix interpolation for small objects on the screen
-                }
-            }
-        #endif
-    #endif
-
-        enableClipping = true;
-
         int32 intensity = item->intensity << 5;
 
         if (intensity == 0) {
@@ -756,14 +650,6 @@ void drawRoom(const Room* room, Camera* camera)
     const RoomInfo* info = room->info;
     const RoomData& data = room->data;
 
-#ifndef __3DO__
-    if (MAX_VERTICES - gVerticesCount < info->verticesCount)
-        return;
-#endif
-
-    if (MAX_FACES - gFacesCount < info->quadsCount + info->trianglesCount)
-        return;
-
     int32 rx = info->x << 8;
     int32 ry = info->yTop;
     int32 rz = info->z << 8;
@@ -771,51 +657,16 @@ void drawRoom(const Room* room, Camera* camera)
     matrixPush();
     matrixTranslateAbs(rx, ry, rz);
 
-    camera->updateFrustum(rx, ry, rz);
-
     setPaletteIndex(ROOM_FLAG_WATER(info->flags) ? 1 : 0);
 
-    enableClipping = true;
-
-/* // show portals
-    for (int32 i = 0; i < info->portalsCount; i++)
-    {
-        RoomVertex pv[4];
-        for (int32 j = 0; j < 4; j++)
-        {
-            pv[j].x = (data.portals[i].v[j].x + 1) >> 10;
-            pv[j].y = (data.portals[i].v[j].y + 1) >> 8;
-            pv[j].z = (data.portals[i].v[j].z + 1) >> 10;
-        }
-        Quad q;
-        q.flags = 171;
-        q.indices[0] = i * 4 + 0;
-        q.indices[1] = i * 4 + 1;
-        q.indices[2] = i * 4 + 2;
-        q.indices[3] = i * 4 + 3;
-
-        transformRoom(pv, 4, 0);
-        faceAddRoom(&q, 1, NULL, 0, startVertex);
-    }
-    startVertex = gVerticesCount;
-*/
-
-    {
-        PROFILE(CNT_TRANSFORM);
-        transformRoom(room);
-    }
-
-    {
-        PROFILE(CNT_ADD);
-        faceAddRoom(room);
-    }
+    renderRoom(room);
 
     matrixPop();
 
     for (int32 i = 0; i < info->spritesCount; i++)
     {
         const RoomSprite* sprite = data.sprites + i;
-        faceAddSprite(sprite->pos.x + rx, sprite->pos.y, sprite->pos.z + rz, sprite->g << 5, sprite->index);
+        renderSprite(sprite->pos.x + rx, sprite->pos.y, sprite->pos.z + rz, sprite->g << 5, sprite->index);
     }
 
     rx -= cameraViewPos.x;
@@ -871,8 +722,6 @@ void drawRoom(const Room* room, Camera* camera)
 
         int32 vis = boxIsVisible(&staticMesh->vbox);
         if (vis) {
-            enableClipping = true;
-
             calcLightingStatic(STATIC_MESH_INTENSITY(mesh->zf));
             drawMesh(staticMesh->meshIndex);
         }
@@ -934,44 +783,5 @@ void drawRooms(Camera* camera)
     setPaletteIndex(0);
     setViewport(camera->view.room->clip);
 }
-
-//#define DEBUG_PRIMS
-#ifdef DEBUG_PRIMS
-#define MESH_FACE(flags, i0, i1, i2, i3) { flags, (i0 | (i1 << 8) | (i2 << 16) | (i3 << 24)) }
-
-const MeshQuad gBoxFaces[6] = {
-    MESH_FACE(15, 0, 4, 5, 1),
-    MESH_FACE(15, 1, 5, 6, 2),
-    MESH_FACE(15, 2, 6, 7, 3),
-    MESH_FACE(15, 3, 7, 4, 0),
-    MESH_FACE(15, 0, 1, 2, 3),
-    MESH_FACE(15, 7, 6, 5, 4)
-};
-
-MeshVertex boxVertices[8];
-
-void drawBox(const AABBi &box)
-{
-    lightAmbient = 4096;
-    int32 minX = box.minX << 2;
-    int32 minY = box.minY << 2;
-    int32 minZ = box.minZ << 2;
-    int32 maxX = box.maxX << 2;
-    int32 maxY = box.maxY << 2;
-    int32 maxZ = box.maxZ << 2;
-
-    boxVertices[0].x = minX; boxVertices[0].y = minY; boxVertices[0].z = minZ;
-    boxVertices[1].x = maxX; boxVertices[1].y = minY; boxVertices[1].z = minZ;
-    boxVertices[2].x = maxX; boxVertices[2].y = minY; boxVertices[2].z = maxZ;
-    boxVertices[3].x = minX; boxVertices[3].y = minY; boxVertices[3].z = maxZ;
-    boxVertices[4].x = minX; boxVertices[4].y = maxY; boxVertices[4].z = minZ;
-    boxVertices[5].x = maxX; boxVertices[5].y = maxY; boxVertices[5].z = minZ;
-    boxVertices[6].x = maxX; boxVertices[6].y = maxY; boxVertices[6].z = maxZ;
-    boxVertices[7].x = minX; boxVertices[7].y = maxY; boxVertices[7].z = maxZ;
-
-    transformMesh(boxVertices, 8, NULL, NULL);
-    faceAddMesh(NULL, gBoxFaces, NULL, NULL, 0, 6, 0, 0);
-}
-#endif
 
 #endif

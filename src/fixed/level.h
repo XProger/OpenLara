@@ -133,6 +133,41 @@ void readLevel(const uint8* data)
 //#endif
 
     readLevel_GBA(data);
+
+    gAnimTexFrame = 0;
+}
+
+void animTexturesShift()
+{
+    const int16* data = level.animTexData;
+
+    int32 texRangesCount = *data++;
+
+    for (int32 i = 0; i < texRangesCount; i++)
+    {
+        int32 count = *data++;
+
+        Texture tmp = level.textures[*data];
+        while (count > 0)
+        {
+            level.textures[data[0]] = level.textures[data[1]];
+            data++;
+            count--;
+        }
+        level.textures[*data++] = tmp;
+    }
+}
+
+void updateLevel(int32 frames)
+{
+    causticsFrame += frames;
+
+    gAnimTexFrame += frames;
+    while (gAnimTexFrame > 5)
+    {
+        animTexturesShift();
+        gAnimTexFrame -= 5;
+    }
 }
 
 #endif

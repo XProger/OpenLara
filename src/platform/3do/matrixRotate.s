@@ -135,9 +135,6 @@ cosY    RN angleY
 cosZ    RN angleZ
 mask    RN tmp
 mm      RN tmp
-mmx     RN angleX
-mmy     RN angleY
-mmz     RN angleZ
 
 matrixRotateYXZ_asm
         mov mask, #0xFF

@@ -1,4 +1,4 @@
-#include "rasterizer.inc"
+#include "common_asm.inc"
 
 pixel   .req r0
 L       .req r1

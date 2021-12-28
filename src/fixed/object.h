@@ -189,9 +189,8 @@ struct Bubble : ItemObj
         angle.x += ANGLE(9);
         angle.z += ANGLE(13);
 
-        int32 dx, dz, c;
-        sincos(angle.x, dx, c);
-        sincos(angle.z, dz, c);
+        int32 dx = sin(angle.x);
+        int32 dz = sin(angle.z);
 
         pos.x += dx * 11 >> FIXED_SHIFT;
         pos.z += dz * 8 >> FIXED_SHIFT;

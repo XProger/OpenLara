@@ -6,10 +6,6 @@ vec3i cameraViewPos;
 Matrix matrixStack[MAX_MATRICES];
 Matrix* matrixPtr = matrixStack;
 
-#ifndef MODEHW
-    AABBi frustumAABB;
-#endif
-
 EWRAM_DATA Sphere gSpheres[2][MAX_SPHERES];
 
 const FloorData* gLastFloorData;
@@ -19,6 +15,7 @@ TargetInfo tinfo;
 EWRAM_DATA SaveGame gSaveGame;
 EWRAM_DATA Settings gSettings;
 EWRAM_DATA int32 gCurTrack;
+EWRAM_DATA int32 gAnimTexFrame;
 
 EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
 
@@ -1144,7 +1141,6 @@ void matrixSetBasis_c(Matrix &dst, const Matrix &src)
     dst.e12 = src.e12;
 }
 
-#ifndef IWRAM_MATRIX_LERP
 #define LERP_1_2(a, b)   a = (b + a) >> 1
 #define LERP_1_3(a, b)   a = a + (b - a) / 3
 #define LERP_2_3(a, b)   a = b - (b - a) / 3
@@ -1181,30 +1177,11 @@ void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv)
             LERP_MATRIX(LERP_3_4);
         }
 
-    } else if (pdiv == 3) {
-        
-        if (pmul == 1) {
-            LERP_MATRIX(LERP_1_3);
-        } else {
-            LERP_MATRIX(LERP_2_3);
-        }
-
-    } else if (pdiv == 5) {
-
-        switch (pmul)
-        {
-            case 4 : LERP_MATRIX(LERP_4_5); break;
-            case 3 : LERP_MATRIX(LERP_3_5); break;
-            case 2 : LERP_MATRIX(LERP_2_5); break;
-            case 1 : LERP_MATRIX(LERP_1_5); break;
-        }
-
     } else {
         int32 t = pmul * FixedInvU(pdiv) >> 8;
         LERP_MATRIX(LERP_SLOW);
     }
 }
-#endif
 
 #define MATRIX_TRANSLATE(x,y,z)\
     Matrix &m = matrixGet();\

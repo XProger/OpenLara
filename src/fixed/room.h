@@ -10,27 +10,6 @@ int32 dynSectorsCount;
 EWRAM_DATA Sector dynSectors[MAX_DYN_SECTORS];   // EWRAM 8k
 //#endif
 
-void animTexturesShift()
-{
-    const int16* data = level.animTexData;
-
-    int32 texRangesCount = *data++;
-
-    for (int32 i = 0; i < texRangesCount; i++)
-    {
-        int32 count = *data++;
-
-        Texture tmp = level.textures[*data];
-        while (count > 0)
-        {
-            level.textures[data[0]] = level.textures[data[1]];
-            data++;
-            count--;
-        }
-        level.textures[*data++] = tmp;
-    }
-}
-
 const Sector* Sector::getSectorBelow(int32 posX, int32 posZ) const
 {
     if (roomBelow == NO_ROOM)

@@ -331,7 +331,6 @@ void Camera::update()
     if (mode == CAMERA_MODE_FREE)
     {
         updateFree();
-        prepareFrustum();
         matrixSetView(view.pos, angle.x, angle.y);
         return;
     }
@@ -423,69 +422,7 @@ void Camera::update()
     vec3i dir = target.pos - view.pos;
     anglesFromVector(dir.x, dir.y, dir.z, angle.x, angle.y);
 
-    prepareFrustum();
-
     matrixSetView(view.pos, angle.x, angle.y);
-}
-
-void Camera::prepareFrustum()
-{
-#ifndef MODEHW
-    matrixSetIdentity();
-    matrixRotateYXZ(angle.x, angle.y, angle.z);
-
-    static const vec3i v[5] = {
-    // near plane
-        { 0, 0, 0 },
-    // far plane
-        { -FRUSTUM_FAR_X, -FRUSTUM_FAR_Y, FRUSTUM_FAR_Z },
-        {  FRUSTUM_FAR_X, -FRUSTUM_FAR_Y, FRUSTUM_FAR_Z },
-        { -FRUSTUM_FAR_X,  FRUSTUM_FAR_Y, FRUSTUM_FAR_Z },
-        {  FRUSTUM_FAR_X,  FRUSTUM_FAR_Y, FRUSTUM_FAR_Z }
-    };
-
-    const Matrix &m = matrixGet();
-
-    frustumBase.minX =  0xFFFFFFF;
-    frustumBase.maxX = -0xFFFFFFF;
-    frustumBase.minY =  0xFFFFFFF;
-    frustumBase.maxY = -0xFFFFFFF;
-    frustumBase.minZ =  0xFFFFFFF;
-    frustumBase.maxZ = -0xFFFFFFF;
-
-    for (int32 i = 0; i < 5; i++)
-    {
-        int32 x = DP43(m.e00, m.e01, m.e02, m.e03, v[i].x, v[i].y, v[i].z) >> FIXED_SHIFT;
-        int32 y = DP43(m.e10, m.e11, m.e12, m.e13, v[i].x, v[i].y, v[i].z) >> FIXED_SHIFT;
-        int32 z = DP43(m.e20, m.e21, m.e22, m.e23, v[i].x, v[i].y, v[i].z) >> FIXED_SHIFT;
-
-        frustumBase.minX = X_MIN(frustumBase.minX, x);
-        frustumBase.maxX = X_MAX(frustumBase.maxX, x);
-        frustumBase.minY = X_MIN(frustumBase.minY, y);
-        frustumBase.maxY = X_MAX(frustumBase.maxY, y);
-        frustumBase.minZ = X_MIN(frustumBase.minZ, z);
-        frustumBase.maxZ = X_MAX(frustumBase.maxZ, z);
-    }
-
-    frustumBase.minX += view.pos.x - 1024;
-    frustumBase.maxX += view.pos.x + 1024;
-    frustumBase.minY += view.pos.y - 1024;
-    frustumBase.maxY += view.pos.y + 1024;
-    frustumBase.minZ += view.pos.z - 1024;
-    frustumBase.maxZ += view.pos.z + 1024;
-#endif
-}
-
-void Camera::updateFrustum(int32 offsetX, int32 offsetY, int32 offsetZ)
-{
-#ifndef MODEHW
-    frustumAABB.minX = frustumBase.minX - offsetX;
-    frustumAABB.maxX = frustumBase.maxX - offsetX;
-    frustumAABB.minY = frustumBase.minY - offsetY;
-    frustumAABB.maxY = frustumBase.maxY - offsetY;
-    frustumAABB.minZ = frustumBase.minZ - offsetZ;
-    frustumAABB.maxZ = frustumBase.maxZ - offsetZ;
-#endif
 }
 
 void Camera::toCombat()

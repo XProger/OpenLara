@@ -641,12 +641,17 @@ void fixTexCoord(uint32 uv0, uint32 &uv1)
 #define TEX_ATTR_AKILL  0x0001
 #define TEX_ATTR_MIPS   0x8000
 
+#define FACE_TEXTURE    0x07FF
+
 // 3DO face flags
 // 1:ccw, 1:opaque, 8:intensity, 11:mipTexIndex, 11:texIndex
 #define FACE_MIP_SHIFT  11
-#define FACE_TEXTURE    ((1 << FACE_MIP_SHIFT) - 1)
 #define FACE_OPAQUE     (1 << 30)
 #define FACE_CCW        (1 << 31)
+
+// GBA
+#define FACE_COLORED    (1 << 14)
+#define FACE_TRIANGLE   (1 << 15)
 
 #define CLIP(x,lo,hi) \
     if ( x < lo ) \
@@ -898,6 +903,100 @@ struct LevelPC
             f.write(indices[1]);
             f.write(indices[2]);
             f.write(flags);
+        }
+    };
+
+    struct MeshQuadGBA
+    {
+        uint16 flags;
+        uint8 indices[4];
+        
+        MeshQuadGBA(const Quad &q)
+        {
+            flags = q.flags;
+            indices[0] = q.indices[0];
+            indices[1] = q.indices[1];
+            indices[2] = q.indices[2];
+            indices[3] = q.indices[3];
+        }
+
+        void write(FileStream &f) const
+        {
+            f.write(flags);
+            f.write(indices[0]);
+            f.write(indices[1]);
+            f.write(indices[2]);
+            f.write(indices[3]);
+        }
+    };
+
+    struct MeshTriangleGBA
+    {
+        uint16 flags;
+        uint8 indices[4];
+        
+        MeshTriangleGBA(const Triangle &t)
+        {
+            flags = t.flags | FACE_TRIANGLE;
+            indices[0] = t.indices[0];
+            indices[1] = t.indices[1];
+            indices[2] = t.indices[2];
+            indices[3] = 0;
+        }
+
+        void write(FileStream &f) const
+        {
+            f.write(flags);
+            f.write(indices[0]);
+            f.write(indices[1]);
+            f.write(indices[2]);
+            f.write(indices[3]);
+        }
+    };
+
+    struct RoomQuadGBA
+    {
+        uint16 flags;
+        uint16 indices[4];
+        
+        RoomQuadGBA(const Quad &q)
+        {
+            flags = q.flags;
+            indices[0] = q.indices[0];
+            indices[1] = q.indices[1];
+            indices[2] = q.indices[2];
+            indices[3] = q.indices[3];
+        }
+
+        void write(FileStream &f) const
+        {
+            f.write(flags);
+            f.write(indices[0]);
+            f.write(indices[1]);
+            f.write(indices[2]);
+            f.write(indices[3]);
+        }
+    };
+
+    struct RoomTriangleGBA
+    {
+        uint16 flags;
+        uint16 indices[3];
+        
+        RoomTriangleGBA(const Triangle &t)
+        {
+            flags = t.flags | FACE_TRIANGLE;
+            indices[0] = t.indices[0];
+            indices[1] = t.indices[1];
+            indices[2] = t.indices[2];
+        }
+
+        void write(FileStream &f) const
+        {
+            f.write(flags);
+            f.write(indices[0]);
+            f.write(indices[1]);
+            f.write(indices[2]);
         }
     };
 
@@ -2574,7 +2673,9 @@ struct LevelPC
                     q.indices[1] = addRoomVertex(info.yTop, room->vertices[q.indices[1]]);
                     q.indices[2] = addRoomVertex(info.yTop, room->vertices[q.indices[2]]);
                     q.indices[3] = addRoomVertex(info.yTop, room->vertices[q.indices[3]]);
-                    q.write(f);
+
+                    RoomQuadGBA comp(q);
+                    comp.write(f);
                 }
 
                 info.triangles = f.align4();
@@ -2584,7 +2685,9 @@ struct LevelPC
                     t.indices[0] = addRoomVertex(info.yTop, room->vertices[t.indices[0]]);
                     t.indices[1] = addRoomVertex(info.yTop, room->vertices[t.indices[1]]);
                     t.indices[2] = addRoomVertex(info.yTop, room->vertices[t.indices[2]]);
-                    t.write(f);
+                    
+                    RoomTriangleGBA comp(t);
+                    comp.write(f);
                 }
 
                 info.vertices = f.align4();
@@ -2663,7 +2766,7 @@ struct LevelPC
         f.writeObj(floors, floorsCount);
 
         header.meshData = f.align4();
-    #if 1
+
         int32 mOffsets[2048];
         for (int32 i = 0; i < 2048; i++) {
             mOffsets[i] = -1;
@@ -2711,22 +2814,28 @@ struct LevelPC
             int16     ctCount = *(int16*)ptr; ptr += 2;
             Triangle* ctFaces = (Triangle*)ptr; ptr += ctCount * sizeof(Triangle);
 
-            if (vIntensity) {
-                vCount = -vCount; // negate vCount -> use baked lighting instead of normals
+            uint16 intensity = 0;
+
+            if (vIntensity)
+            {
+                uint32 sum = 0;
+                for (int32 i = 0; i < vCount; i++)
+                {
+                    sum += vIntensity[i];
+                }
+                intensity = sum / vCount;
             }
 
             f.write(center.x);
             f.write(center.y);
             f.write(center.z);
             f.write(radius);
-            f.write(flags);
+            f.write(intensity);
             f.write(vCount);
-            f.write(rCount);
-            f.write(tCount);
-            f.write(crCount);
-            f.write(ctCount);
-
-            vCount = abs(vCount);
+            f.write(int16(rCount + crCount));
+            f.write(int16(tCount + ctCount));
+            f.write(int16(0));
+            f.write(int16(0));
 
             for (int32 j = 0; j < vCount; j++)
             {
@@ -2745,40 +2854,28 @@ struct LevelPC
 
             for (int32 j = 0; j < rCount; j++)
             {
-                rFaces[j].write(f);
-            }
-
-            for (int32 j = 0; j < tCount; j++)
-            {
-                tFaces[j].write(f);
+                MeshQuadGBA comp(rFaces[j]);
+                comp.write(f);
             }
 
             for (int32 j = 0; j < crCount; j++)
             {
-                crFaces[j].write(f);
+                MeshQuadGBA comp(crFaces[j]);
+                comp.flags |= FACE_COLORED;
+                comp.write(f);
+            }
+
+            for (int32 j = 0; j < tCount; j++)
+            {
+                MeshTriangleGBA comp(tFaces[j]);
+                comp.write(f);
             }
 
             for (int32 j = 0; j < ctCount; j++)
             {
-                ctFaces[j].write(f);
-            }
-
-            if (vNormal)
-            {
-                for (int32 j = 0; j < vCount; j++)
-                {
-                    f.write(vNormal[j].x);
-                    f.write(vNormal[j].y);
-                    f.write(vNormal[j].z);
-                }
-            }
-
-            if (vIntensity)
-            {
-                for (int32 j = 0; j < vCount; j++)
-                {
-                    f.write(vIntensity[j]);
-                }
+                MeshTriangleGBA comp(ctFaces[j]);
+                comp.flags |= FACE_COLORED;
+                comp.write(f);
             }
 
             for (int32 j = i + 1; j < meshOffsetsCount; j++)
@@ -2792,12 +2889,6 @@ struct LevelPC
 
         header.meshOffsets = f.align4();
         f.write(mOffsets, meshOffsetsCount);
-    #else
-        f.write(meshData, meshDataSize);
-
-        header.meshOffsets = f.align4();
-        f.write(meshOffsets, meshOffsetsCount);
-    #endif
 
         header.anims = f.align4();
         f.writeObj(anims, animsCount);
@@ -4057,22 +4148,28 @@ struct LevelPC
             int16     ctCount = *(int16*)ptr; ptr += 2;
             Triangle* ctFaces = (Triangle*)ptr; ptr += ctCount * sizeof(Triangle);
 
-            if (vIntensity) {
-                vCount = -vCount; // negate vCount -> use baked lighting instead of normals
+            uint16 intensity = 0;
+
+            if (vIntensity)
+            {
+                uint32 sum = 0;
+                for (int32 i = 0; i < vCount; i++)
+                {
+                    sum += vIntensity[i];
+                }
+                intensity = sum / vCount;
             }
 
             f.write(center.x);
             f.write(center.y);
             f.write(center.z);
             f.write(radius);
-            f.write(flags);
+            f.write(intensity);
             f.write(vCount);
             f.write(rCount);
             f.write(tCount);
             f.write(crCount);
             f.write(ctCount);
-
-            vCount = abs(vCount);
 
             for (int32 j = 0; j < vCount; j++)
             {
@@ -4172,25 +4269,7 @@ struct LevelPC
                 comp.flags = t.flags;
                 comp.write(f);
             }
-        /*
-            if (vNormal)
-            {
-                for (int32 j = 0; j < vCount; j++)
-                {
-                    f.write(vNormal[j].x);
-                    f.write(vNormal[j].y);
-                    f.write(vNormal[j].z);
-                }
-            }
 
-            if (vIntensity)
-            {
-                for (int32 j = 0; j < vCount; j++)
-                {
-                    f.write(vIntensity[j]);
-                }
-            }
-        */
 
             for (int32 j = i + 1; j < meshOffsetsCount; j++)
             {

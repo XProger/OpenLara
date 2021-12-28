@@ -75,13 +75,13 @@ loop    ldmia vertex, {x, y, z}     ; read transformed vertex
 
     ; check xy clipping
         cmp x, minXY, asr #16
-        orrlt z, z, #CLIP_LEFT
+        orrle z, z, #CLIP_LEFT
         cmp y, minXY, lsl #16
-        orrlt z, z, #CLIP_TOP
+        orrle z, z, #CLIP_TOP
         cmp x, maxXY, asr #16
-        orrgt z, z, #CLIP_RIGHT
+        orrge z, z, #CLIP_RIGHT
         cmp y, maxXY, lsl #16
-        orrgt z, z, #CLIP_BOTTOM
+        orrge z, z, #CLIP_BOTTOM
 
         mov y, y, asr #16
 

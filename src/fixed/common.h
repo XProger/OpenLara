@@ -19,6 +19,7 @@
     #define MODE4
     #define USE_DIV_TABLE
     #define ROM_READ
+    #define USE_ASM
 
     #include <tonc.h>
 #elif defined(__TNS__)
@@ -39,25 +40,7 @@
     #define MODEHW
     #define USE_DIV_TABLE   // 4k of DRAM
     #define CPU_BIG_ENDIAN
-    #define USE_MATRIX_ASM
     #define USE_ASM
-
-    #define BLOCK_SIZE_DRAM     (32 * 1024)
-    #define BLOCK_SIZE_VRAM     (16 * 1024)
-    #define BLOCK_SIZE_CD       (2 * 1024)
-
-    #define SND_BUFFER_SIZE     (4 * BLOCK_SIZE_CD)
-    #define SND_BUFFERS         4
-
-    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 30) // 34 for LEVEL10C! >_<
-    #define MAX_RAM_TEX         (BLOCK_SIZE_VRAM * 44)
-    #define MAX_RAM_CEL         (MAX_FACES * sizeof(CCB))
-    #define MAX_RAM_SND         (SND_BUFFERS * SND_BUFFER_SIZE)
-
-    extern void* RAM_LVL;
-    extern void* RAM_TEX;
-    extern void* RAM_CEL;
-    extern void* RAM_SND;
 
     #include <displayutils.h>
     #include <debug.h>
@@ -120,13 +103,14 @@
     #define LOD_TRAP_FLOOR
 // disable some plants environment to reduce overdraw of transparent geometry
     #define NO_STATIC_MESH_PLANTS
-// disable anim interpolation if item projected box is less than
-    //#define LOD_ANIM (FRAME_HEIGHT / 4)
 // use IWRAM_CODE section that faster for matrix interpolation (GBA only)
     #define IWRAM_MATRIX_LERP
 // the maximum of active enemies
-//    #define MAX_ENEMIES 3
+    #define MAX_ENEMIES 3
+// visibility distance
     #define VIEW_DIST (1024 * 10)
+// skip collideSpheres for enemies
+    #define FAST_HITMASK
 #endif
 
 #ifdef __3DO__
@@ -142,7 +126,10 @@
     #define MAX_ENEMIES 3
 // set the maximum number of simultaneously played channels
     #define SND_CHANNELS 4
+// visibility distance
     #define VIEW_DIST (1024 * 10)
+// skip collideSpheres for enemies
+    #define FAST_HITMASK
 #endif
 
 #ifndef NAV_STEPS
@@ -184,8 +171,6 @@ typedef unsigned short     uint16;
 typedef unsigned int       uint32;
 typedef uint16             divTableInt;
 #endif
-
-typedef int16              Index;
 
 #if defined(__3DO__)
 X_INLINE int32 abs(int32 x) {
@@ -438,20 +423,7 @@ extern int32 fps;
 #define VIEW_MIN_F      (64 << FIXED_SHIFT)
 #define VIEW_MAX_F      (VIEW_DIST << FIXED_SHIFT)
 
-#define FRUSTUM_FAR_X   (5 << 10)
-#define FRUSTUM_FAR_Y   (3 << 10)
-#define FRUSTUM_FAR_Z   (9 << 10)
-
-#define FACE_TRIANGLE   0x8000
-#define FACE_COLORED    0x4000
-#define FACE_CLIPPED    0x2000
-#define FACE_FLAT       0x1000
-#define FACE_SPRITE     0x0800
-#define FACE_SHADOW     (FACE_COLORED | FACE_FLAT | FACE_SPRITE)
-#define FACE_TEXTURE    0x07FF
-
-#define FACE_CCW        (1 << 31) // 3DO only
-#define FACE_MIP_SHIFT  11        // 3DO only
+#define TEX_ATTR_AKILL  1
 
 #define NOT_ENEMY       -0x4000     // default hp for non enemies
 #define NO_ROOM         0xFF
@@ -608,10 +580,21 @@ struct RoomQuad
 {
 #ifdef __3DO__
     uint32 flags;
-    Index  indices[4];
+    uint16 indices[4];
 #else
-    Index  indices[4];
     uint16 flags;
+    uint16 indices[4];
+#endif
+};
+
+struct RoomTriangle
+{
+#ifdef __3DO__
+    uint32 flags;
+    uint16 indices[4];
+#else
+    uint16 flags;
+    uint16 indices[3];
 #endif
 };
 
@@ -621,19 +604,8 @@ struct MeshQuad
     uint32 flags;
     uint32 indices;
 #else
-    Index  indices[4];
     uint16 flags;
-#endif
-};
-
-struct RoomTriangle
-{
-#ifdef __3DO__
-    uint32 flags;
-    Index  indices[4];
-#else
-    Index  indices[3];
-    uint16 flags;
+    uint8  indices[4];
 #endif
 };
 
@@ -643,8 +615,8 @@ struct MeshTriangle
     uint32 flags;
     uint32 indices;
 #else
-    Index  indices[3];
     uint16 flags;
+    uint8  indices[4];
 #endif
 };
 
@@ -666,13 +638,49 @@ union TexCoord
 };
 
 #ifdef __3DO__
-typedef CCB Face;
+struct Face
+{
+    uint32   ccb_Flags;
+    Face*    ccb_NextPtr;
+    CelData* ccb_SourcePtr;
+    void*    ccb_PLUTPtr;
+    Coord    ccb_XPos;
+    Coord    ccb_YPos;
+    int32    ccb_HDX;
+    int32    ccb_HDY;
+    int32    ccb_VDX;
+    int32    ccb_VDY;
+    int32    ccb_HDDX;
+    int32    ccb_HDDY;
+    uint32   ccb_PIXC;
+    uint32   ccb_PRE0;
+    uint32   ccb_PRE1;
+    //int32    ccb_Width;
+    //int32    ccb_Height;
+};
+
+    #define BLOCK_SIZE_DRAM     (32 * 1024)
+    #define BLOCK_SIZE_VRAM     (16 * 1024)
+    #define BLOCK_SIZE_CD       (2 * 1024)
+
+    #define SND_BUFFER_SIZE     (4 * BLOCK_SIZE_CD)
+    #define SND_BUFFERS         4
+
+    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 31) // 34 for LEVEL10C! >_<
+    #define MAX_RAM_TEX         (BLOCK_SIZE_VRAM * 44)
+    #define MAX_RAM_CEL         (MAX_FACES * sizeof(Face))
+    #define MAX_RAM_SND         (SND_BUFFERS * SND_BUFFER_SIZE)
+
+    extern void* RAM_LVL;
+    extern void* RAM_TEX;
+    extern void* RAM_CEL;
+    extern void* RAM_SND;
 #else
 struct Face
 {
     Face* next;
-    uint16 flags;
-    int16 indices[4];
+    uint32 flags;
+    uint16 indices[4];
 };
 #endif
 
@@ -727,8 +735,7 @@ struct RoomVertex
 #ifdef __3DO__
     uint16 xyz565;
 #else
-    int8 x, y, z;
-    uint8 g;
+    uint8 x, y, z, g;
 #endif
 };
 
@@ -893,7 +900,7 @@ struct Model {
 struct Mesh {
     vec3s center;
     int16 radius;
-    uint16 flags;
+    uint16 intensity;
     int16 vCount;
     int16 rCount;
     int16 tCount;
@@ -1264,8 +1271,6 @@ struct Camera {
 
     vec3s angle;
 
-    AABBi  frustumBase;
-
     ItemObj* laraItem;
     ItemObj* lastItem;
     ItemObj* lookAtItem;
@@ -1293,8 +1298,6 @@ struct Camera {
     void updateFixed();
     void lookAt(int32 offset);
     void update();
-    void prepareFrustum();
-    void updateFrustum(int32 offsetX, int32 offsetY, int32 offsetZ);
     void toCombat();
 };
 
@@ -2052,8 +2055,6 @@ extern RectMinMax viewport;
 extern vec3i cameraViewPos;
 extern Matrix* matrixPtr;
 extern Matrix matrixStack[MAX_MATRICES];
-extern int32 gVerticesCount;
-extern int32 gFacesCount;
 extern const uint32 gSinCosTable[4096];
 
 #ifndef MODEHW
@@ -2064,15 +2065,13 @@ extern Sphere gSpheres[2][MAX_SPHERES];
 extern SaveGame gSaveGame;
 extern Settings gSettings;
 extern int32 gCurTrack;
+extern int32 gAnimTexFrame;
 
 extern const FloorData* gLastFloorData;
 extern FloorData gLastFloorSlant;
 
 extern Room rooms[MAX_ROOMS];
 extern ItemObj items[MAX_ITEMS];
-
-// level data
-extern bool enableClipping;
 
 template <class T>
 X_INLINE void swap(T &a, T &b) {
@@ -2094,6 +2093,8 @@ int32 rand_draw();
     s = int32(sc) >> 16;\
     c = int32(sc) << 16 >> 16;\
 }
+
+#define sin(x) (int32(gSinCosTable[uint32(x << 16) >> 20]) >> 16)
 
 int32 phd_atan(int32 x, int32 y);
 uint32 phd_sqrt(uint32 x);
@@ -2158,7 +2159,6 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
         void boxRotateYQ_asm(AABBi &box, int32 quadrant);
         int32 boxIsVisible_asm(const AABBs* box);
         int32 sphereIsVisible_asm(int32 x, int32 y, int32 z, int32 r);
-        void faceAddShadow_asm(int32 x, int32 z, int32 sx, int32 sz);
     }
 
     #define matrixPush              matrixPush_asm
@@ -2171,13 +2171,12 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define matrixRotateX           matrixRotateX_asm
     #define matrixRotateY           matrixRotateY_asm
     #define matrixRotateZ           matrixRotateZ_asm
-    #define matrixRotateYQ          matrixRotateYQ_asm
     #define matrixRotateYXZ         matrixRotateYXZ_asm
+    #define matrixRotateYQ          matrixRotateYQ_asm
     #define boxTranslate            boxTranslate_asm
     #define boxRotateYQ             boxRotateYQ_asm
     #define boxIsVisible            boxIsVisible_asm
     #define sphereIsVisible         sphereIsVisible_asm
-    #define faceAddShadow           faceAddShadow_asm
 #else
     #define matrixPush              matrixPush_c
     #define matrixSetIdentity       matrixSetIdentity_c
@@ -2189,13 +2188,12 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define matrixRotateX           matrixRotateX_c
     #define matrixRotateY           matrixRotateY_c
     #define matrixRotateZ           matrixRotateZ_c
-    #define matrixRotateYQ          matrixRotateYQ_c
     #define matrixRotateYXZ         matrixRotateYXZ_c
+    #define matrixRotateYQ          matrixRotateYQ_c
     #define boxTranslate            boxTranslate_c
     #define boxRotateYQ             boxRotateYQ_c
     #define boxIsVisible            boxIsVisible_c
     #define sphereIsVisible         sphereIsVisible_c
-    #define faceAddShadow           faceAddShadow_c
 
     void matrixPush_c();
     void matrixSetIdentity_c();
@@ -2214,7 +2212,6 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     void boxRotateYQ_c(AABBi &box, int32 quadrant);
     int32 boxIsVisible_c(const AABBs* box);
     int32 sphereIsVisible_c(int32 x, int32 y, int32 z, int32 r);
-    void faceAddShadow_c(int32 x, int32 z, int32 sx, int32 sz);
 #endif
 
 #define matrixPop()     matrixPtr--
@@ -2234,14 +2231,11 @@ void renderInit();
 void setViewport(const RectMinMax &vp);
 void setPaletteIndex(int32 index);
 void clear();
-void transformRoom(const Room* room);
-void transformMesh(const MeshVertex* vertices, int32 vCount, const uint16* vIntensity, const vec3s* vNormal);
-void faceAddQuad(uint32 flags, const Index* indices);
-void faceAddTriangle(uint32 flags, const Index* indices);
-void faceAddSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index);
-void faceAddGlyph(int32 vx, int32 vy, int32 index);
-void faceAddRoom(const Room* room);
-void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTriangle* tFaces, const MeshTriangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount);
+void renderRoom(const Room* room);
+void renderMesh(const Mesh* mesh);
+void renderShadow(int32 x, int32 z, int32 sx, int32 sz);
+void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index);
+void renderGlyph(int32 vx, int32 vy, int32 index);
 void flush();
 
 void drawInit();
@@ -2249,7 +2243,6 @@ void drawFree();
 void drawModel(const ItemObj* item);
 void drawItem(const ItemObj* item);
 void drawRooms(Camera* camera);
-void drawBox(const AABBi &box);
 
 void checkTrigger(const FloorData* fd, ItemObj* lara);
 void readLevel(const uint8 *data);
