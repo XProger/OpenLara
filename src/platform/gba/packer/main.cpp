@@ -3079,6 +3079,35 @@ struct LevelPC
 
         //f.writeArray(demoData, demoDataSize);
 
+        for (int32 i = 0; i < soundOffsetsCount; i++)
+        {
+            uint8* ptr = soundData + soundOffsets[i];
+            int32 size = *(int32*)(ptr + 40);
+            uint8* src = ptr + 44;
+            uint8* dst = ptr;
+
+            while ((dst - soundData) % 4 != 0) {
+                dst++;
+            }
+            dst += 4;
+
+            for (int32 j = 0; j < size; j++)
+            {
+                dst[j] = src[j];
+            }
+
+            while ((size % 4) != 0)
+            {
+                dst[size] = dst[size - 1];
+                size++;
+            }
+
+            dst -= 4;
+            *(int32*)dst = size;
+
+            soundOffsets[i] = dst - soundData;
+        }
+
         header.soundMap = f.align4();
         f.write(soundMap, 256);
 

@@ -1039,19 +1039,25 @@ void renderShadow(int32 x, int32 z, int32 sx, int32 sz)
         return;
     }
 
-    int32 sx2 = sx << 1;
-    int32 sz2 = sz << 1;
+    int16 xns1 = x - sx;
+    int16 xps1 = x + sx;
+    int16 xns2 = xns1 - sx;
+    int16 xps2 = xps1 + sx;
 
-    MeshVertex v[8] = {
-        { x - sx,  0, z + sz2 }, // 0
-        { x + sx,  0, z + sz2 }, // 1
-        { x + sx2, 0, z + sz  }, // 2
-        { x + sx2, 0, z - sz  }, // 3
-        { x + sx,  0, z - sz2 }, // 4
-        { x - sx,  0, z - sz2 }, // 5
-        { x - sx2, 0, z - sz  }, // 6
-        { x - sx2, 0, z + sz  }  // 7
-    };
+    int16 zns1 = z - sz;
+    int16 zps1 = z + sz;
+    int16 zns2 = zns1 - sz;
+    int16 zps2 = zps1 + sz;
+
+    MeshVertex v[8];
+    v[0].x = xns1; v[0].y = 0; v[0].z = zps2;
+    v[1].x = xps1; v[1].y = 0; v[1].z = zps2;
+    v[2].x = xps2; v[2].y = 0; v[2].z = zps1;
+    v[3].x = xps2; v[3].y = 0; v[3].z = zns1;
+    v[4].x = xps1; v[4].y = 0; v[4].z = zns2;
+    v[5].x = xns1; v[5].y = 0; v[5].z = zns2;
+    v[6].x = xns2; v[6].y = 0; v[6].z = zns1;
+    v[7].x = xns2; v[7].y = 0; v[7].z = zps1;
 
     transformMesh(v, 8, 0);
     faceAddMeshQuads(gShadowQuads, 3);
@@ -1153,79 +1159,3 @@ void renderGlyph(int32 vx, int32 vy, int32 index)
 {
     //
 }
-
-extern int16 IMA_STEP[89];
-
-#define DECODE_IMA_4(n)\
-    step = IMA_STEP[idx];\
-    index = n & 7;\
-    step += index * step << 1;\
-    if (index < 4) {\
-        idx = X_MAX(idx - 1, 0);\
-    } else {\
-        idx = X_MIN(idx + ((index - 3) << 1), X_COUNT(IMA_STEP) - 1);\
-    }\
-    if (n & 8) {\
-        smp -= step >> 3;\
-    } else {\
-        smp += step >> 3;\
-    }\
-    *buffer++ = smp >> (16 - (8 + SND_VOL_SHIFT));
-
-void decodeIMA(IMA_STATE &state, const uint8* data, int32* buffer, int32 size)
-{
-    uint32 step, index;
-
-    int32 idx = state.idx;
-    int32 smp = state.smp;
-
-    for (int32 i = 0; i < size; i++)
-    {
-        uint32 n = *data++;
-        DECODE_IMA_4(n);
-        n >>= 4;
-        DECODE_IMA_4(n);
-    }
-
-    state.idx = idx;
-    state.smp = smp;
-}
-
-/* TODO OUT OF IWRAM!
-#define DECODE_IMA_4_sample(n)\
-    step = IMA_STEP[idx];\
-    index = n & 7;\
-    step += index * step << 1;\
-    if (index < 4) {\
-        idx = X_MAX(idx - 1, 0);\
-    } else {\
-        idx = X_MIN(idx + ((index - 3) << 1), X_COUNT(IMA_STEP) - 1);\
-    }\
-    if (n & 8) {\
-        smp -= step >> 3;\
-    } else {\
-        smp += step >> 3;\
-    }\
-    *buffer++ += smp * volume >> (16 - (8 + SND_VOL_SHIFT));
-
-void decodeIMA_sample(IMA_STATE &state, const uint8* data, int32* buffer, int32 size, int32 inc, int32 volume)
-{
-    uint32 step, index;
-
-    int32 idx = state.idx;
-    int32 smp = state.smp;
-
-    for (int32 i = 0; i < size; i++)
-    {
-        uint32 n = *data;
-        DECODE_IMA_4_sample(n);
-        n >>= 4;
-        DECODE_IMA_4_sample(n);
-
-        data += inc;
-    }
-
-    state.idx = idx;
-    state.smp = smp;
-}
-*/

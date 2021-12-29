@@ -1,6 +1,6 @@
 #include "common.h"
 
-int16 IMA_STEP[89] = { // IWRAM !
+int32 IMA_STEP[] = { // IWRAM !
     7,     8,     9,     10,    11,    12,    13,    14,
     16,    17,    19,    21,    23,    25,    28,    31,
     34,    37,    41,    45,    50,    55,    60,    66,
@@ -15,7 +15,82 @@ int16 IMA_STEP[89] = { // IWRAM !
     32767
 };
 
-extern void decodeIMA(IMA_STATE &state, const uint8* data, int32* buffer, int32 size);
+#ifdef USE_ASM1
+    #define sndIMA      sndIMA_asm
+    #define sndPCM      sndPCM_asm
+    #define sndWrite    sndWrite_asm
+
+    extern "C" {
+        void sndIMA_asm(IMA_STATE &state, int32* buffer, const uint8* data, int32 size);
+        int32 sndPCM_asm(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int32* buffer, int32 count);
+        void sndWrite_asm(uint8* buffer, int32 count, int32 *data);
+    }
+#else
+    #define sndIMA      sndIMA_c
+    #define sndPCM      sndPCM_c
+    #define sndWrite    sndWrite_c
+
+#define DECODE_IMA_4(n)\
+    step = IMA_STEP[idx];\
+    index = n & 7;\
+    step += index * step << 1;\
+    if (index < 4) {\
+        idx = X_MAX(idx - 1, 0);\
+    } else {\
+        idx = X_MIN(idx + ((index - 3) << 1), X_COUNT(IMA_STEP) - 1);\
+    }\
+    if (n & 8) {\
+        smp -= step >> 3;\
+    } else {\
+        smp += step >> 3;\
+    }\
+    *buffer++ = smp >> (16 - (8 + SND_VOL_SHIFT));
+
+void sndIMA_c(IMA_STATE &state, int32* buffer, const uint8* data, int32 size)
+{
+    uint32 step, index;
+
+    int32 smp = state.smp;
+    int32 idx = state.idx;
+
+    for (int32 i = 0; i < size; i++)
+    {
+        uint32 n = *data++;
+        DECODE_IMA_4(n);
+        n >>= 4;
+        DECODE_IMA_4(n);
+    }
+
+    state.smp = smp;
+    state.idx = idx;
+}
+
+int32 sndPCM_c(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int32* buffer, int32 count)
+{
+    int32 last = pos + count * inc;
+    if (last > size) {
+        last = size;
+    }
+
+    while (pos < last)
+    {
+        *buffer++ += SND_DECODE(data[pos >> SND_FIXED_SHIFT]) * volume;
+        pos += inc;
+    }
+
+    return pos;
+}
+
+void sndWrite_c(uint8* buffer, int32 count, int32 *data)
+{
+    for (int32 i = 0; i < count; i++)
+    {
+        int32 samp = X_CLAMP(data[i] >> SND_VOL_SHIFT, SND_MIN, SND_MAX);
+        buffer[i] = SND_ENCODE(samp);
+    }
+}
+#endif
+
 
 struct Music
 {
@@ -28,7 +103,7 @@ struct Music
     {
         int32 len = X_MIN(size - pos, count >> 1);
 
-        decodeIMA(state, data + pos, buffer, len);
+        sndIMA(state, buffer, data + pos, len);
 
         pos += len;
 
@@ -42,25 +117,19 @@ struct Music
 
 struct Sample
 {
-    const uint8* data;
-    int32        size;
     int32        pos;
     int32        inc;
+    int32        size;
     int32        volume;
+    const uint8* data;
 
     void fill(int32* buffer, int32 count)
     {
-        for (int32 i = 0; i < count; i++)
-        {
-            buffer[i] += SND_DECODE(data[pos >> SND_FIXED_SHIFT]) * volume;
+        pos = sndPCM(pos, inc, size, volume, data, buffer, count);
 
-            pos += inc;
-            if (pos >= size)
-            {
-                // TODO LOOP
-                data = NULL;
-                return;
-            }
+        if (pos >= size)
+        {
+            data = NULL;
         }
     }
 };
@@ -95,10 +164,8 @@ void sndFreeSamples()
 void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode)
 {
     const uint8 *data = level.soundData + level.soundOffsets[index];
-
-    int32 size;
-    memcpy(&size, data + 40, 4); // TODO preprocess and remove wave header
-    data += 44;
+    int32 size = *(int32*)data;
+    data += 4;
 
     if (mode == UNIQUE || mode == REPLAY)
     {
@@ -178,7 +245,7 @@ bool sndTrackIsPlaying()
 
 void sndStopSample(int32 index)
 {
-    const uint8 *data = level.soundData + level.soundOffsets[index] + 44;
+    const uint8 *data = level.soundData + level.soundOffsets[index] + 4;
 
     int32 i = channelsCount;
 
@@ -230,9 +297,5 @@ void sndFill(uint8* buffer, int32 count)
         }
     }
 
-    for (int32 i = 0; i < count; i++)
-    {
-        int32 samp = X_CLAMP(tmp[i] >> SND_VOL_SHIFT, SND_MIN, SND_MAX);
-        buffer[i] = SND_ENCODE(samp);
-    }
+    sndWrite(buffer, count, tmp);
 }

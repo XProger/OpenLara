@@ -170,4 +170,12 @@ void updateLevel(int32 frames)
     }
 }
 
+int32 getAmbientTrack()
+{
+    extern int32 gLevelID;
+    if (gLevelID == 0)
+        return -1;
+    return 5;
+}
+
 #endif

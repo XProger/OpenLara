@@ -130,14 +130,6 @@ struct Game
         rooms[roomIndex].add(lara);
     }
 
-    int32 getAmbientTrack() // TODO
-    {
-        extern int32 gLevelID;
-        if (gLevelID == 0)
-            return -1;
-        return 5;
-    }
-
     void updateItems()
     {
         ItemObj* item = ItemObj::sFirstActive;
