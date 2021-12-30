@@ -105,8 +105,8 @@ SP_RDT = 20
     add ptr, #2
 .endm
 
-.global rasterizeGTA_mode4_asm
-rasterizeGTA_mode4_asm:
+.global rasterizeGTA_asm
+rasterizeGTA_asm:
     stmfd sp!, {r4-r11, lr}
     sub sp, #24 // reserve stack space for [Ldx, Ldg, Ldt, Rdx, Rdg, Rdt]
 

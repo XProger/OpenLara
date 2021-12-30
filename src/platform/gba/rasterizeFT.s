@@ -61,24 +61,27 @@ SP_RDT = 12
 
 .macro PUT_PIXELS
     tex indexA, t
+    lit indexA
+
+#ifndef TEX_2PX
     add t, dtdx
 
     tex indexB, t
+    lit indexB
     add t, dtdx
 
-  // cheap non-accurate alpha test, skip pixels pair if one or both are transparent
-    ands indexA, #255
-    andnes indexB, #255
-    orrne indexB, indexA, indexB, lsl #8   // indexB = indexA | (indexB << 8)
-    ldrneb indexA, [LMAP, indexA]
-    ldrneb indexB, [LMAP, indexB, lsr #8]
-    orrne indexA, indexB, lsl #8
-    strneh indexA, [tmp]
-    add tmp, #2
+    orr indexA, indexB, lsl #8
+    strh indexA, [ptr], #2
+#else
+    add t, dtdx, lsl #1
+
+    //orr indexA, indexA, lsl #8
+    strb indexA, [tmp], #2  // writing a byte to GBA VRAM will write a half word for free
+#endif
 .endm
 
-.global rasterizeFTA_mode4_asm
-rasterizeFTA_mode4_asm:
+.global rasterizeFT_asm
+rasterizeFT_asm:
     stmfd sp!, {r4-r11, lr}
     sub sp, #16 // reserve stack space for [Ldx, Ldt, Rdx, Rdt]
 
@@ -207,20 +210,17 @@ rasterizeFTA_mode4_asm:
 
     // 2 bytes alignment (VRAM write requirement)
 .align_left:
-    tst tmp, #1                     // if (tmp & 1)
+    tst tmp, #1                   // if (tmp & 1)
       beq .align_right
+    ldrb indexB, [tmp, #-1]!      // read pal index from VRAM (byte)
 
     and indexA, t, #0xFF00
-    orr indexA, t, lsr #24          // res = (t & 0xFF00) | (t >> 24)
+    orr indexA, t, lsr #24        // res = (t & 0xFF00) | (t >> 24)
     ldrb indexA, [TILE, indexA]
+    ldrb indexA, [LMAP, indexA]
 
-    cmp indexA, #0
-    ldrneb indexB, [tmp, #-1]        // read pal index from VRAM (byte)
-    ldrneb indexA, [LMAP, indexA]
-    orrne indexB, indexA, lsl #8
-    strneh indexB, [tmp]
-
-    add tmp, #1
+    orr indexB, indexA, lsl #8
+    strh indexB, [tmp], #2
     add t, dtdx
 
     subs width, #1              // width--
@@ -229,20 +229,20 @@ rasterizeFTA_mode4_asm:
 .align_right:
     tst width, #1
       beq .align_block_4px
+    ldrb indexB, [tmp, width]
+
+    subs width, #1              // width--
 
     sub Rt, dtdx
     and indexA, Rt, #0xFF00
     orr indexA, Rt, lsr #24     // res = (t & 0xFF00) | (t >> 24)
     add Rt, dtdx
     ldrb indexA, [TILE, indexA]
+    ldrb indexA, [LMAP, indexA]
 
-    cmp indexA, #0
-    ldrneb indexA, [LMAP, indexA]
-    ldrneb indexB, [tmp, width]
-    orrne indexB, indexA, indexB, lsl #8
-    strneh indexB, [tmp, width]
+    orr indexB, indexA, indexB, lsl #8
+    strh indexB, [tmp, width]
 
-    subs width, #1              // width--
       beq .scanline_end         // if (width == 0)
 
 .align_block_4px:
@@ -281,12 +281,12 @@ rasterizeFTA_mode4_asm:
     add Rx, sRdx
     add Rt, sRdt
 
-    add pixel, #VRAM_STRIDE         // pixel += FRAME_WIDTH (240)
+    add pixel, #VRAM_STRIDE   // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start
 
-    ldmfd sp!, {L,R,Lh,Rh}      // sp+16
+    ldmfd sp!, {L,R,Lh,Rh}    // sp+16
     b .loop
 
 .exit:

@@ -26,8 +26,8 @@ indexB  .req DIVLUT
 .shadow_lightmap:
   .word lightmap + 0x1A00
 
-.global rasterizeS_mode4_asm
-rasterizeS_mode4_asm:
+.global rasterizeS_asm
+rasterizeS_asm:
     stmfd sp!, {r4-r11, lr}
 
     ldr LMAP, .shadow_lightmap

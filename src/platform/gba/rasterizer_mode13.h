@@ -6,16 +6,16 @@
 extern uint8 lightmap[256 * 32];
 extern const uint8* tile;
 
-#define rasterizeS rasterizeS_mode13_c
-#define rasterizeF rasterizeF_mode13_c
-#define rasterizeG rasterizeG_mode13_c
-#define rasterizeFT rasterizeFT_mode13_c
-#define rasterizeGT rasterizeGT_mode13_c
-#define rasterizeFTA rasterizeFTA_mode13_c
-#define rasterizeGTA rasterizeGTA_mode13_c
-#define rasterizeSprite rasterizeSprite_mode13_c
+#define rasterizeS rasterizeS_c
+#define rasterizeF rasterizeF_c
+#define rasterizeG rasterizeG_c
+#define rasterizeFT rasterizeFT_c
+#define rasterizeGT rasterizeGT_c
+#define rasterizeFTA rasterizeFTA_c
+#define rasterizeGTA rasterizeGTA_c
+#define rasterizeSprite rasterizeSprite_c
 
-void rasterizeS_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     const uint8* ft_lightmap = &lightmap[0x1A00];
 
@@ -123,7 +123,7 @@ void rasterizeS_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* R
     }
 }
 
-void rasterizeF_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index)
+void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index)
 {
     uint16 color = lightmap[(L->v.g << 8) | index];
     color |= (color << 8);
@@ -228,7 +228,7 @@ void rasterizeF_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* R
     }
 }
 
-void rasterizeG_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index)
+void rasterizeG_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index)
 {
     int32 Lh = 0, Rh = 0;
     int32 Lx, Rx, Ldx = 0, Rdx = 0;
@@ -350,7 +350,7 @@ void rasterizeG_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* R
     }
 }
 
-void rasterizeFT_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     const uint8* ft_lightmap = &lightmap[L->v.g << 8];
 
@@ -477,7 +477,7 @@ void rasterizeFT_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* 
     }
 }
 
-void rasterizeGT_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
 #ifdef ALIGNED_LIGHTMAP
     ASSERT((intptr_t(lightmap) & 0xFFFF) == 0); // lightmap should be 64k aligned
@@ -638,7 +638,7 @@ void rasterizeGT_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* 
     }
 }
 
-void rasterizeFTA_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     const uint8* ft_lightmap = &lightmap[L->v.g << 8];
 
@@ -784,12 +784,12 @@ void rasterizeFTA_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink*
     }
 }
 
-void rasterizeGTA_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     rasterizeFTA(pixel, L, R);
 }
 
-void rasterizeSprite_mode13_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     // TODO
 }
