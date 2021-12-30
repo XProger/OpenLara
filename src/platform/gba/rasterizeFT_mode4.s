@@ -11,11 +11,11 @@ N       .req r6
 Lh      .req r7
 Rh      .req r8
 
-Lx      .req ip
-Rx      .req lr
-Lt      .req r9
-Rt      .req r10
-h       .req r11
+Lx      .req r9
+Rx      .req r10
+Lt      .req r11
+Rt      .req r12
+h       .req lr
 
 Ldx     .req h
 Rdx     .req h
@@ -49,39 +49,40 @@ Rduv    .req h
 Rdu     .req N
 Rdv     .req h
 
+sLdx    .req tmp
+sLdt    .req N
+sRdx    .req Lh
+sRdt    .req Rh
+
 SP_LDX = 0
 SP_LDT = 4
 SP_RDX = 8
 SP_RDT = 12
 
 .macro PUT_PIXELS
-    and indexA, t, #0xFF00
-    orr indexA, t, lsr #24        // indexA = t.v * 256 + t.u
-    ldrb indexA, [TILE, indexA]
-    ldrb indexA, [LMAP, indexA]
+    tex indexA, t
+    lit indexA
 
 #ifndef TEX_2PX
     add t, dtdx
 
-    and indexB, t, #0xFF00
-    orr indexB, t, lsr #24        // indexB = t.v * 256 + t.u
-    ldrb indexB, [TILE, indexB]
-    ldrb indexB, [LMAP, indexB]
+    tex indexB, t
+    lit indexB
     add t, dtdx
 
     orr indexA, indexB, lsl #8
+    strh indexA, [ptr], #2
 #else
     add t, dtdx, lsl #1
 
     //orr indexA, indexA, lsl #8
+    strb indexA, [tmp], #2  // writing a byte to GBA VRAM will write a half word for free
 #endif
-
-    strb indexA, [tmp], #2
 .endm
 
 .global rasterizeFT_mode4_asm
 rasterizeFT_mode4_asm:
-    stmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r11,lr}
+    stmfd sp!, {r4-r11, lr}
     sub sp, #16 // reserve stack space for [Ldx, Ldt, Rdx, Rdt]
 
     mov LMAP, #LMAP_ADDR
@@ -273,26 +274,21 @@ rasterizeFT_mode4_asm:
       bne .scanline_block_8px
 
 .scanline_end:
-    ldr tmp, [sp, #(SP_LDX + 16)]
-    add Lx, tmp                     // Lx += Ldx from stack
+    add tmp, sp, #16
+    ldmia tmp, {sLdx, sLdt, sRdx, sRdt}
+    add Lx, sLdx
+    add Lt, sLdt
+    add Rx, sRdx
+    add Rt, sRdt
 
-    ldr tmp, [sp, #(SP_LDT + 16)]
-    add Lt, tmp                     // Lt += Ldt from stack
-
-    ldr tmp, [sp, #(SP_RDX + 16)]
-    add Rx, tmp                     // Rx += Rdx from stack
-
-    ldr tmp, [sp, #(SP_RDT + 16)]
-    add Rt, tmp                     // Rt += Rdt from stack
-
-    add pixel, #VRAM_STRIDE         // pixel += FRAME_WIDTH (240)
+    add pixel, #VRAM_STRIDE   // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start
 
-    ldmfd sp!, {L,R,Lh,Rh}      // sp+16
+    ldmfd sp!, {L,R,Lh,Rh}    // sp+16
     b .loop
 
 .exit:
     add sp, #16                 // revert reserved space for [Ldx, Ldt, Rdx, Rdt]
-    ldmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r11,pc}
+    ldmfd sp!, {r4-r11, pc}

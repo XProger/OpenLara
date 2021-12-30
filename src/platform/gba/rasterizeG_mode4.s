@@ -9,11 +9,11 @@ tmp     .req r5
 N       .req r6
 Lh      .req r7
 Rh      .req r8
-Lx      .req ip
-Rx      .req lr
-Lg      .req r9
-Rg      .req r10
-h       .req r11
+Lx      .req r9
+Rx      .req r10
+Lg      .req r11
+Rg      .req r12
+h       .req lr
 Ldx     .req h
 Rdx     .req Ldx
 Ldg     .req Ldx
@@ -28,6 +28,11 @@ pair    .req Lh
 width   .req Rh
 g       .req L
 dgdx    .req R
+
+sLdx    .req L
+sLdg    .req R
+sRdx    .req Lh
+sRdg    .req Rh
 
 SP_LDX = 0
 SP_LDG = 4
@@ -44,7 +49,7 @@ SP_RDG = 12
 
 .global rasterizeG_mode4_asm
 rasterizeG_mode4_asm:
-    stmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r11,lr}
+    stmfd sp!, {r4-r11, lr}
     sub sp, #16 // reserve stack space for [Ldx, Ldg, Rdx, Rdg]
 
     mov tmp, #LMAP_ADDR
@@ -188,17 +193,12 @@ rasterizeG_mode4_asm:
       bne .scanline_block_4px
 
 .scanline_end:
-    ldr tmp, [sp, #(SP_LDX + 16)]
-    add Lx, tmp                     // Lx += Ldx from stack
-
-    ldr tmp, [sp, #(SP_LDG + 16)]
-    add Lg, tmp                     // Lg += Ldg from stack
-
-    ldr tmp, [sp, #(SP_RDX + 16)]
-    add Rx, tmp                     // Rx += Rdx from stack
-
-    ldr tmp, [sp, #(SP_RDG + 16)]
-    add Rg, tmp                     // Rg += Rdg from stack
+    add tmp, sp, #16
+    ldmia tmp, {sLdx, sLdg, sRdx, sRdg}
+    add Lx, sLdx
+    add Lg, sLdg
+    add Rx, sRdx
+    add Rg, sRdg
 
     add pixel, #VRAM_STRIDE         // pixel += FRAME_WIDTH (240)
 
@@ -210,4 +210,4 @@ rasterizeG_mode4_asm:
 
 .exit:
     add sp, #16                 // revert reserved space for [Ldx, Ldg, Rdx, Rdg]
-    ldmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r11,pc}
+    ldmfd sp!, {r4-r11, pc}

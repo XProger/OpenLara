@@ -6,14 +6,15 @@ R       .req r2
 index   .req r3
 Lh      .req r4
 Rh      .req r5
-Lx      .req ip
-Rx      .req lr
-Ldx     .req r6
-Rdx     .req r7
-N       .req r8
-tmp     .req r9
-DIVLUT  .req r10
-width   .req r11
+Lx      .req r6
+Rx      .req r7
+Ldx     .req r8
+Rdx     .req r9
+N       .req r10
+tmp     .req r11
+DIVLUT  .req r12
+width   .req lr
+
 h       .req N
 Ry1     .req tmp
 Ry2     .req Rh
@@ -25,7 +26,7 @@ blocks  .req DIVLUT
 
 .global rasterizeF_mode4_asm
 rasterizeF_mode4_asm:
-    stmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r11,lr}
+    stmfd sp!, {r4-r11, lr}
 
     mov LMAP, #LMAP_ADDR
 
@@ -136,4 +137,4 @@ rasterizeF_mode4_asm:
     b .loop
 
 .exit:
-    ldmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r11,pc}
+    ldmfd sp!, {r4-r11, pc}

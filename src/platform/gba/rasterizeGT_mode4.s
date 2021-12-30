@@ -70,6 +70,13 @@ Rdv     .req N
 Rti     .req tmp
 Rgi     .req tmp
 
+sLdx    .req L
+sLdg    .req R
+sLdt    .req Lh
+sRdx    .req Rh
+sRdg    .req tmp
+sRdt    .req N    // not used in ldm due h collision
+
 SP_LDX = 0
 SP_LDG = 4
 SP_LDT = 8
@@ -81,18 +88,15 @@ SP_RDT = 20
     bic LMAP, g, #255
     add g, dgdx
 
-    and indexA, t, #0xFF00
-    orr indexA, t, lsr #24        // indexA = t.v * 256 + t.u
-    ldrb indexA, [TILE, indexA]
-    ldrb indexA, [LMAP, indexA]
+    tex indexA, t
+    lit indexA
 
 #ifndef TEX_2PX
     add t, dtdx
 
-    and indexB, t, #0xFF00
-    orr indexB, t, lsr #24        // indexB = t.v * 256 + t.u
-    ldrb indexB, [TILE, indexB]
-    ldrb indexB, [LMAP, indexB]
+    tex indexB, t
+    lit indexB
+
     add t, dtdx
 
     orr indexA, indexB, lsl #8
@@ -101,13 +105,13 @@ SP_RDT = 20
     add t, dtdx, lsl #1
 
     //orr indexA, indexA, lsl #8
-    strb indexA, [ptr], #2
+    strb indexA, [ptr], #2  // writing a byte to GBA VRAM will write a half word for free
 #endif
 .endm
 
 .global rasterizeGT_mode4_asm
 rasterizeGT_mode4_asm:
-    stmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r11,lr}
+    stmfd sp!, {r4-r11, lr}
     sub sp, #24 // reserve stack space for [Ldx, Ldg, Ldt, Rdx, Rdg, Rdt]
 
     mov Lh, #0                      // Lh = 0
@@ -330,20 +334,14 @@ rasterizeGT_mode4_asm:
 .scanline_end:
     ldmfd sp!, {Lx,Rx,Lg,Rg,Lt,Rt}  // sp+24
 
-    ldr tmp, [sp, #(SP_LDX + 16)]
-    add Lx, tmp                     // Lx += Ldx from stack
+    add tmp, sp, #16
+    ldmia tmp, {sLdx, sLdg, sLdt, sRdx, sRdg}
 
-    ldr tmp, [sp, #(SP_LDG + 16)]
-    add Lg, tmp                     // Lg += Ldg from stack
-
-    ldr tmp, [sp, #(SP_LDT + 16)]
-    add Lt, tmp                     // Lt += Ldt from stack
-
-    ldr tmp, [sp, #(SP_RDX + 16)]
-    add Rx, tmp                     // Rx += Rdx from stack
-
-    ldr tmp, [sp, #(SP_RDG + 16)]
-    add Rg, tmp                     // Rg += Rdg from stack
+    add Lx, sLdx
+    add Lg, sLdg
+    add Lt, sLdt
+    add Rx, sRdx
+    add Rg, sRdg
 
     ldr tmp, [sp, #(SP_RDT + 16)]
     add Rt, tmp                     // Rt += Rdt from stack
@@ -358,4 +356,4 @@ rasterizeGT_mode4_asm:
 
 .exit:
     add sp, #24                 // revert reserved space for [Ldx, Ldg, Ldt, Rdx, Rdg, Rdt]
-    ldmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r11,pc}
+    ldmfd sp!, {r4-r11, pc}

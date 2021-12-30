@@ -72,3 +72,13 @@ MAX_INT32       = 0x7FFFFFFF
     mlas tmp, vx1, vy2, tmp
     bgt \skip
 .endm
+
+.macro tex index, uv
+    and \index, \uv, #0xFF00
+    orr \index, \uv, lsr #24        // index = t.v * 256 + t.u
+    ldrb \index, [TILE, \index]
+.endm
+
+.macro lit index
+    ldrb \index, [LMAP, \index]
+.endm

@@ -85,7 +85,7 @@ transformRoom_asm:
     mla y, mx, vx, y
     mla y, my, vy, y
     mla y, mz, vz, y
-    mov y, y, asr #(FIXED_SHIFT - PROJ_SHIFT)
+    mov y, y, asr #FIXED_SHIFT
 
     // transform x
     ldmdb m!, {mx, my, mz, x}
@@ -121,21 +121,23 @@ transformRoom_asm:
     mul x, dz, x
     mul y, dz, y
     mov x, x, asr #(16 - PROJ_SHIFT)
-    // keep y shifted by 16 for min/max cmp
+    mov y, y, asr #(16 - PROJ_SHIFT)
 
     // viewport clipping
     ldmia sp, {m, minXY, maxXY} // preload matrix
 
     cmp x, minXY, asr #16
     orrle vg, vg, #CLIP_LEFT
-    cmp y, minXY, lsl #16
-    orrle vg, vg, #CLIP_TOP
     cmp x, maxXY, asr #16
     orrge vg, vg, #CLIP_RIGHT
-    cmp y, maxXY, lsl #16
-    orrge vg, vg, #CLIP_BOTTOM
 
-    mov y, y, asr #16 
+    mov minXY, minXY, lsl #16
+    mov maxXY, maxXY, lsl #16
+
+    cmp y, minXY, asr #16
+    orrle vg, vg, #CLIP_TOP
+    cmp y, maxXY, asr #16
+    orrge vg, vg, #CLIP_BOTTOM
 
     add x, x, #(FRAME_WIDTH >> 1)
     add y, y, #(FRAME_HEIGHT >> 1)
