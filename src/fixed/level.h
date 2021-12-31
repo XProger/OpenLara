@@ -160,7 +160,7 @@ void animTexturesShift()
 
 void updateLevel(int32 frames)
 {
-    causticsFrame += frames;
+    gCausticsFrame += frames;
 
     gAnimTexFrame += frames;
     while (gAnimTexFrame > 5)
@@ -172,10 +172,7 @@ void updateLevel(int32 frames)
 
 int32 getAmbientTrack()
 {
-    extern int32 gLevelID;
-    if (gLevelID == 0)
-        return -1;
-    return 5;
+    return gLevelInfo[gLevelID].track;
 }
 
 #endif

@@ -17,8 +17,11 @@ z           .req r12
 res         .req lr
 t           .req y
 
-spMinXY     .req x
-spMaxXY     .req y
+spMinXY     .req mx
+spMaxXY     .req my
+spFrame     .req mz
+spCaustLUT  .req x
+spRandLUT   .req y
 
 mask        .req x
 vp          .req vx
@@ -29,12 +32,20 @@ DIVLUT      .req my
 dz          .req mz
 fog         .req mz
 
+frame       .req vx
+caust       .req vy
+rand        .req vz
+tmp         .req mx
+
 SP_MINXY    = 0
 SP_MAXXY    = 4
-SP_SIZE     = 8
+SP_FRAME    = 8
+SP_CAUST    = 12
+SP_RAND     = 16
+SP_SIZE     = 20
 
-.global transformRoom_asm
-transformRoom_asm:
+.global transformRoomUW_asm
+transformRoomUW_asm:
     stmfd sp!, {r4-r11, lr}
 
     ldr res, =gVerticesBase
@@ -46,7 +57,13 @@ transformRoom_asm:
     ldr vp, =viewportRel
     ldmia vp, {spMinXY, spMaxXY}
 
-    stmfd sp!, {spMinXY, spMaxXY}
+    ldr spFrame, =gCausticsFrame
+    ldr spFrame, [spFrame]
+
+    ldr spCaustLUT, =gCaustics
+    ldr spRandLUT, =gRandTable
+
+    stmfd sp!, {spMinXY, spMaxXY, spFrame, spCaustLUT, spRandLUT}
 
     // preload mask, matrix and z-row
     mov mask, #(0xFF << 10)
@@ -89,6 +106,16 @@ transformRoom_asm:
     mla x, my, vy, x
     mla x, mz, vz, x
     mov x, x, asr #FIXED_SHIFT
+
+    // caustics
+    add tmp, sp, #SP_FRAME
+    ldmia tmp, {frame, caust, rand}
+    and tmp, count, #(MAX_RAND_TABLE - 1)
+    ldr rand, [rand, tmp, lsl #2]
+    add rand, rand, frame
+    and rand, rand, #(MAX_CAUSTICS - 1)
+    ldr caust, [caust, rand, lsl #2]
+    add vg, vg, caust, lsl #5
 
     // fog
     cmp z, #FOG_MIN

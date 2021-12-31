@@ -48,11 +48,14 @@ FOG_MAX         = VIEW_DIST
 FOG_MIN         = (FOG_MAX - (8192 >> FOG_SHIFT))
 VIEW_MIN        = (64)
 VIEW_MAX        = (VIEW_DIST)
-VIEW_OFF        = 2048
+VIEW_OFF        = 4096
 
 VIEW_MIN_F      = (VIEW_MIN << FIXED_SHIFT)
 VIEW_MAX_F      = (VIEW_MAX << FIXED_SHIFT)
 VIEW_OFF_F      = (VIEW_OFF << FIXED_SHIFT)
+
+MAX_CAUSTICS    = 32
+MAX_RAND_TABLE  = 32
 
 MIN_INT32       = 0x80000000
 MAX_INT32       = 0x7FFFFFFF
@@ -75,7 +78,7 @@ MAX_INT32       = 0x7FFFFFFF
 
 .macro tex index, uv
     and \index, \uv, #0xFF00
-    orr \index, \uv, lsr #24        // index = t.v * 256 + t.u
+    orr \index, \uv, lsr #24        // index = v * 256 + u
     ldrb \index, [TILE, \index]
 .endm
 

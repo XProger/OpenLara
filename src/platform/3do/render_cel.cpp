@@ -11,10 +11,6 @@ struct Vertex
 uint16* gPalette; // offset to the default or underwater PLUTs
 
 extern Level level;
-extern int32 lightAmbient;
-extern int32 randTable[MAX_RAND_TABLE];
-extern int32 caustics[MAX_CAUSTICS];
-extern int32 causticsFrame;
 
 int32 gVerticesCount;
 int32 gFacesCount;
@@ -1040,8 +1036,6 @@ void renderGlyph(int32 vx, int32 vy, int32 index)
 
 void faceAddRoom(const Room* room)
 {
-//        const int SIZE = 10; Face* face = gFacesBase; for (int32 i = 0; i < SIZE; i++) {
-
     if (room->info->quadsCount) {
         faceAddRoomQuads(room->data.quads, room->info->quadsCount);
     }
@@ -1050,7 +1044,6 @@ void faceAddRoom(const Room* room)
         faceAddRoomTriangles(room->data.triangles, room->info->trianglesCount);
     }
 
-//        gFacesBase = face; } memset(gOT, 0, sizeof(gOT));
 #ifdef CHECK_LIMITS
     gFacesCount = gFacesBase - gFaces;
 #endif
@@ -1058,9 +1051,7 @@ void faceAddRoom(const Room* room)
 
 void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTriangle* tFaces, const MeshTriangle* ctFaces, int32 rCount, int32 crCount, int32 tCount, int32 ctCount, int32 intensity)
 {
-//        const int SIZE = 10; Face* face = gFacesBase; for (int32 i = 0; i < SIZE; i++) {
-
-    uint32 shade = shadeTable[X_CLAMP((lightAmbient + intensity) >> 8, 0, 31)];
+    uint32 shade = shadeTable[X_CLAMP((gLightAmbient + intensity) >> 8, 0, 31)];
 
     if (rCount) {
         faceAddMeshQuads(rFaces, rCount, shade);
@@ -1078,7 +1069,6 @@ void faceAddMesh(const MeshQuad* rFaces, const MeshQuad* crFaces, const MeshTria
         faceAddMeshTrianglesFlat(ctFaces, ctCount, shade);
     }
 
-//        gFacesBase = face; } memset(gOT, 0, sizeof(gOT));
 #ifdef CHECK_LIMITS
     gFacesCount = gFacesBase - gFaces;
 #endif

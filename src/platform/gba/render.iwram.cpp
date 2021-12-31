@@ -61,10 +61,6 @@ ViewportRel viewportRel;
 
 extern uint8 lightmap[256 * 32];
 extern Level level;
-extern int32 lightAmbient;
-extern int32 randTable[MAX_RAND_TABLE];
-extern int32 caustics[MAX_CAUSTICS];
-extern int32 causticsFrame;
 
 const uint8* tile;
 
@@ -137,6 +133,7 @@ X_INLINE Face* faceAdd(int32 depth)
 
 #ifdef USE_ASM
     #define transformRoom           transformRoom_asm
+    #define transformRoomUW         transformRoomUW_asm
     #define transformMesh           transformMesh_asm
     #define faceAddRoomQuads        faceAddRoomQuads_asm
     #define faceAddRoomTriangles    faceAddRoomTriangles_asm
@@ -144,7 +141,8 @@ X_INLINE Face* faceAdd(int32 depth)
     #define faceAddMeshTriangles    faceAddMeshTriangles_asm
 
     extern "C" {
-        void transformRoom_asm(const RoomVertex* vertices, int32 count, bool underwater);
+        void transformRoom_asm(const RoomVertex* vertices, int32 count);
+        void transformRoomUW_asm(const RoomVertex* vertices, int32 count);
         void transformMesh_asm(const MeshVertex* vertices, int32 count, int32 intensity);
         void faceAddRoomQuads_asm(const RoomQuad* polys, int32 count);
         void faceAddRoomTriangles_asm(const RoomTriangle* polys, int32 count);
@@ -153,13 +151,14 @@ X_INLINE Face* faceAdd(int32 depth)
     }
 #else
     #define transformRoom           transformRoom_c
+    #define transformRoomUW         transformRoomUW_c
     #define transformMesh           transformMesh_c
     #define faceAddRoomQuads        faceAddRoomQuads_c
     #define faceAddRoomTriangles    faceAddRoomTriangles_c
     #define faceAddMeshQuads        faceAddMeshQuads_c
     #define faceAddMeshTriangles    faceAddMeshTriangles_c
 
-void transformRoom_c(const RoomVertex* vertices, int32 count, bool underwater)
+void transformRoom_c(const RoomVertex* vertices, int32 count)
 {
     Vertex* res = gVerticesBase;
 
@@ -189,10 +188,68 @@ void transformRoom_c(const RoomVertex* vertices, int32 count, bool underwater)
             z = VIEW_MAX_F;
         }
 
-        if (underwater) {
-            int32 causticsValue = caustics[(randTable[i & (MAX_RAND_TABLE - 1)] + causticsFrame) & (MAX_CAUSTICS - 1)];
-            vg = X_CLAMP(vg + causticsValue, 0, 8191);
+        x >>= FIXED_SHIFT;
+        y >>= FIXED_SHIFT;
+        z >>= FIXED_SHIFT;
+
+        if (z > FOG_MIN)
+        {
+            vg += (z - FOG_MIN) << FOG_SHIFT;
+            if (vg > 8191) {
+                vg = 8191;
+            }
         }
+
+        PERSPECTIVE(x, y, z);
+
+        x += (FRAME_WIDTH  >> 1);
+        y += (FRAME_HEIGHT >> 1);
+
+        if (x < viewport.x0) clip |= CLIP_LEFT;
+        if (x > viewport.x1) clip |= CLIP_RIGHT;
+        if (y < viewport.y0) clip |= CLIP_TOP;
+        if (y > viewport.y1) clip |= CLIP_BOTTOM;
+
+        res->x = x;
+        res->y = y;
+        res->z = z;
+        res->g = vg >> 8;
+        res->clip = clip;
+    }
+}
+
+void transformRoomUW_c(const RoomVertex* vertices, int32 count)
+{
+    Vertex* res = gVerticesBase;
+
+    for (int32 i = 0; i < count; i++, res++)
+    {
+        uint32 value = *(uint32*)(vertices++);
+
+        int32 vx = (value & (0xFF)) << 10;
+        int32 vy = (value & (0xFF << 8));
+        int32 vz = (value & (0xFF << 16)) >> 6;
+        int32 vg = (value & (0xFF << 24)) >> (24 - 5);
+
+        const Matrix &m = matrixGet();
+        int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
+        int32 y = DP43(m.e10, m.e11, m.e12, m.e13, vx, vy, vz);
+        int32 z = DP43(m.e20, m.e21, m.e22, m.e23, vx, vy, vz);
+
+        uint32 clip = 0;
+
+        if (z <= VIEW_MIN_F) {
+            clip = CLIP_NEAR;
+            z = VIEW_MIN_F;
+        }
+
+        if (z >= VIEW_MAX_F) {
+            clip = CLIP_FAR;
+            z = VIEW_MAX_F;
+        }
+
+        int32 causticsValue = gCaustics[(gRandTable[i & (MAX_RAND_TABLE - 1)] + gCausticsFrame) & (MAX_CAUSTICS - 1)];
+        vg = X_CLAMP(vg + causticsValue, 0, 8191);
 
         x >>= FIXED_SHIFT;
         y >>= FIXED_SHIFT;
@@ -228,7 +285,7 @@ void transformMesh_c(const MeshVertex* vertices, int32 count, int32 intensity)
 {
     Vertex* res = gVerticesBase;
 
-    int32 vg = X_CLAMP((intensity + lightAmbient) >> 8, 0, 31);
+    int32 vg = X_CLAMP((intensity + gLightAmbient) >> 8, 0, 31);
 
     for (int32 i = 0; i < count; i++, res++)
     {
@@ -974,7 +1031,11 @@ void renderRoom(const Room* room)
 
     {
         PROFILE(CNT_TRANSFORM);
-        transformRoom(room->data.vertices, vCount, ROOM_FLAG_WATER(room->info->flags));
+        if (ROOM_FLAG_WATER(room->info->flags)) {
+            transformRoomUW(room->data.vertices, vCount);
+        } else {
+            transformRoom(room->data.vertices, vCount);
+        }
     }
 
     {

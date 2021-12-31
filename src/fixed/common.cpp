@@ -17,7 +17,54 @@ EWRAM_DATA Settings gSettings;
 EWRAM_DATA int32 gCurTrack;
 EWRAM_DATA int32 gAnimTexFrame;
 
+int32 gLightAmbient;
+int32 gRandTable[MAX_RAND_TABLE];
+int32 gCaustics[MAX_CAUSTICS];
+int32 gCausticsFrame;
+
 EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
+
+#ifdef __GBA__
+    #include "TRACKS_IMA.h"
+    #include "TITLE_PKD.h"
+    #include "GYM_PKD.h"
+    #include "LEVEL1_PKD.h"
+    #include "LEVEL2_PKD.h"
+
+    #define LEVEL_INFO(name, title, track, secrets) { #name, name##_PKD, title, track, secrets }
+#else
+    #define LEVEL_INFO(name, title, track, secrets) { #name, NULL, title, track, secrets }
+#endif
+
+const LevelInfo gLevelInfo[LVL_MAX] = {
+// TR1
+    LEVEL_INFO( TITLE     , STR_EMPTY         , TRACK_TR1_TITLE     , 0 ),
+    LEVEL_INFO( GYM       , STR_TR1_GYM       , TRACK_NONE          , 0 ),
+    LEVEL_INFO( LEVEL1    , STR_TR1_LEVEL1    , TRACK_TR1_CAVES     , 3 ),
+    LEVEL_INFO( LEVEL2    , STR_TR1_LEVEL2    , TRACK_TR1_CAVES     , 3 ),
+    //LEVEL_INFO( LEVEL3A   , STR_TR1_LEVEL3A   , TRACK_TR1_CAVES     , 5 ),
+    //LEVEL_INFO( LEVEL3B   , STR_TR1_LEVEL3B   , TRACK_TR1_CAVES     , 3 ),
+    //LEVEL_INFO( CUT1      , STR_EMPTY         , TRACK_TR1_CUT_1     , 0 ),
+    //LEVEL_INFO( LEVEL4    , STR_TR1_LEVEL4    , TRACK_TR1_WIND      , 4 ),
+    //LEVEL_INFO( LEVEL5    , STR_TR1_LEVEL5    , TRACK_TR1_WIND      , 3 ),
+    //LEVEL_INFO( LEVEL6    , STR_TR1_LEVEL6    , TRACK_TR1_WIND      , 3 ),
+    //LEVEL_INFO( LEVEL7A   , STR_TR1_LEVEL7A   , TRACK_TR1_CISTERN   , 3 ),
+    //LEVEL_INFO( LEVEL7B   , STR_TR1_LEVEL7B   , TRACK_TR1_CISTERN   , 2 ),
+    //LEVEL_INFO( CUT2      , STR_EMPTY         , TRACK_TR1_CUT_2     , 0 ),
+    //LEVEL_INFO( LEVEL8A   , STR_TR1_LEVEL8A   , TRACK_TR1_WIND      , 3 ),
+    //LEVEL_INFO( LEVEL8B   , STR_TR1_LEVEL8B   , TRACK_TR1_WIND      , 3 ),
+    //LEVEL_INFO( LEVEL8C   , STR_TR1_LEVEL8C   , TRACK_TR1_WIND      , 1 ),
+    //LEVEL_INFO( LEVEL10A  , STR_TR1_LEVEL10A  , TRACK_TR1_CISTERN   , 3 ),
+    //LEVEL_INFO( CUT3      , STR_EMPTY         , TRACK_TR1_CUT_3     , 0 ),
+    //LEVEL_INFO( LEVEL10B  , STR_TR1_LEVEL10B  , TRACK_TR1_PYRAMID   , 3 ),
+    //LEVEL_INFO( CUT4      , STR_EMPTY         , TRACK_TR1_CUT_4     , 0 ),
+    //LEVEL_INFO( LEVEL10C  , STR_TR1_LEVEL10C  , TRACK_TR1_PYRAMID   , 3 ),
+    //LEVEL_INFO( EGYPT     , STR_TR1_EGYPT     , TRACK_TR1_WIND      , 3 ),
+    //LEVEL_INFO( CAT       , STR_TR1_CAT       , TRACK_TR1_WIND      , 4 ),
+    //LEVEL_INFO( END       , STR_TR1_END       , TRACK_TR1_WIND      , 2 )
+};
+
+LevelID gLevelID = LVL_TR1_GYM;
 
 #ifdef PROFILING
     uint32 gCounters[CNT_MAX];

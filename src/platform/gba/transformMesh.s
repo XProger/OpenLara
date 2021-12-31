@@ -34,7 +34,7 @@ transformMesh_asm:
     ldr res, =gVerticesBase
     ldr res, [res]
 
-    ldr ambient, =lightAmbient
+    ldr ambient, =gLightAmbient
     ldr ambient, [ambient]
     add vg, ambient, intensity
     mov vg, vg, asr #8

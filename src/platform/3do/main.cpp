@@ -231,27 +231,6 @@ void* readFile(char* fileName, void* buffer, int32 bufferSize)
     return ptr;
 }
 
-int32 gLevelID = 0;
-
-static const char* gLevelNames[] = {
-    "GYM",
-    "LEVEL1",
-    "LEVEL2",
-//    "LEVEL3A",
-//    "LEVEL3B",
-//    "LEVEL4",
-//    "LEVEL5",
-//    "LEVEL6",
-//    "LEVEL7A",
-//    "LEVEL7B",
-//    "LEVEL8A",
-//    "LEVEL8B",
-//    "LEVEL8C",
-//    "LEVEL10A",
-//    "LEVEL10B",
-//    "LEVEL10C"
-};
-
 void* osLoadLevel(const char* name)
 {
     char buf[32];
@@ -267,13 +246,6 @@ void* osLoadLevel(const char* name)
 
 uint32 frame;
 uint32 lastFrame;
-
-int32 reqNextLevel = -1;
-
-void nextLevel()
-{
-    reqNextLevel = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
-}
 
 int main(int argc, char *argv[])
 {
@@ -317,7 +289,7 @@ int main(int argc, char *argv[])
 
     sndInit();
 
-    game.init(gLevelNames[gLevelID]);
+    game.init(gLevelInfo[gLevelID].name);
 
     AvailMem(&memInfoVRAM, MEMTYPE_DRAM);
     printf("DRAM: %d\n", memInfoVRAM.minfo_SysFree);
@@ -356,14 +328,6 @@ int main(int argc, char *argv[])
         if ((keys & IK_SELECT) && !(oldKeys & IK_SELECT))
         {
             nextLevel();
-        }
-
-        if (reqNextLevel > -1)
-        {
-            gLevelID = reqNextLevel;
-            reqNextLevel = -1;
-            game.startLevel(gLevelNames[gLevelID]);
-            lastFrame = frame - 1;
         }
 
         if ((keys & IK_A) && (keys & IK_C)) // respawn

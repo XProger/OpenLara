@@ -4577,6 +4577,7 @@ struct LevelPC
 
 const char* levelNames[] = {
 #if 1
+    "TITLE",
     "GYM",
     "LEVEL1",
     "LEVEL2",

@@ -4,23 +4,17 @@
 #include "common.h"
 #include "item.h"
 
-int32 lightAmbient;
-
-int32 randTable[MAX_RAND_TABLE];
-int32 caustics[MAX_CAUSTICS];
-int32 causticsFrame;
-
 void drawInit()
 {
     for (int32 i = 0; i < MAX_RAND_TABLE; i++)
     {
-        randTable[i] = (rand_draw() >> 5) - 511;
+        gRandTable[i] = (rand_draw() >> 5) - 511;
     }
 
     for (int32 i = 0; i < MAX_CAUSTICS; i++)
     {
         int16 rot = i * (ANGLE_90 * 4) / MAX_CAUSTICS;
-        caustics[i] = sin(rot) * 768 >> FIXED_SHIFT;
+        gCaustics[i] = sin(rot) * 768 >> FIXED_SHIFT;
     }
 }
 
@@ -33,12 +27,12 @@ void calcLightingDynamic(const Room* room, const vec3i &point)
 {
     const RoomInfo* info = room->info;
 
-    lightAmbient = (info->ambient << 5);
+    gLightAmbient = (info->ambient << 5);
 
     if (!info->lightsCount)
         return;
 
-    lightAmbient = 8191 - lightAmbient;
+    gLightAmbient = 8191 - gLightAmbient;
     int32 maxLum = 0;
 
     for (int i = 0; i < info->lightsCount; i++)
@@ -57,34 +51,34 @@ void calcLightingDynamic(const Room* room, const vec3i &point)
         int32 dist = dot(d, d) >> 12;
         int32 att = X_SQR(radius) >> 12;
 
-        int32 lum = (intensity * att) / (dist + att) + lightAmbient;
+        int32 lum = (intensity * att) / (dist + att) + gLightAmbient;
 
         if (lum > maxLum) {
             maxLum = lum;
         }
     }
 
-    lightAmbient = 8191 - ((maxLum + lightAmbient) >> 1);
+    gLightAmbient = 8191 - ((maxLum + gLightAmbient) >> 1);
 
     Matrix &m = matrixGet();
 
     int32 fogZ = m.e23 >> FIXED_SHIFT;
     if (fogZ > FOG_MIN) {
-        lightAmbient += (fogZ - FOG_MIN) << FOG_SHIFT;
-        lightAmbient = X_MIN(lightAmbient, 8191);
+        gLightAmbient += (fogZ - FOG_MIN) << FOG_SHIFT;
+        gLightAmbient = X_MIN(gLightAmbient, 8191);
     }
 }
 
 void calcLightingStatic(int32 intensity)
 {
-    lightAmbient = intensity - 4096;
+    gLightAmbient = intensity - 4096;
 
     Matrix &m = matrixGet();
 
     int32 fogZ = m.e23 >> FIXED_SHIFT;
     if (fogZ > FOG_MIN) {
-        lightAmbient += (fogZ - FOG_MIN) << FOG_SHIFT;
-        lightAmbient = X_MIN(lightAmbient, 8191);
+        gLightAmbient += (fogZ - FOG_MIN) << FOG_SHIFT;
+        gLightAmbient = X_MIN(gLightAmbient, 8191);
     }
 }
 
@@ -212,12 +206,12 @@ void drawFlash(const ExtraInfoLara::Arm::Flash &flash)
     matrixTranslateRel(0, flash.offset, 55);
     matrixRotateYXZ(-ANGLE_90, 0, flash.angle);
 
-    int32 tmp = lightAmbient;
+    int32 tmp = gLightAmbient;
     calcLightingStatic(flash.intensity);
 
     drawMesh(level.models[ITEM_MUZZLE_FLASH].start);
 
-    lightAmbient = tmp;
+    gLightAmbient = tmp;
 
     matrixPop();
 }

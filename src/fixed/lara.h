@@ -2686,8 +2686,7 @@ struct Lara : ItemObj
         setWeaponState(WEAPON_STATE_FREE);
         meshSwap(ITEM_LARA, 0xFFFFFFFF);
 
-        extern int32 gLevelID;
-        bool isHome = gLevelID == 0;
+        bool isHome = gLevelID == LVL_TR1_GYM;
 
         if (isHome) {
             meshSwap(ITEM_LARA_SPEC, JOINT_MASK_UPPER | JOINT_MASK_LOWER);

@@ -2049,6 +2049,132 @@ struct IMA_STATE
     }
 #endif
 
+enum StringID
+{
+    STR_EMPTY,
+    STR_PASSPORT,
+    STR_COMPASS,
+    STR_HOME,
+    STR_MAP,
+    STR_DETAIL,
+    STR_SOUND,
+    STR_CONTROLS,
+    STR_GAMMA,
+    STR_PISTOLS,
+    STR_SHOTGUN,
+    STR_MAGNUMS,
+    STR_UZIS,
+    STR_AMMO_PISTOLS,
+    STR_AMMO_SHOTGUN,
+    STR_AMMO_MAGNUMS,
+    STR_AMMO_UZIS,
+    STR_EXPLOSIVE,
+    STR_MEDIKIT_SMALL,
+    STR_MEDIKIT_BIG,
+    STR_PUZZLE,
+    STR_PUZZLE_GOLD_IDOL,
+    STR_PUZZLE_GOLD_BAR,
+    STR_PUZZLE_COG,
+    STR_PUZZLE_FUSE,
+    STR_PUZZLE_ANKH,
+    STR_PUZZLE_HORUS,
+    STR_PUZZLE_ANUBIS,
+    STR_PUZZLE_SCARAB,
+    STR_PUZZLE_PYRAMID,
+    STR_LEADBAR,
+    STR_KEY,
+    STR_KEY_SILVER,
+    STR_KEY_RUSTY,
+    STR_KEY_GOLD,
+    STR_KEY_SAPPHIRE,
+    STR_KEY_NEPTUNE,
+    STR_KEY_ATLAS,
+    STR_KEY_DAMOCLES,
+    STR_KEY_THOR,
+    STR_KEY_ORNATE,
+    STR_SCION,
+// TR1 levels
+    STR_TR1_GYM,
+    STR_TR1_LEVEL1,
+    STR_TR1_LEVEL2,
+    STR_TR1_LEVEL3A,
+    STR_TR1_LEVEL3B,
+    STR_TR1_LEVEL4,
+    STR_TR1_LEVEL5,
+    STR_TR1_LEVEL6,
+    STR_TR1_LEVEL7A,
+    STR_TR1_LEVEL7B,
+    STR_TR1_LEVEL8A,
+    STR_TR1_LEVEL8B,
+    STR_TR1_LEVEL8C,
+    STR_TR1_LEVEL10A,
+    STR_TR1_LEVEL10B,
+    STR_TR1_LEVEL10C,
+    STR_TR1_EGYPT,
+    STR_TR1_CAT,
+    STR_TR1_END,
+    STR_TR1_END2,
+    STR_MAX
+};
+
+enum TrackID
+{
+    TRACK_NONE          = -1,
+// TR1
+    TRACK_TR1_TITLE     = 2,
+    TRACK_TR1_CAVES     = 5,
+    TRACK_TR1_SECRET    = 13,
+    TRACK_TR1_CISTERN   = 57,
+    TRACK_TR1_WIND      = 58,
+    TRACK_TR1_PYRAMID   = 59,
+    TRACK_TR1_CUT_1     = 23,
+    TRACK_TR1_CUT_2     = 25,
+    TRACK_TR1_CUT_3     = 24,
+    TRACK_TR1_CUT_4     = 22
+};
+
+struct LevelInfo
+{
+    const char*  name;
+    const void*  data;
+    StringID     title;
+    TrackID      track;
+    uint8        secrets;
+};
+
+enum LevelID
+{
+    LVL_TR1_TITLE,
+    LVL_TR1_GYM,
+    LVL_TR1_1,
+    LVL_TR1_2,
+    //LVL_TR1_3A,
+    //LVL_TR1_3B,
+    //LVL_TR1_CUT_1,
+    //LVL_TR1_4,
+    //LVL_TR1_5,
+    //LVL_TR1_6,
+    //LVL_TR1_7A,
+    //LVL_TR1_7B,
+    //LVL_TR1_CUT_2,
+    //LVL_TR1_8A,
+    //LVL_TR1_8B,
+    //LVL_TR1_8C,
+    //LVL_TR1_10A,
+    //LVL_TR1_CUT_3,
+    //LVL_TR1_10B,
+    //LVL_TR1_CUT_4,
+    //LVL_TR1_10C,
+    //LVL_TR1_EGYPT,
+    //LVL_TR1_CAT,
+    //LVL_TR1_END,
+    //LVL_TR1_END2,
+    LVL_MAX
+};
+
+extern const LevelInfo gLevelInfo[LVL_MAX];
+extern LevelID gLevelID;
+
 // renderer internal
 extern uint32 keys;
 extern RectMinMax viewport;
@@ -2066,6 +2192,11 @@ extern SaveGame gSaveGame;
 extern Settings gSettings;
 extern int32 gCurTrack;
 extern int32 gAnimTexFrame;
+
+extern int32 gLightAmbient;
+extern int32 gRandTable[MAX_RAND_TABLE];
+extern int32 gCaustics[MAX_CAUSTICS];
+extern int32 gCausticsFrame;
 
 extern const FloorData* gLastFloorData;
 extern FloorData gLastFloorSlant;

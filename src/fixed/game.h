@@ -9,6 +9,17 @@
 #include "nav.h"
 #include "level.h"
 
+LevelID gNextLevel = LVL_MAX;
+
+void nextLevel()
+{
+    if (gLevelID == LVL_TR1_2) {
+        gNextLevel = LVL_TR1_GYM;
+        return;
+    }
+    gNextLevel = LevelID(gLevelID + 1);
+}
+
 struct Game
 {
     void init(const char* name)
@@ -151,6 +162,14 @@ struct Game
     void update(int32 frames)
     {
         PROFILE(CNT_UPDATE);
+
+        if (gNextLevel != LVL_MAX)
+        {
+            gLevelID = gNextLevel;
+            gNextLevel = LVL_MAX;
+            startLevel(gLevelInfo[gLevelID].name);
+            frames = 1;
+        }
 
         if (frames > MAX_UPDATE_FRAMES) {
             frames = MAX_UPDATE_FRAMES;

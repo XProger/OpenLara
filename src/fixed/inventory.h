@@ -3,93 +3,70 @@
 
 #include "common.h"
 
-enum StringID {
-      STR_PASSPORT
-    , STR_COMPASS
-    , STR_HOME
-    , STR_MAP
-    , STR_DETAIL
-    , STR_SOUND
-    , STR_CONTROLS
-    , STR_GAMMA
-    , STR_PISTOLS
-    , STR_SHOTGUN
-    , STR_MAGNUMS
-    , STR_UZIS
-    , STR_AMMO_PISTOLS
-    , STR_AMMO_SHOTGUN
-    , STR_AMMO_MAGNUMS
-    , STR_AMMO_UZIS
-    , STR_EXPLOSIVE
-    , STR_MEDIKIT_SMALL
-    , STR_MEDIKIT_BIG
-    , STR_PUZZLE
-    , STR_PUZZLE_GOLD_IDOL
-    , STR_PUZZLE_GOLD_BAR
-    , STR_PUZZLE_COG
-    , STR_PUZZLE_FUSE
-    , STR_PUZZLE_ANKH
-    , STR_PUZZLE_HORUS
-    , STR_PUZZLE_ANUBIS
-    , STR_PUZZLE_SCARAB
-    , STR_PUZZLE_PYRAMID
-    , STR_LEADBAR
-    , STR_KEY
-    , STR_KEY_SILVER
-    , STR_KEY_RUSTY
-    , STR_KEY_GOLD
-    , STR_KEY_SAPPHIRE
-    , STR_KEY_NEPTUNE
-    , STR_KEY_ATLAS
-    , STR_KEY_DAMOCLES
-    , STR_KEY_THOR
-    , STR_KEY_ORNATE
-    , STR_SCION
-    , STR_MAX
-};
-
 const char* InvNames[STR_MAX] = {
-      "Game"
-    , "Compass"
-    , "Lara's Home"
-    , "Map"
-    , "Detail Levels"
-    , "Sound"
-    , "Controls"
-    , "Gamma"
-    , "Pistols"
-    , "Shotgun"
-    , "Magnums"
-    , "Uzis"
-    , "Pistol Clips"
-    , "Shotgun Shells"
-    , "Magnum Clips"
-    , "Uzi Clips"
-    , "Explosive"
-    , "Small Medi Pack"
-    , "Large Medi Pack"
-    , "Puzzle"
-    , "Gold Idol"
-    , "Gold Bar"
-    , "Machine Cog"
-    , "Fuse"
-    , "Ankh"
-    , "Eye of Horus"
-    , "Seal of Anubis"
-    , "Scarab"
-    , "Pyramid Key"
-    , "Lead Bar"
-    , "Key"
-    , "Silver Key"
-    , "Rusty Key"
-    , "Gold Key"
-    , "Sapphire Key"
-    , "Neptune Key"
-    , "Atlas Key"
-    , "Damocles Key"
-    , "Thor Key"
-    , "Ornate Key"
-    , "Scion"
+    "",
+    "Game",
+    "Compass",
+    "Lara's Home",
+    "Map",
+    "Detail Levels",
+    "Sound",
+    "Controls",
+    "Gamma",
+    "Pistols",
+    "Shotgun",
+    "Magnums",
+    "Uzis",
+    "Pistol Clips",
+    "Shotgun Shells",
+    "Magnum Clips",
+    "Uzi Clips",
+    "Explosive",
+    "Small Medi Pack",
+    "Large Medi Pack",
+    "Puzzle",
+    "Gold Idol",
+    "Gold Bar",
+    "Machine Cog",
+    "Fuse",
+    "Ankh",
+    "Eye of Horus",
+    "Seal of Anubis",
+    "Scarab",
+    "Pyramid Key",
+    "Lead Bar",
+    "Key",
+    "Silver Key",
+    "Rusty Key",
+    "Gold Key",
+    "Sapphire Key",
+    "Neptune Key",
+    "Atlas Key",
+    "Damocles Key",
+    "Thor Key",
+    "Ornate Key",
+    "Scion",
+// TR1 levels
+    "Lara's Home",
+    "Caves",
+    "City of Vilcabamba",
+    "Lost Valley",
+    "Tomb of Qualopec",
+    "St. Francis' Folly",
+    "Colosseum",
+    "Palace Midas",
+    "The Cistern",
+    "Tomb of Tihocan",
+    "City of Khamoon",
+    "Obelisk of Khamoon",
+    "Sanctuary of the Scion",
+    "Natla's Mines",
+    "Atlantis",
+    "The Great Pyramid",
+    "Return to Egypt",
+    "Temple of the Cat",
+    "Atlantean Stronghold",
+    "The Hive"
 };
 
 enum InvSlot {

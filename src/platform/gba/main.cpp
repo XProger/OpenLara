@@ -1,12 +1,6 @@
 #if defined(_WIN32) || defined(__DOS__)
     const void* TRACKS_IMA;
     const void* levelData;
-#elif defined(__GBA__)
-    #include "TRACKS_IMA.h"
-    #include "LEVEL1_PKD.h"
-    const void* levelData = LEVEL1_PKD;
-#elif defined(__TNS__)
-    const void* levelData;
 #endif
 
 #include "game.h"
@@ -456,34 +450,6 @@ void vblank() {
 
 #endif
 
-int32 gLevelID = 1;
-
-static const char* gLevelNames[] = {
-    "GYM",
-    "LEVEL1",
-    "LEVEL2",
-//    "LEVEL3A",
-//    "LEVEL3B",
-//    "LEVEL4",
-//    "LEVEL5",
-//    "LEVEL6",
-//    "LEVEL7A",
-//    "LEVEL7B",
-//    "LEVEL8A",
-//    "LEVEL8B",
-//    "LEVEL8C",
-//    "LEVEL10A",
-//    "LEVEL10B",
-//    "LEVEL10C"
-};
-
-int32 reqNextLevel = -1;
-
-void nextLevel()
-{
-    reqNextLevel = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
-}
-
 void* osLoadLevel(const char* name)
 {
     sndStop();
@@ -538,8 +504,18 @@ void* osLoadLevel(const char* name)
         }
         #endif
     }
-#endif
+    
     return (void*)levelData;
+#elif defined(__GBA__)
+    for (int32 i = 0; i < LVL_MAX; i++)
+    {
+        if (strcmp(name, gLevelInfo[i].name) == 0)
+            return (void*)gLevelInfo[i].data;
+    }
+
+    gLevelID = LVL_TR1_TITLE;
+    return (void*)gLevelInfo[gLevelID].data;
+#endif
 }
 
 int main(void) {
@@ -558,7 +534,7 @@ int main(void) {
 
     soundInit();
 
-    game.init(gLevelNames[gLevelID]);
+    game.init(gLevelInfo[gLevelID].name);
 
     MSG msg;
 
@@ -576,10 +552,9 @@ int main(void) {
 
             if ((keys & IK_SELECT) && !(oldKeys & IK_SELECT))
             {
-                gLevelID = (gLevelID + 1) % (sizeof(gLevelNames) / sizeof(gLevelNames[0]));
-                game.startLevel(gLevelNames[gLevelID]);
-                lastFrame = frame - 1; 
+                nextLevel();
             }
+
             oldKeys = keys;
 
             int32 count = frame - lastFrame;
@@ -633,7 +608,7 @@ int main(void) {
     rumbleInit();
     soundInit();
 
-    game.init(gLevelNames[gLevelID]);
+    game.init(gLevelInfo[gLevelID].name);
 
     uint16 mode = DCNT_BG2 | DCNT_PAGE;
 
@@ -642,12 +617,14 @@ int main(void) {
     REG_BG2PD = (1 << 8);
 
     int32 lastFrameIndex = -1;
+    uint32 oldKeys = 0;
 
     while (1)
     {
         rumbleUpdate();
 
         { // input
+            oldKeys = keys;
             keys = 0;
             key_poll();
             if (key_is_down(KEY_UP))      keys |= IK_UP;
@@ -660,6 +637,11 @@ int main(void) {
             if (key_is_down(KEY_R))       keys |= IK_R;
             if (key_is_down(KEY_START))   keys |= IK_START;
             if (key_is_down(KEY_SELECT))  keys |= IK_SELECT;
+        }
+
+        if ((keys & IK_SELECT) && !(oldKeys & IK_SELECT))
+        {
+            nextLevel();
         }
 
         int32 frame = frameIndex / 2;
@@ -694,7 +676,7 @@ int main(void) {
     timerInit();
     inputInit();
 
-    game.init(gLevelNames[gLevelID]);
+    game.init(gLevelInfo[gLevelID].name);
 
     int startTime = GetTickCount();
     int lastTime = -16;
@@ -730,7 +712,7 @@ int main(void) {
     videoAcquire();
     inputAcquire();
 
-    game.init(gLevelNames[gLevelID]);
+    game.init(gLevelInfo[gLevelID].name);
 
     int32 lastFrameIndex = -1;
 
