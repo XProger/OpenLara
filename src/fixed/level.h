@@ -26,6 +26,8 @@ EWRAM_DATA StaticMesh staticMeshes[MAX_STATIC_MESHES];
 ItemObj* ItemObj::sFirstActive;
 ItemObj* ItemObj::sFirstFree;
 
+int32 gBrightness;
+
 void readLevel_GBA(const uint8* data)
 {
     memcpy(&level, data, sizeof(level));
@@ -58,7 +60,8 @@ void readLevel_GBA(const uint8* data)
 
 #ifndef MODEHW
     // initialize global pointers
-    osSetPalette(level.palette);
+    gBrightness = -128;
+    palSet(level.palette, gSaveGame.gamma, gBrightness);
     memcpy(lightmap, level.lightmap, sizeof(lightmap));
 #endif
 
@@ -158,8 +161,38 @@ void animTexturesShift()
     }
 }
 
+#define FADING_RATE 16
+
+void updateFading(int32 frames)
+{
+    if (gBrightness == 0)
+        return;
+
+    frames *= FADING_RATE;
+
+    if (gBrightness < 0)
+    {
+        gBrightness += frames;
+        if (gBrightness > 0) {
+            gBrightness = 0;
+        }
+    }
+
+    if (gBrightness > 0)
+    {
+        gBrightness -= frames;
+        if (gBrightness < 0) {
+            gBrightness = 0;
+        }
+    }
+
+    palSet(level.palette, gSaveGame.gamma, gBrightness);
+}
+
 void updateLevel(int32 frames)
 {
+    updateFading(frames);
+
     gCausticsFrame += frames;
 
     gAnimTexFrame += frames;

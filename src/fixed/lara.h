@@ -4,6 +4,7 @@
 #include "common.h"
 #include "item.h"
 #include "camera.h"
+#include "inventory.h"
 
 #define LARA_STATES(E) \
     E( STATE_WALK         ) \
@@ -386,7 +387,7 @@ struct Lara : ItemObj
             return;
 
         if (!extraL->hitFrame) {
-            soundPlay(SND_HIT, pos);
+            soundPlay(SND_HIT, &pos);
         }
 
         extraL->hitFrame++;
@@ -404,7 +405,7 @@ struct Lara : ItemObj
 
     void startScreaming()
     {
-        soundPlay(SND_SCREAM, pos);
+        soundPlay(SND_SCREAM, &pos);
     }
 
     void stopScreaming()
@@ -2714,20 +2715,25 @@ struct Lara : ItemObj
         flags.shadow = true;
 
         extraL->camera.init(this);
+        extraL->healthTimer = 100;
     }
 
 // update control
     void updateInput()
     {
+        extraL->lastInput = input;
+
         input = 0;
 
         if (extraL->camera.mode == CAMERA_MODE_FREE)
             return;
 
-        if (keys & IK_LEFT)  input |= IN_LEFT;
-        if (keys & IK_RIGHT) input |= IN_RIGHT;
-        if (keys & IK_UP)    input |= IN_UP;
-        if (keys & IK_DOWN)  input |= IN_DOWN;
+        if (keys & IK_LEFT)    input |= IN_LEFT;
+        if (keys & IK_RIGHT)   input |= IN_RIGHT;
+        if (keys & IK_UP)      input |= IN_UP;
+        if (keys & IK_DOWN)    input |= IN_DOWN;
+        if (keys & IK_START)   input |= IN_START;
+        if (keys & IK_SELECT)  input |= IN_SELECT;
 
     #ifdef __3DO__
         if (keys & IK_A) input |= IN_JUMP;
@@ -2771,25 +2777,12 @@ struct Lara : ItemObj
                 input |= IN_WALK;
             }
         }
-
-        if (keys & IK_SELECT)
-        {
-            int32 gamma = gSaveGame.gamma;
-
-            if (keys & IK_R) {
-                gamma += 16;
-            }
-
-            if (keys & IK_L) {
-                gamma -= 16;
-            }
-
-            gamma = X_CLAMP(gamma, 0, 256);
-            if (gamma != gSaveGame.gamma) {
-                osSetGamma(gSaveGame.gamma = gamma);
-            }
-        }
     #endif
+    }
+
+    bool isKeyHit(InputState state)
+    {
+        return (input & state) && !(extraL->lastInput & state);
     }
 
     void updateLook()
@@ -3083,7 +3076,7 @@ struct Lara : ItemObj
         int16 ammo = extraL->ammo[extraL->weapon];
 
         if (!ammo) {
-            soundPlay(SND_EMPTY, pos);
+            soundPlay(SND_EMPTY, &pos);
             extraL->goalWeapon = WEAPON_PISTOLS;
             return false;
         }
@@ -3164,7 +3157,7 @@ struct Lara : ItemObj
             }
         }
 
-        soundPlay(params.soundId, pos);
+        soundPlay(params.soundId, &pos);
 
         return true;
     }
@@ -3230,7 +3223,7 @@ struct Lara : ItemObj
 
             if (anim == ANIM_PISTOLS_DRAW) {
                 meshSwapPistols(JOINT_MASK_ARM_R3 | JOINT_MASK_ARM_L3, JOINT_MASK_LEG_R1 | JOINT_MASK_LEG_L1);
-                soundPlay(SND_DRAW, pos);
+                soundPlay(SND_DRAW, &pos);
             } else if (anim == ANIM_PISTOLS_FIRE) {
                 anim = ANIM_PISTOLS_AIM;
                 setWeaponState(WEAPON_STATE_READY);
@@ -3283,7 +3276,7 @@ struct Lara : ItemObj
                     } else {
                         meshSwapPistols(JOINT_MASK_LEG_L1, JOINT_MASK_ARM_L3);
                     }
-                    soundPlay(SND_HOLSTER, pos);
+                    soundPlay(SND_HOLSTER, &pos);
                 } else if (anim == ANIM_PISTOLS_FIRE) {
                     anim = ANIM_PISTOLS_AIM;
                 }
@@ -3315,7 +3308,7 @@ struct Lara : ItemObj
 
         if (frame == 10) {
             meshSwapShotgun(true);
-            soundPlay(SND_DRAW, pos);
+            soundPlay(SND_DRAW, &pos);
         }
 
         if (frame == animLength) {
@@ -3358,7 +3351,7 @@ struct Lara : ItemObj
             } else {
                 if (frame == 10) {
                     meshSwapShotgun(false);
-                    soundPlay(SND_HOLSTER, pos);
+                    soundPlay(SND_HOLSTER, &pos);
                 }
                 frame--;
             }
@@ -3491,7 +3484,7 @@ struct Lara : ItemObj
             {
                 frame++;
                 if (frame == 10) {
-                    soundPlay(SND_SHOTGUN_RELOAD, pos);
+                    soundPlay(SND_SHOTGUN_RELOAD, &pos);
                 } else if (frame == params.reloadTimer) {
                     anim = ANIM_SHOTGUN_AIM;
                     animPtr = level.anims + level.models[params.animType].animIndex + anim;
@@ -3781,6 +3774,7 @@ struct Lara : ItemObj
 
         osJoyVibrate(0, 0xFF, 0xFF);
         health -= damage;
+        extraL->healthTimer = 40;
     }
 
     virtual void update()
@@ -3788,6 +3782,16 @@ struct Lara : ItemObj
         vec3i oldPos = pos;
 
         updateInput();
+
+        if ((input & (IN_JUMP | IN_WEAPON)) == (IN_JUMP | IN_WEAPON))
+        {
+            restore();
+        }
+
+        if (isKeyHit(IN_SELECT))
+        {
+            inventory.open(this, INV_PAGE_MAIN);
+        }
 
         updateLook();
 
@@ -3848,6 +3852,10 @@ struct Lara : ItemObj
         checkTrigger(cinfo.trigger, this);
 
         extraL->camera.update();
+
+        if (health > 0 && extraL->healthTimer > 0) {
+            extraL->healthTimer--;
+        }
     }
 
     void meshSwap(ItemType type, uint32 mask)

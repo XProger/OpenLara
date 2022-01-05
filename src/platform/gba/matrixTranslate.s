@@ -44,7 +44,7 @@ matrixTranslateRel_asm:
 matrixTranslateAbs_asm:
     stmfd sp!, {r4-r5, lr}
 
-    ldr v, =cameraViewPos
+    ldr v, =gCameraViewPos
     ldmia v, {e0, e1, e2}
     sub x, x, e0
     sub y, y, e1

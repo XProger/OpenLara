@@ -3,146 +3,98 @@
 
 #include "common.h"
 
-const char* InvNames[STR_MAX] = {
-    "",
-    "Game",
-    "Compass",
-    "Lara's Home",
-    "Map",
-    "Detail Levels",
-    "Sound",
-    "Controls",
-    "Gamma",
-    "Pistols",
-    "Shotgun",
-    "Magnums",
-    "Uzis",
-    "Pistol Clips",
-    "Shotgun Shells",
-    "Magnum Clips",
-    "Uzi Clips",
-    "Explosive",
-    "Small Medi Pack",
-    "Large Medi Pack",
-    "Puzzle",
-    "Gold Idol",
-    "Gold Bar",
-    "Machine Cog",
-    "Fuse",
-    "Ankh",
-    "Eye of Horus",
-    "Seal of Anubis",
-    "Scarab",
-    "Pyramid Key",
-    "Lead Bar",
-    "Key",
-    "Silver Key",
-    "Rusty Key",
-    "Gold Key",
-    "Sapphire Key",
-    "Neptune Key",
-    "Atlas Key",
-    "Damocles Key",
-    "Thor Key",
-    "Ornate Key",
-    "Scion",
-// TR1 levels
-    "Lara's Home",
-    "Caves",
-    "City of Vilcabamba",
-    "Lost Valley",
-    "Tomb of Qualopec",
-    "St. Francis' Folly",
-    "Colosseum",
-    "Palace Midas",
-    "The Cistern",
-    "Tomb of Tihocan",
-    "City of Khamoon",
-    "Obelisk of Khamoon",
-    "Sanctuary of the Scion",
-    "Natla's Mines",
-    "Atlantis",
-    "The Great Pyramid",
-    "Return to Egypt",
-    "Temple of the Cat",
-    "Atlantean Stronghold",
-    "The Hive"
+#define INV_CAMERA_HEIGHT   -1536
+#define INV_CAMERA_Y        96
+#define INV_CAMERA_Z        768
+#define INV_RING_RADIUS     688
+
+enum InvState {
+    INV_STATE_NONE,
+    INV_STATE_OPENING,
+    INV_STATE_READY,
+    INV_STATE_CLOSING,
+    INV_STATE_SPIN,
+    INV_STATE_PAGE_MAIN,
+    INV_STATE_PAGE_KEYS,
+    INV_STATE_PAGE_OPTIONS
+};
+
+enum InvPage {
+    INV_PAGE_TITLE,
+    INV_PAGE_SAVE,
+    INV_PAGE_DEATH,
+    INV_PAGE_MAIN,
+    INV_PAGE_KEYS,
+    INV_PAGE_OPTIONS
 };
 
 enum InvSlot {
 // Items
-      SLOT_LEADBAR
-    , SLOT_KEY_ITEM_1
-    , SLOT_KEY_ITEM_2
-    , SLOT_KEY_ITEM_3
-    , SLOT_KEY_ITEM_4
-    , SLOT_PUZZLE_4
-    , SLOT_PUZZLE_3
-    , SLOT_PUZZLE_2
-    , SLOT_PUZZLE_1
-    , SLOT_SCION
+    SLOT_LEADBAR,
+    SLOT_KEY_ITEM_1,
+    SLOT_KEY_ITEM_2,
+    SLOT_KEY_ITEM_3,
+    SLOT_KEY_ITEM_4,
+    SLOT_PUZZLE_4,
+    SLOT_PUZZLE_3,
+    SLOT_PUZZLE_2,
+    SLOT_PUZZLE_1,
+    SLOT_SCION,
 // Inventory
-    , SLOT_COMPASS
-    , SLOT_MAP
-    , SLOT_PISTOLS
-    , SLOT_AMMO_PISTOLS
-    , SLOT_SHOTGUN
-    , SLOT_AMMO_SHOTGUN
-    , SLOT_MAGNUMS
-    , SLOT_AMMO_MAGNUMS
-    , SLOT_UZIS
-    , SLOT_AMMO_UZIS
-    , SLOT_EXPLOSIVE
-    , SLOT_MEDIKIT_BIG
-    , SLOT_MEDIKIT_SMALL
+    SLOT_COMPASS,
+    SLOT_PISTOLS,
+    SLOT_AMMO_PISTOLS,
+    SLOT_SHOTGUN,
+    SLOT_AMMO_SHOTGUN,
+    SLOT_MAGNUMS,
+    SLOT_AMMO_MAGNUMS,
+    SLOT_UZIS,
+    SLOT_AMMO_UZIS,
+    SLOT_MEDIKIT_BIG,
+    SLOT_MEDIKIT_SMALL,
 // Options
-    , SLOT_PASSPORT
-    , SLOT_DETAIL
-    , SLOT_SOUND
-    , SLOT_CONTROLS
-    , SLOT_GAMMA
-    , SLOT_HOME
-    , SLOT_MAX
+    SLOT_PASSPORT,
+    SLOT_DETAIL,
+    SLOT_SOUND,
+    SLOT_CONTROLS,
+    SLOT_HOME,
+    SLOT_MAX,
 };
-
 
 struct InvItem
 {
     uint8 type;
-    uint8 sid;
+    StringID str;
     // TODO params
 };
 
 const InvItem INV_SLOTS[SLOT_MAX] = {
-      { ITEM_INV_LEADBAR        , STR_LEADBAR       }
-    , { ITEM_INV_KEY_ITEM_1     , STR_KEY           }
-    , { ITEM_INV_KEY_ITEM_2     , STR_KEY           }
-    , { ITEM_INV_KEY_ITEM_3     , STR_KEY           }
-    , { ITEM_INV_KEY_ITEM_4     , STR_KEY           }
-    , { ITEM_INV_PUZZLE_4       , STR_PUZZLE        }
-    , { ITEM_INV_PUZZLE_3       , STR_PUZZLE        }
-    , { ITEM_INV_PUZZLE_2       , STR_PUZZLE        }
-    , { ITEM_INV_PUZZLE_1       , STR_PUZZLE        }
-    , { ITEM_INV_SCION          , STR_SCION         }
-    , { ITEM_INV_COMPASS        , STR_COMPASS       }
-    , { ITEM_INV_MAP            , STR_MAP           }
-    , { ITEM_INV_PISTOLS        , STR_PISTOLS       }
-    , { ITEM_INV_AMMO_PISTOLS   , STR_AMMO_PISTOLS  }
-    , { ITEM_INV_SHOTGUN        , STR_SHOTGUN       }
-    , { ITEM_INV_AMMO_SHOTGUN   , STR_AMMO_SHOTGUN  }
-    , { ITEM_INV_MAGNUMS        , STR_MAGNUMS       }
-    , { ITEM_INV_AMMO_MAGNUMS   , STR_AMMO_MAGNUMS  }
-    , { ITEM_INV_UZIS           , STR_UZIS          }
-    , { ITEM_INV_AMMO_UZIS      , STR_AMMO_UZIS     }
-    , { ITEM_INV_EXPLOSIVE      , STR_EXPLOSIVE     }
-    , { ITEM_INV_MEDIKIT_BIG    , STR_MEDIKIT_BIG   }
-    , { ITEM_INV_MEDIKIT_SMALL  , STR_MEDIKIT_SMALL }
-    , { ITEM_INV_PASSPORT       , STR_PASSPORT      }
-    , { ITEM_INV_DETAIL         , STR_DETAIL        }
-    , { ITEM_INV_SOUND          , STR_SOUND         }
-    , { ITEM_INV_CONTROLS       , STR_CONTROLS      }
-    , { ITEM_INV_GAMMA          , STR_GAMMA         }
-    , { ITEM_INV_HOME           , STR_HOME          }
+    { ITEM_INV_LEADBAR        , STR_LEAD_BAR      },
+    { ITEM_INV_KEY_ITEM_1     , STR_KEY           },
+    { ITEM_INV_KEY_ITEM_2     , STR_KEY           },
+    { ITEM_INV_KEY_ITEM_3     , STR_KEY           },
+    { ITEM_INV_KEY_ITEM_4     , STR_KEY           },
+    { ITEM_INV_PUZZLE_4       , STR_PUZZLE        },
+    { ITEM_INV_PUZZLE_3       , STR_PUZZLE        },
+    { ITEM_INV_PUZZLE_2       , STR_PUZZLE        },
+    { ITEM_INV_PUZZLE_1       , STR_PUZZLE        },
+    { ITEM_INV_SCION          , STR_SCION         },
+    { ITEM_INV_COMPASS        , STR_COMPASS       },
+    { ITEM_INV_PISTOLS        , STR_PISTOLS       },
+    { ITEM_INV_AMMO_PISTOLS   , STR_AMMO_PISTOLS  },
+    { ITEM_INV_SHOTGUN        , STR_SHOTGUN       },
+    { ITEM_INV_AMMO_SHOTGUN   , STR_AMMO_SHOTGUN  },
+    { ITEM_INV_MAGNUMS        , STR_MAGNUMS       },
+    { ITEM_INV_AMMO_MAGNUMS   , STR_AMMO_MAGNUMS  },
+    { ITEM_INV_UZIS           , STR_UZIS          },
+    { ITEM_INV_AMMO_UZIS      , STR_AMMO_UZIS     },
+    { ITEM_INV_MEDIKIT_BIG    , STR_MEDI_BIG      },
+    { ITEM_INV_MEDIKIT_SMALL  , STR_MEDI_SMALL    },
+    { ITEM_INV_PASSPORT       , STR_GAME          },
+    { ITEM_INV_DETAIL         , STR_DETAIL        },
+    { ITEM_INV_SOUND          , STR_SOUND         },
+    { ITEM_INV_CONTROLS       , STR_CONTROLS      },
+    { ITEM_INV_HOME           , STR_HOME          },
 };
 
 
@@ -152,7 +104,34 @@ struct Inventory
 
     int32 numKeys;
 
-    int32 counts[X_COUNT(INV_SLOTS)];
+    int16 counts[SLOT_MAX];
+
+    int32 height;
+    int32 radius;
+    int32 pitch;
+    int16 rot;
+    int16 rotItem;
+
+    ItemObj* lara;
+    InvPage page;
+    InvState state;
+    InvState nextState;
+    int32 timer;
+
+    int32 heightTarget;
+    int32 heightInc;
+    int32 radiusTarget;
+    int32 radiusInc;
+    int32 pitchTarget;
+    int32 pitchInc;
+    int16 rotTarget;
+    int16 rotInc;
+
+    InvSlot itemsList[SLOT_MAX];
+    int32   itemsCount;
+    int32   itemIndex;
+
+    void* background;
 
     Inventory()
     {
@@ -285,12 +264,409 @@ struct Inventory
         return true;
     }
 
+    void setState(InvState state, InvState nextState, int32 timer)
+    {
+        this->state = state;
+        this->nextState = nextState;
+        this->timer = timer;
+    }
+
+    void setHeight(int32 target)
+    {
+        heightTarget = target;
+        heightInc = (target - height) / timer;
+    }
+
+    void setRadius(int32 target)
+    {
+        radiusTarget = target;
+        radiusInc = (target - radius) / timer; 
+    }
+
+    void setPitch(int32 target)
+    {
+        pitchTarget = target;
+        pitchInc = (target - pitch) / timer; 
+    }
+
+    void setRot(int32 delta, int32 target)
+    {
+        rotTarget = target;
+        rotInc = delta / timer;
+    }
+
+    void setPage(InvPage page)
+    {
+        this->page = page;
+
+        itemsCount = 0;
+
+        #define ADD_SLOT(slot) itemsList[itemsCount++] = slot;
+
+        switch (page)
+        {
+            case INV_PAGE_SAVE:
+            {
+                break;
+            }
+
+            case INV_PAGE_TITLE:
+            case INV_PAGE_DEATH:
+            case INV_PAGE_OPTIONS:
+            {
+                ADD_SLOT(SLOT_PASSPORT);
+                ADD_SLOT(SLOT_DETAIL);
+                ADD_SLOT(SLOT_SOUND);
+                ADD_SLOT(SLOT_CONTROLS);
+                if (page == INV_PAGE_TITLE)
+                {
+                    ADD_SLOT(SLOT_HOME);
+                }
+                break;
+            }
+
+            case INV_PAGE_MAIN:
+            {
+                ADD_SLOT(SLOT_COMPASS);
+                ADD_SLOT(SLOT_PISTOLS);
+                ADD_SLOT(SLOT_SHOTGUN);
+                ADD_SLOT(SLOT_MAGNUMS);
+                ADD_SLOT(SLOT_UZIS);
+                ADD_SLOT(SLOT_MEDIKIT_BIG);
+                ADD_SLOT(SLOT_MEDIKIT_SMALL);
+                break;
+            }
+
+            case INV_PAGE_KEYS:
+            {
+                ADD_SLOT(SLOT_LEADBAR);
+                ADD_SLOT(SLOT_KEY_ITEM_1);
+                ADD_SLOT(SLOT_KEY_ITEM_2);
+                ADD_SLOT(SLOT_KEY_ITEM_3);
+                ADD_SLOT(SLOT_KEY_ITEM_4);
+                ADD_SLOT(SLOT_PUZZLE_4);
+                ADD_SLOT(SLOT_PUZZLE_3);
+                ADD_SLOT(SLOT_PUZZLE_2);
+                ADD_SLOT(SLOT_PUZZLE_1);
+                ADD_SLOT(SLOT_SCION);
+                break;
+            }
+        }
+
+        itemIndex = 0;
+
+        setRot(ANGLE_180, itemIndex * ANGLE_360 / itemsCount); // TODO
+        rot = rotTarget - ANGLE_180;
+    }
+
+    void open(ItemObj* lara, InvPage page)
+    {
+        if (gBrightness != 0)
+            return;
+
+        soundPlay(SND_INV_SHOW, NULL);
+
+        this->lara = lara;
+
+        background = copyBackground();
+
+        height = INV_CAMERA_HEIGHT;
+        pitch = (page == INV_PAGE_TITLE) ? 1024 : 0;
+        radius = 0;
+
+        setState(INV_STATE_OPENING, INV_STATE_READY, 16);
+        setHeight(-256);
+        setRadius(INV_RING_RADIUS);
+        setPage(page);
+
+        update(1);
+    }
+
+    void close()
+    {
+        soundPlay(SND_INV_HIDE, NULL);
+
+        setState(INV_STATE_CLOSING, INV_STATE_NONE, 16);
+        setHeight(-1536);
+        setRadius(0);
+        setRot(ANGLE_180, rot - ANGLE_180);
+    }
+
+    int32 getKeysCount()
+    {
+        int32 sum = 0;
+
+        for (int32 i = SLOT_LEADBAR; i <= SLOT_SCION; i++)
+        {
+            sum += counts[i];
+        }
+
+        return sum;
+    }
+
+    void update(int32 frames)
+    {
+        if (timer > 0)
+        {
+            timer -= frames;
+
+            height += heightInc * frames;
+            radius += radiusInc * frames;
+            pitch += pitchInc * frames;
+            rot += rotInc * frames;
+            //rotItem += rotItemInc * frames;
+
+            if (timer <= 0)
+            {
+                timer = 0;
+                state = nextState;
+                height = heightTarget;
+                radius = radiusTarget;
+                pitch = pitchTarget;
+                rot = rotTarget;
+
+                heightInc = 0;
+                radiusInc = 0;
+                pitchInc = 0;
+                rotInc = 0;
+                rotItem = 0;
+            }
+        }
+
+        rotItem += frames * 256;
+
+        switch (state)
+        {
+            case INV_STATE_NONE:
+            {
+                break;
+            }
+
+            case INV_STATE_OPENING:
+            {
+                break;
+            }
+
+            case INV_STATE_READY:
+            {
+                if (lara->input & IN_LEFT) {
+                    soundPlay(SND_INV_SPIN, NULL);
+                    itemIndex++;
+                    if (itemIndex >= itemsCount) {
+                        itemIndex -= itemsCount;
+                    }
+                    setState(INV_STATE_SPIN, INV_STATE_READY, 12);
+                    setRot(ANGLE_360 / itemsCount, itemIndex * ANGLE_360 / itemsCount);
+                } else if (lara->input & IN_RIGHT) {
+                    soundPlay(SND_INV_SPIN, NULL);
+                    itemIndex--;
+                    if (itemIndex < 0) {
+                        itemIndex += itemsCount;
+                    }
+                    setState(INV_STATE_SPIN, INV_STATE_READY, 12);
+                    setRot(-ANGLE_360 / itemsCount, itemIndex * ANGLE_360 / itemsCount);
+                } else {
+                    if (page != INV_PAGE_TITLE && page != INV_PAGE_SAVE && page != INV_PAGE_DEATH)
+                    {
+                        if (lara->input & IN_UP) {
+                            if (page == INV_PAGE_OPTIONS) {
+                                setState(INV_STATE_CLOSING, INV_STATE_PAGE_MAIN, 12);
+                                setRadius(0);
+                                setRot(ANGLE_180, rot - ANGLE_180);
+                                setPitch(ANGLE_45);
+                            } else if ((page == INV_PAGE_MAIN) && (getKeysCount() > 0)) {
+                                setState(INV_STATE_CLOSING, INV_STATE_PAGE_KEYS, 12);
+                                setRadius(0);
+                                setRot(ANGLE_180, rot - ANGLE_180);
+                                setPitch(ANGLE_45);
+                            }
+                        } else if (lara->input & IN_DOWN) {
+                            if (page == INV_PAGE_KEYS) {
+                                setState(INV_STATE_CLOSING, INV_STATE_PAGE_MAIN, 12);
+                                setRadius(0);
+                                setRot(ANGLE_180, rot - ANGLE_180);
+                                setPitch(-ANGLE_45);
+                            } else if (page == INV_PAGE_MAIN) {
+                                setState(INV_STATE_CLOSING, INV_STATE_PAGE_OPTIONS, 12);
+                                setRadius(0);
+                                setRot(ANGLE_180, rot - ANGLE_180);
+                                setPitch(-ANGLE_45);
+                            }
+                        } else if (lara->input & IN_SELECT) {
+                            close();
+                        }
+                    }
+                }
+
+                break;
+            }
+
+            case INV_STATE_CLOSING:
+            {
+                break;
+            }
+
+            case INV_STATE_PAGE_MAIN:
+            {
+                pitch = -pitch;
+                setState(INV_STATE_OPENING, INV_STATE_READY, 12);
+                setRadius(INV_RING_RADIUS);
+                setPitch(0);
+                setPage(INV_PAGE_MAIN);
+                break;
+            }
+
+            case INV_STATE_PAGE_KEYS:
+            {
+                pitch = -pitch;
+                setState(INV_STATE_OPENING, INV_STATE_READY, 12);
+                setRadius(INV_RING_RADIUS);
+                setPitch(0);
+                setPage(INV_PAGE_KEYS);
+                break;
+            }
+
+            case INV_STATE_PAGE_OPTIONS:
+            {
+                pitch = -pitch;
+                setState(INV_STATE_OPENING, INV_STATE_READY, 12);
+                setRadius(INV_RING_RADIUS);
+                setPitch(0);
+                setPage(INV_PAGE_OPTIONS);
+                break;
+            }
+
+            default: ;
+        }
+    }
+
+    void drawSlot(InvSlot slot)
+    {
+        int32 type = INV_SLOTS[slot].type;
+
+        if (type == ITEM_INV_PASSPORT) {
+            type = ITEM_INV_PASSPORT_CLOSED;
+        }
+
+        ItemObj item;
+        memset(&item, 0, sizeof(item));
+        item.type        = type;
+        item.intensity   = 255;
+        item.visibleMask = 0xFFFFFFFF;
+        item.animIndex   = level.models[item.type].animIndex; // ctor called on existing memory, type is already initialized
+        item.frameIndex  = level.anims[item.animIndex].frameBegin;
+        item.state       = uint8(level.anims[item.animIndex].state);
+        item.nextState   = item.state;
+        item.goalState   = item.state;
+
+        const AnimFrame *frameA, *frameB;
+    
+        int32 frameRate;
+        int32 frameDelta = item.getFrames(frameA, frameB, frameRate);
+
+        calcLightingStatic(255 << 5);
+        drawNodesLerp(&item, frameA, frameB, frameDelta, frameRate);
+    }
+
+    void drawPage()
+    {
+        int16 angleX, angleY;
+
+        anglesFromVector(0, -(height + INV_CAMERA_Y), -INV_CAMERA_Z, angleX, angleY);
+
+        vec3i pos = _vec3i(0, height, radius + INV_CAMERA_Z);
+
+        matrixSetView(pos, angleX + pitch, angleY);
+        matrixTranslateAbs(0, 0, 0);
+
+        for (int32 i = 0; i < itemsCount; i++)
+        {
+            matrixPush();
+            matrixRotateY(i * ANGLE_360 / itemsCount - rot - ANGLE_90);
+            matrixTranslateRel(radius, 0, 0);
+            matrixRotateY(ANGLE_90);
+            matrixRotateX(-3616);
+
+            if (itemIndex == i) {
+                matrixRotateY(rotItem);
+            }
+
+            drawSlot(itemsList[i]);
+
+            matrixPop();
+        }
+    }
+
     void draw()
     {
-        //
+        //clear();
+        ASSERT(background);
+        renderBackground(background);
+        
+        StringID title = STR_EMPTY;
+
+        switch (page)
+        {
+            case INV_PAGE_TITLE:
+            {
+                break;
+            }
+
+            case INV_PAGE_SAVE:
+            {
+                break;
+            }
+
+            case INV_PAGE_DEATH:
+            {
+                break;
+            }
+
+            case INV_PAGE_MAIN:
+            {
+                title = STR_INV_TITLE_MAIN;
+                break;
+            }
+
+            case INV_PAGE_KEYS:
+            {
+                title = STR_INV_TITLE_KEYS;
+                break;
+            }
+
+            case INV_PAGE_OPTIONS:
+            {
+                title = STR_INV_TITLE_OPTIONS;
+                break;
+            }
+        }
+
+        drawPage();
+
+        if (state == INV_STATE_READY || state == INV_STATE_SPIN)
+        {
+            drawText(0, 20, STR[title], TEXT_ALIGN_CENTER);
+            
+            if ((page == INV_PAGE_OPTIONS) || (page == INV_PAGE_MAIN && getKeysCount()))
+            {
+                drawText(4, 4 + 16, "[", TEXT_ALIGN_LEFT);
+                drawText(-6, 4 + 16, "[", TEXT_ALIGN_RIGHT);
+            }
+
+            if (page == INV_PAGE_MAIN)
+            {
+                drawText(4, FRAME_HEIGHT - 5, "]", TEXT_ALIGN_LEFT);
+                drawText(-6, FRAME_HEIGHT - 5, "]", TEXT_ALIGN_RIGHT);
+            }
+
+            if (state != INV_STATE_SPIN)
+            {
+                drawText(0, FRAME_HEIGHT - 8, STR[INV_SLOTS[itemsList[itemIndex]].str], TEXT_ALIGN_CENTER);
+            }
+        }
     }
 };
 
-Inventory inventory;
+EWRAM_DATA Inventory inventory;
 
 #endif

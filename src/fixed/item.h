@@ -5,7 +5,7 @@
 #include "camera.h"
 #include "room.h"
 
-int32 curItemIndex;
+EWRAM_DATA AABBs tmpBox;
 
 #define GRAVITY      6
 
@@ -27,7 +27,7 @@ int32 alignOffset(int32 a, int32 b)
     return -(a + 1);
 }
 
-void* soundPlay(int16 id, const vec3i &pos)
+void* soundPlay(int16 id, const vec3i* pos)
 {
     // TODO gym
     // 0 -> 200
@@ -43,12 +43,17 @@ void* soundPlay(int16 id, const vec3i &pos)
     if (b->chance && b->chance < rand_draw())
         return NULL;
 
-    vec3i d = pos - playersExtra[0].camera.target.pos; // TODO find nearest camera for coop
+    int32 volume = b->volume;
 
-    if (abs(d.x) >= SND_MAX_DIST || abs(d.y) >= SND_MAX_DIST || abs(d.z) >= SND_MAX_DIST)
-        return NULL;
-    
-    int32 volume = b->volume - (phd_sqrt(dot(d, d)) << 2);
+    if (pos)
+    {
+        vec3i d = *pos - playersExtra[0].camera.target.pos; // TODO find nearest camera for coop
+
+        if (abs(d.x) >= SND_MAX_DIST || abs(d.y) >= SND_MAX_DIST || abs(d.z) >= SND_MAX_DIST)
+            return NULL;
+
+        volume -= (phd_sqrt(dot(d, d)) << 2);
+    }
 
     if (SI_GAIN(b->flags)) {
         volume -= rand_draw() >> 2;
@@ -135,8 +140,6 @@ const AnimFrame* ItemObj::getFrame() const
 
     return (frameDelta <= (frameRate >> 1)) ? frameA : frameB;
 }
-
-AABBs tmpBox;
 
 const AABBs& ItemObj::getBoundingBox(bool lerp) const
 {
@@ -312,7 +315,7 @@ void ItemObj::animCmd(bool fx, const Anim* anim)
             case ANIM_CMD_SOUND:
             {
                 if (fx && frameIndex == ptr[0]) {
-                    soundPlay(ptr[1] & 0x03FFF, pos);
+                    soundPlay(ptr[1] & 0x03FFF, &pos);
                 }
                 ptr += 2;
                 break;
@@ -590,7 +593,7 @@ void ItemObj::fxRicochet(Room *fxRoom, const vec3i &fxPos, bool fxSound)
     ricochet->frameIndex = rand_draw() % (-level.models[ricochet->type].count);
 
     if (fxSound) {
-        soundPlay(SND_RICOCHET, ricochet->pos);
+        soundPlay(SND_RICOCHET, &ricochet->pos);
     }
 }
 

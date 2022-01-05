@@ -67,6 +67,7 @@ const uint8* tile;
 Vertex* gVerticesBase;
 Face* gFacesBase;
 
+EWRAM_DATA uint8 gBackgroundCopy[FRAME_WIDTH * FRAME_HEIGHT]; // EWRAM 37.5k
 EWRAM_DATA Vertex gVertices[MAX_VERTICES]; // EWRAM 16k
 EWRAM_DATA Face gFaces[MAX_FACES];         // EWRAM 5k
 EWRAM_DATA Face* otFaces[OT_SIZE];
@@ -867,48 +868,6 @@ void drawSprite(Face* face, VertexLink* v)
     rasterize(face->flags, v);
 }
 
-void drawGlyph(const Sprite *sprite, int32 x, int32 y)
-{
-    int32 w = sprite->r - sprite->l;
-    int32 h = sprite->b - sprite->t;
-
-    w = (w >> 1) << 1; // make it even
-
-    int32 ix = x + sprite->l;
-    int32 iy = y + sprite->t;
-
-    uint16* pixel = (uint16*)fb + iy * VRAM_WIDTH + (ix >> 1);
-
-    const uint16* glyphData = (uint16*)(level.tiles + (sprite->tile << 16) + 256 * sprite->v + sprite->u);
-
-    while (h--)
-    {
-        const uint16* p = glyphData;
-
-        for (int32 i = 0; i < (w / 2); i++)
-        {
-            if (p[0])
-            {
-                if (p[0] & 0x00FF) {
-                    if (p[0] & 0xFF00) {
-                        pixel[i] = p[0];
-                    } else {
-                        pixel[i] = (pixel[i] & 0xFF00) | p[0];
-                    }
-                } else {
-                    pixel[i] = (pixel[i] & 0x00FF) | p[0];
-                }
-            }
-
-            p++;
-        }
-
-        pixel += VRAM_WIDTH;
-
-        glyphData += 256 / 2;
-    }
-}
-
 void faceAddRoom(const Room* room)
 {
     if (room->info->quadsCount > 0) {
@@ -956,8 +915,8 @@ void flush()
                     v[0].t.uv.u = sprite.u;
                     v[0].t.uv.v = sprite.v;
                     v[1].v = gVertices[face->indices[0] + 1];
-                    v[1].t.uv.u = sprite.w;
-                    v[1].t.uv.v = sprite.h;
+                    v[1].t.uv.u = sprite.w + 1;
+                    v[1].t.uv.v = sprite.h + 1;
 
                     ASSERT(v[0].v.x <= v[1].v.x);
                     ASSERT(v[0].v.y <= v[1].v.y);
@@ -1140,9 +1099,9 @@ void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
 
     const Matrix &m = matrixGet();
 
-    vx -= cameraViewPos.x;
-    vy -= cameraViewPos.y;
-    vz -= cameraViewPos.z;
+    vx -= gCameraViewPos.x;
+    vy -= gCameraViewPos.y;
+    vz -= gCameraViewPos.z;
 
     int32 z = DP33(m.e20, m.e21, m.e22, vx, vy, vz);
 
@@ -1218,5 +1177,109 @@ void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
 
 void renderGlyph(int32 vx, int32 vy, int32 index)
 {
-    //
+    if (gVerticesBase - gVertices + 2 > MAX_VERTICES) {
+        ASSERT(false);
+        return;
+    }
+
+    if (gFacesBase - gFaces + 1 > MAX_FACES) {
+        ASSERT(false);
+        return;
+    }
+
+    const Sprite* sprite = level.sprites + index;
+
+    int32 l = vx + sprite->l;
+    int32 r = vx + sprite->r;
+    int32 t = vy + sprite->t;
+    int32 b = vy + sprite->b;
+
+    if (l == r) return;
+    if (t == b) return;
+    if (r < 0) return;
+    if (b < 0) return;
+    if (l >= FRAME_WIDTH) return;
+    if (t >= FRAME_HEIGHT) return;
+
+    Vertex* v1 = gVerticesBase++;
+    v1->x = l;
+    v1->y = t;
+    //v1->z = z;
+    v1->g = 16;
+
+    Vertex* v2 = gVerticesBase++;
+    v2->x = r;
+    v2->y = b;
+    //v2->z = z;
+    //v2->g = vg;
+
+    Face* f = faceAdd(0);
+    f->flags = uint16(FACE_SPRITE);
+    f->indices[0] = v1 - gVertices;
+    f->indices[1] = index;
+
+    gVerticesBase += 2;
+}
+
+#define BAR_WIDTH   100
+#define BAR_HEIGHT  5
+
+void renderBar(int32 x, int32 y, int32 value, BarType type)
+{
+    // frame
+    rasterizeLineV(x, y, BAR_HEIGHT + 2 + 2, 19);
+    rasterizeLineV(x + BAR_WIDTH + 2 + 1, y, BAR_HEIGHT + 2 + 2, 17);
+    rasterizeLineH(x + 1, y, BAR_WIDTH + 2, 19);
+    rasterizeLineH(x + 1, y + BAR_HEIGHT + 2 + 1, BAR_WIDTH + 2, 17);
+
+    // background
+    x++;
+    y++;
+    rasterizeFillS(x, y, BAR_WIDTH + 2, BAR_HEIGHT + 2, 27);
+
+    // colored bar
+    x++;
+    y++;
+    int32 w = value * BAR_WIDTH >> 8;
+
+    switch (type)
+    {
+        case BAR_HEALTH:
+            rasterizeLineH(x, y++, w, 8);
+            rasterizeLineH(x, y++, w, 11);
+            rasterizeLineH(x, y++, w, 8);
+            rasterizeLineH(x, y++, w, 6);
+            rasterizeLineH(x, y++, w, 24);
+            break;
+        case BAR_OXYGEN:
+            rasterizeLineH(x, y++, w, 32);
+            rasterizeLineH(x, y++, w, 41);
+            rasterizeLineH(x, y++, w, 32);
+            rasterizeLineH(x, y++, w, 19);
+            rasterizeLineH(x, y++, w, 21);
+            break;
+        case BAR_DASH:
+            // TODO
+            break;
+    }
+}
+
+void renderBackground(void* background)
+{
+    dmaCopy(background, (void*)fb, FRAME_WIDTH * FRAME_HEIGHT);
+}
+
+void* copyBackground()
+{
+    dmaCopy((void*)fb, gBackgroundCopy, FRAME_WIDTH * FRAME_HEIGHT);
+
+    uint8 remap[256];
+    palGrayRemap(level.palette, remap);
+
+    for (int32 i = 0; i < FRAME_WIDTH * FRAME_HEIGHT; i++)
+    {
+        gBackgroundCopy[i] = remap[gBackgroundCopy[i]];
+    }
+
+    return gBackgroundCopy;
 }

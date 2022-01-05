@@ -2547,8 +2547,54 @@ struct LevelPC
             hideRoom(16);
             hideRoom(17);
             hideRoom(18);
-            // TODO remove unused textures & models
+
+            // disable alpha-test
+            objectTextures[93].attribute =
+            objectTextures[167].attribute =
+            objectTextures[175].attribute =
+            objectTextures[190].attribute =
+            objectTextures[191].attribute =
+            objectTextures[211].attribute =
+            objectTextures[220].attribute =
+            objectTextures[221].attribute =
+            objectTextures[580].attribute =
+            objectTextures[581].attribute = 0;
         }
+
+        if (strcmp(name, "LEVEL1") == 0)
+        {
+            objectTextures[271].attribute =
+            objectTextures[272].attribute =
+            objectTextures[331].attribute =
+            objectTextures[333].attribute =
+            objectTextures[334].attribute =
+            objectTextures[335].attribute =
+            objectTextures[517].attribute =
+            objectTextures[518].attribute =
+            objectTextures[569].attribute =
+            objectTextures[571].attribute =
+            objectTextures[685].attribute =
+            objectTextures[686].attribute = 0;
+        }
+
+        if (strcmp(name, "LEVEL2") == 0)
+        {
+            objectTextures[247].attribute =
+            objectTextures[248].attribute =
+            objectTextures[307].attribute =
+            objectTextures[309].attribute =
+            objectTextures[310].attribute =
+            objectTextures[311].attribute =
+            objectTextures[547].attribute =
+            objectTextures[661].attribute =
+            objectTextures[662].attribute =
+            objectTextures[688].attribute =
+            objectTextures[905].attribute =
+            objectTextures[906].attribute =
+            objectTextures[923].attribute = 0;
+        }
+
+        // TODO remove unused textures & models
     }
 
     void convertGBA(const char* fileName)
@@ -4576,7 +4622,7 @@ struct LevelPC
 #define COLOR_THRESHOLD_SQ (8 * 8)
 
 const char* levelNames[] = {
-#if 1
+#if 0
     "TITLE",
     "GYM",
     "LEVEL1",
@@ -5531,8 +5577,12 @@ void convertTracks3DO(const char* inDir, const char* outDir)
     FindClose(h);
 }
 
+uint32 palDump[32][256];
+
 int main()
 {
+    memset(palDump, 0, sizeof(palDump));
+
     //pack_tracks("tracks/conv_demo/*.ima"); return 0;
 
     for (int32 i = 0; i < MAX_LEVELS; i++)
@@ -5540,6 +5590,15 @@ int main()
         char path[64];
         sprintf(path, "levels/%s.PHD", levelNames[i]);
         levels[i] = new LevelPC(path);
+
+        for (int32 j = 0; j < 256; j++)
+        {
+            int32 r = levels[i]->palette.colors[j * 3 + 0] << 2;
+            int32 g = levels[i]->palette.colors[j * 3 + 1] << 2;
+            int32 b = levels[i]->palette.colors[j * 3 + 2] << 2;
+            palDump[i][j] = b | (g << 8) | (r << 16) | (0xFF << 24);
+        }
+
         levels[i]->generateLODs();
         levels[i]->cutData(levelNames[i]);
 
@@ -5548,6 +5607,8 @@ int main()
 
         levels[i]->convert3DO(levelNames[i]);
     }
+
+//    saveBitmap("pal.bmp", (uint8*)palDump, 256, 32, 32);
 
 //    convertTracks3DO("C:\\Projects\\OpenLara\\src\\platform\\gba\\packer\\tracks\\orig\\*", "C:\\Projects\\OpenLara\\src\\platform\\3do\\tracks");
 

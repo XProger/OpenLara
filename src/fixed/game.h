@@ -179,38 +179,33 @@ struct Game
             sndPlayTrack(getAmbientTrack());
         }
 
-        for (int32 i = 0; i < frames; i++)
+        if (inventory.state != INV_STATE_NONE)
         {
-            updateItems();
+            Lara* lara = (Lara*)inventory.lara;
+            ASSERT(lara);
+            lara->updateInput();
+            inventory.update(frames);
         }
 
-        updateLevel(frames);
+        if (inventory.state == INV_STATE_NONE)
+        {
+            for (int32 i = 0; i < frames; i++)
+            {
+                updateItems();
+            }
+            updateLevel(frames);
+        }
     }
 
-    void render()
+    void showDebugInfo()
     {
-        #define TEXT_POSX   FRAME_WIDTH
+        if (inventory.state != INV_STATE_NONE)
+            return;
 
-        {
-            PROFILE(CNT_RENDER);
-
-            setViewport(RectMinMax(0, 0, FRAME_WIDTH, FRAME_HEIGHT));
-
-            clear();
-
-            for (int32 i = 0; i < MAX_PLAYERS; i++)
-            {
-                // TODO set viewports for coop
-            #ifndef PROFILE_SOUNDTIME
-                drawRooms(&players[i]->extraL->camera);
-            #endif
-            }
-
-            drawText(0, FRAME_HEIGHT - 8, "! early alpha version !", TEXT_ALIGN_CENTER);
-            flush();
-
-            drawNumber(fps, TEXT_POSX, 16);
-        }
+        char buf[32];
+        int2str(fps, buf);
+        drawText(2, 16, buf, TEXT_ALIGN_LEFT);
+        //drawText(0, FRAME_HEIGHT - 8, "! early alpha version !", TEXT_ALIGN_CENTER);
 
         #ifdef PROFILING
             for (int32 i = 0; i < CNT_MAX; i++)
@@ -219,10 +214,40 @@ struct Game
                 extern void drawInt(int32 x, int32 y, int32 c);
                 drawInt(FRAME_WIDTH - 8, 4 + 24 + 8 + 8 * i, gCounters[i]);
             #else
-                drawNumber(gCounters[i], TEXT_POSX, 32 + i * 16);
+                int2str(gCounters[i], buf);
+                drawText(2, 16 + 32 + i * 16, buf, TEXT_ALIGN_LEFT);
             #endif
             }
         #endif
+    }
+
+    void render()
+    {
+        {
+            PROFILE(CNT_RENDER);
+
+            setViewport(RectMinMax(0, 0, FRAME_WIDTH, FRAME_HEIGHT));
+
+            if (inventory.state == INV_STATE_NONE)
+            {
+                clear();
+
+                for (int32 i = 0; i < MAX_PLAYERS; i++)
+                {
+                    // TODO set viewports for coop
+                #ifndef PROFILE_SOUNDTIME
+                    drawRooms(&players[i]->extraL->camera);
+                #endif
+                    drawHUD(players[i]);
+                }
+            } else {
+                inventory.draw();
+            }
+
+            showDebugInfo();
+
+            flush();
+        }
 
     #ifndef PROFILE_SOUNDTIME
         PROFILE_CLEAR();

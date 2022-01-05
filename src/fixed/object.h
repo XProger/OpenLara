@@ -24,32 +24,32 @@ struct Limit
 
 // armcpp won't initialize structs
 
-int16 LIMIT_SWITCH[] = {
+const int16 LIMIT_SWITCH[] = {
     -200, 200, 0, 0, 312, 512,
     ANGLE(10), ANGLE(30), ANGLE(10)
 };
 
-int16 LIMIT_SWITCH_UW[] = {
+const int16 LIMIT_SWITCH_UW[] = {
     -1024, 1024, -1024, 1024, -1024, 1024,
     ANGLE(80), ANGLE(80), ANGLE(80)
 };
 
-int16 LIMIT_BLOCK[] = {
+const int16 LIMIT_BLOCK[] = {
     -300, 300, 0, 0, -692, -512,
     ANGLE(10), ANGLE(30), ANGLE(10)
 };
 
-int16 LIMIT_PICKUP[] = {
+const int16 LIMIT_PICKUP[] = {
     -256, 256, -100, 100, -256, 100,
     ANGLE(10), 0, 0
 };
 
-int16 LIMIT_PICKUP_UW[] = {
+const int16 LIMIT_PICKUP_UW[] = {
     -512, 512, -512, 512, -512, 512,
     ANGLE(45), ANGLE(45), ANGLE(45)
 };
 
-int16 LIMIT_HOLE[] = {
+const int16 LIMIT_HOLE[] = {
     -200, 200, 0, 0, 312, 512,
     ANGLE(10), ANGLE(30), ANGLE(10)
 };
@@ -168,7 +168,7 @@ struct Bubble : ItemObj
 {
     Bubble(Room* room) : ItemObj(room)
     {
-        soundPlay(SND_BUBBLE, pos);
+        soundPlay(SND_BUBBLE, &pos);
         frameIndex = rand_draw() % (-level.models[type].count);
         vSpeed = -(10 + (rand_draw() % 6));
         angle = _vec3s(0, 0, ANGLE_90);
@@ -582,9 +582,6 @@ bool usePickup(ItemObj* item)
     return ((Pickup*)item)->use();
 }
 
-
-vec3i tmpPos;
-
 struct Hole : Object // parent class for KeyHole and PuzzleHole
 {
     Hole(Room* room) : Object(room) {}
@@ -622,14 +619,14 @@ struct Hole : Object // parent class for KeyHole and PuzzleHole
                 return;
             }
 
-            tmpPos.x = ~lara->pos.x;
+            lara->extraL->tmpPos.x = ~lara->pos.x;
             inventory.useSlot = SLOT_MAX;
         }
 
-        if (tmpPos != lara->pos)
+        if (lara->extraL->tmpPos != lara->pos)
         {
-            tmpPos = lara->pos;
-            soundPlay(SND_NO, lara->pos);
+            lara->extraL->tmpPos = lara->pos;
+            soundPlay(SND_NO, &lara->pos);
         }
     }
 };
@@ -773,8 +770,7 @@ struct TrapSwingBlade : Object
         vec3i offsetPos = _vec3i((rand_logic() - 0x4000) >> 8, -256 - (rand_logic() >> 6), (rand_logic() - 0x4000) >> 8);
         int32 offsetAngle = (rand_logic() - 0x4000) >> 3;
         lara->fxBlood(lara->pos + offsetPos, lara->angle.y + offsetAngle, lara->hSpeed);
-
-        lara->health -= 100; // TODO TR2 50?
+        lara->hit(100, pos, 0); // TODO TR2 50?
     }
 
     virtual void update()
@@ -808,7 +804,7 @@ struct Dart : Object
         if (hitMask)
         {
             lara->fxBlood(pos, lara->angle.y, lara->hSpeed);
-            lara->health -= 50;
+            lara->hit(50, pos, 0);
         }
     }
 
@@ -856,7 +852,7 @@ struct TrapDartEmitter : Object
 
             if (dart)
             {
-                soundPlay(SND_DART, p);
+                soundPlay(SND_DART, &pos);
 
                 dart->intensity = 0;
                 dart->flags.status = ITEM_FLAGS_STATUS_ACTIVE;
