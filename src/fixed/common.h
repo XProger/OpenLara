@@ -178,6 +178,14 @@ X_INLINE int32 abs(int32 x) {
 }
 #endif
 
+#if defined(__GBA__)
+    #define int2str(x,str) itoa(x, str, 10)
+#elif defined(__3DO__)
+    #define int2str(x,str) sprintf(str, "%d", x)
+#else
+    #define int2str(x,str) _itoa(x, str, 10)
+#endif
+
 #ifdef __GBA__
     #define ARM_CODE __attribute__((target("arm")))
 #else
@@ -188,8 +196,6 @@ X_INLINE int32 abs(int32 x) {
     #define EWRAM_BSS
     #define IWRAM_CODE
     #define EWRAM_CODE
-
-    #define dmaCopy(src,dst,size) memcpy(dst,src,size)
 #endif
 
 #if defined(_WIN32)
@@ -220,7 +226,6 @@ X_INLINE int32 abs(int32 x) {
 extern int32 osGetSystemTimeMS();
 extern void osJoyVibrate(int32 index, int32 L, int32 R);
 extern void osSetPalette(const uint16* palette);
-extern void osSetGamma(int32 value);
 extern void* osLoadLevel(const char* name);
 
 #ifdef PROFILING
@@ -432,11 +437,12 @@ extern int32 fps;
 #define NO_FLOOR        -127
 #define WALL            (NO_FLOOR * 256)
 
+#define ANGLE_360       0x10000
 #define ANGLE_0         0
-#define ANGLE_1         (0x10000 / 360)
-#define ANGLE_45        (0x10000 / 8)      // != 45 * ANGLE_1 !!!
-#define ANGLE_90        (0x10000 / 4)      // != 90 * ANGLE_1 !!!
-#define ANGLE_180      -(0x10000 / 2)      // INT16_MIN
+#define ANGLE_1         (ANGLE_360 / 360)
+#define ANGLE_45        (ANGLE_360 / 8)      // != 45 * ANGLE_1 !!!
+#define ANGLE_90        (ANGLE_360 / 4)      // != 90 * ANGLE_1 !!!
+#define ANGLE_180      -(ANGLE_360 / 2)      // INT16_MIN
 #define ANGLE(x)        ((x) * ANGLE_1)
 #define ANGLE_SHIFT_45  13
 #define ANGLE_SHIFT_90  14
@@ -491,7 +497,7 @@ enum InputKey {
 };
 
 // action keys (ItemObj::input)
-enum {
+enum InputState {
     IN_LEFT   = (1 << 1),
     IN_RIGHT  = (1 << 2),
     IN_UP     = (1 << 3),
@@ -500,7 +506,9 @@ enum {
     IN_WALK   = (1 << 6),
     IN_ACTION = (1 << 7),
     IN_WEAPON = (1 << 8),
-    IN_LOOK   = (1 << 9)
+    IN_LOOK   = (1 << 9),
+    IN_START  = (1 << 10),
+    IN_SELECT = (1 << 11)
 };
 
 struct vec3s {
@@ -1472,6 +1480,10 @@ struct ExtraInfoLara
 
     Nav nav;
 
+    vec3i tmpPos;
+
+    uint16 lastInput;
+    int8 healthTimer;
     bool dozy;
 };
 
@@ -2049,73 +2061,267 @@ struct IMA_STATE
     }
 #endif
 
-enum StringID
-{
-    STR_EMPTY,
-    STR_PASSPORT,
-    STR_COMPASS,
-    STR_HOME,
-    STR_MAP,
-    STR_DETAIL,
-    STR_SOUND,
-    STR_CONTROLS,
-    STR_GAMMA,
-    STR_PISTOLS,
-    STR_SHOTGUN,
-    STR_MAGNUMS,
-    STR_UZIS,
-    STR_AMMO_PISTOLS,
-    STR_AMMO_SHOTGUN,
-    STR_AMMO_MAGNUMS,
-    STR_AMMO_UZIS,
-    STR_EXPLOSIVE,
-    STR_MEDIKIT_SMALL,
-    STR_MEDIKIT_BIG,
-    STR_PUZZLE,
-    STR_PUZZLE_GOLD_IDOL,
-    STR_PUZZLE_GOLD_BAR,
-    STR_PUZZLE_COG,
-    STR_PUZZLE_FUSE,
-    STR_PUZZLE_ANKH,
-    STR_PUZZLE_HORUS,
-    STR_PUZZLE_ANUBIS,
-    STR_PUZZLE_SCARAB,
-    STR_PUZZLE_PYRAMID,
-    STR_LEADBAR,
-    STR_KEY,
-    STR_KEY_SILVER,
-    STR_KEY_RUSTY,
-    STR_KEY_GOLD,
-    STR_KEY_SAPPHIRE,
-    STR_KEY_NEPTUNE,
-    STR_KEY_ATLAS,
-    STR_KEY_DAMOCLES,
-    STR_KEY_THOR,
-    STR_KEY_ORNATE,
-    STR_SCION,
+#define STR_LANGUAGES \
+      "English"       \
+    , "Fran|cais"     \
+    , "Deutsch"
+
+#define STR_SCALE "25", "50", "75", "100"
+
+enum StringID {
+      STR_EMPTY
+// common
+    , STR_LOADING
+    , STR_LEVEL_STATS
+    , STR_HINT_SAVING
+    , STR_HINT_SAVING_DONE
+    , STR_HINT_SAVING_ERROR
+    , STR_YES
+    , STR_NO
+    , STR_OFF
+    , STR_ON
+    , STR_NO_STEREO
+    , STR_SBS
+    , STR_ANAGLYPH
+    , STR_SPLIT
+    , STR_VR
+    , STR_QUALITY_LOW
+    , STR_QUALITY_MEDIUM
+    , STR_QUALITY_HIGH
+    , STR_LANG_EN
+    , STR_LANG_FR
+    , STR_LANG_DE
+//    , STR_LANG_ES
+//    , STR_LANG_IT
+//    , STR_LANG_PL
+//    , STR_LANG_PT
+//    , STR_LANG_RU
+//    , STR_LANG_JA
+//    , STR_LANG_GR
+//    , STR_LANG_FI
+//    , STR_LANG_CZ
+//    , STR_LANG_CN
+//    , STR_LANG_HU
+//    , STR_LANG_SV
+    , STR_APPLY
+    , STR_GAMEPAD_1
+    , STR_GAMEPAD_2
+    , STR_GAMEPAD_3
+    , STR_GAMEPAD_4
+    , STR_NOT_READY
+    , STR_PLAYER_1
+    , STR_PLAYER_2
+    , STR_PRESS_ANY_KEY
+    , STR_HELP_SELECT
+    , STR_HELP_BACK
+// inventory pages
+    , STR_INV_TITLE_OPTIONS
+    , STR_INV_TITLE_MAIN
+    , STR_INV_TITLE_KEYS
+// save game page
+    , STR_SAVEGAME
+    , STR_CURRENT_POSITION
+// inventory option
+    , STR_GAME
+    , STR_MAP
+    , STR_COMPASS
+    , STR_STOPWATCH
+    , STR_HOME
+    , STR_DETAIL
+    , STR_SOUND
+    , STR_CONTROLS
+    , STR_GAMMA
+// passport menu
+    , STR_LOAD_GAME
+    , STR_START_GAME
+    , STR_RESTART_LEVEL
+    , STR_EXIT_TO_TITLE
+    , STR_EXIT_GAME
+    , STR_SELECT_LEVEL
+// detail options
+    , STR_SELECT_DETAIL
+    , STR_OPT_DETAIL_FILTER
+    , STR_OPT_DETAIL_LIGHTING
+    , STR_OPT_DETAIL_SHADOWS
+    , STR_OPT_DETAIL_WATER
+    , STR_OPT_DETAIL_VSYNC
+    , STR_OPT_DETAIL_STEREO
+    , STR_OPT_SIMPLE_ITEMS
+    , STR_OPT_RESOLUTION
+    , STR_SCALE_25
+    , STR_SCALE_50
+    , STR_SCALE_75
+    , STR_SCALE_100
+// sound options
+    , STR_SET_VOLUMES
+    , STR_REVERBERATION
+    , STR_OPT_SUBTITLES
+    , STR_OPT_LANGUAGE
+// controls options
+    , STR_SET_CONTROLS
+    , STR_OPT_CONTROLS_KEYBOARD
+    , STR_OPT_CONTROLS_GAMEPAD
+    , STR_OPT_CONTROLS_VIBRATION
+    , STR_OPT_CONTROLS_RETARGET
+    , STR_OPT_CONTROLS_MULTIAIM
+/*
+    // controls
+    , STR_CTRL_FIRST
+    , STR_CTRL_LAST = STR_CTRL_FIRST + cMAX - 1
+    // keys
+    , STR_KEY_FIRST
+    , STR_KEY_LAST  = STR_KEY_FIRST + ikBack
+    // gamepad
+    , STR_JOY_FIRST
+    , STR_JOY_LAST  = STR_JOY_FIRST + jkMAX - 1
+*/
+// inventory items
+    , STR_UNKNOWN
+    , STR_EXPLOSIVE
+    , STR_PISTOLS
+    , STR_SHOTGUN
+    , STR_MAGNUMS
+    , STR_UZIS
+    , STR_AMMO_PISTOLS
+    , STR_AMMO_SHOTGUN
+    , STR_AMMO_MAGNUMS
+    , STR_AMMO_UZIS
+    , STR_MEDI_SMALL
+    , STR_MEDI_BIG
+    , STR_LEAD_BAR
+    , STR_SCION
+// keys
+    , STR_KEY
+    , STR_KEY_SILVER
+    , STR_KEY_RUSTY
+    , STR_KEY_GOLD
+    , STR_KEY_SAPPHIRE
+    , STR_KEY_NEPTUNE
+    , STR_KEY_ATLAS
+    , STR_KEY_DAMOCLES
+    , STR_KEY_THOR
+    , STR_KEY_ORNATE
+// puzzles
+    , STR_PUZZLE
+    , STR_PUZZLE_GOLD_IDOL
+    , STR_PUZZLE_GOLD_BAR
+    , STR_PUZZLE_COG
+    , STR_PUZZLE_FUSE
+    , STR_PUZZLE_ANKH
+    , STR_PUZZLE_HORUS
+    , STR_PUZZLE_ANUBIS
+    , STR_PUZZLE_SCARAB
+    , STR_PUZZLE_PYRAMID
+#ifdef USE_SUBTITLES
+// TR1 subtitles
+    , STR_TR1_SUB_CAFE
+    , STR_TR1_SUB_LIFT
+    , STR_TR1_SUB_CANYON
+    , STR_TR1_SUB_PRISON
+    , STR_TR1_SUB_22 // CUT4
+    , STR_TR1_SUB_23 // CUT1
+    , STR_TR1_SUB_24
+    , STR_TR1_SUB_25 // CUT3
+    , STR_TR1_SUB_26
+    , STR_TR1_SUB_27
+    , STR_TR1_SUB_28
+    , STR_TR1_SUB_29
+    , STR_TR1_SUB_30
+    , STR_TR1_SUB_31
+    , STR_TR1_SUB_32
+    , STR_TR1_SUB_33
+    , STR_TR1_SUB_34
+    , STR_TR1_SUB_35
+    , STR_TR1_SUB_36
+    , STR_TR1_SUB_37
+    , STR_TR1_SUB_38
+    , STR_TR1_SUB_39
+    , STR_TR1_SUB_40
+    , STR_TR1_SUB_41
+    , STR_TR1_SUB_42
+    , STR_TR1_SUB_43
+    , STR_TR1_SUB_44
+    , STR_TR1_SUB_45
+    , STR_TR1_SUB_46
+    , STR_TR1_SUB_47
+    , STR_TR1_SUB_48
+    , STR_TR1_SUB_49
+    , STR_TR1_SUB_50
+    , STR_TR1_SUB_51
+    , STR_TR1_SUB_52
+    , STR_TR1_SUB_53
+    , STR_TR1_SUB_54
+    , STR_TR1_SUB_55
+    , STR_TR1_SUB_56
+#endif
 // TR1 levels
-    STR_TR1_GYM,
-    STR_TR1_LEVEL1,
-    STR_TR1_LEVEL2,
-    STR_TR1_LEVEL3A,
-    STR_TR1_LEVEL3B,
-    STR_TR1_LEVEL4,
-    STR_TR1_LEVEL5,
-    STR_TR1_LEVEL6,
-    STR_TR1_LEVEL7A,
-    STR_TR1_LEVEL7B,
-    STR_TR1_LEVEL8A,
-    STR_TR1_LEVEL8B,
-    STR_TR1_LEVEL8C,
-    STR_TR1_LEVEL10A,
-    STR_TR1_LEVEL10B,
-    STR_TR1_LEVEL10C,
-    STR_TR1_EGYPT,
-    STR_TR1_CAT,
-    STR_TR1_END,
-    STR_TR1_END2,
-    STR_MAX
+    , STR_TR1_GYM
+    , STR_TR1_LEVEL1
+    , STR_TR1_LEVEL2
+    , STR_TR1_LEVEL3A
+    , STR_TR1_LEVEL3B
+    , STR_TR1_LEVEL4
+    , STR_TR1_LEVEL5
+    , STR_TR1_LEVEL6
+    , STR_TR1_LEVEL7A
+    , STR_TR1_LEVEL7B
+    , STR_TR1_LEVEL8A
+    , STR_TR1_LEVEL8B
+    , STR_TR1_LEVEL8C
+    , STR_TR1_LEVEL10A
+    , STR_TR1_LEVEL10B
+    , STR_TR1_LEVEL10C
+    , STR_TR1_EGYPT
+    , STR_TR1_CAT
+    , STR_TR1_END
+    , STR_TR1_END2
+// TR2 levels
+    , STR_TR2_ASSAULT
+    , STR_TR2_WALL
+    , STR_TR2_BOAT
+    , STR_TR2_VENICE
+    , STR_TR2_OPERA
+    , STR_TR2_RIG
+    , STR_TR2_PLATFORM
+    , STR_TR2_UNWATER
+    , STR_TR2_KEEL
+    , STR_TR2_LIVING
+    , STR_TR2_DECK
+    , STR_TR2_SKIDOO
+    , STR_TR2_MONASTRY
+    , STR_TR2_CATACOMB
+    , STR_TR2_ICECAVE
+    , STR_TR2_EMPRTOMB
+    , STR_TR2_FLOATING
+    , STR_TR2_XIAN
+    , STR_TR2_HOUSE
+// TR3 levels
+    , STR_TR3_HOUSE
+    , STR_TR3_JUNGLE
+    , STR_TR3_TEMPLE
+    , STR_TR3_QUADCHAS
+    , STR_TR3_TONYBOSS
+    , STR_TR3_SHORE
+    , STR_TR3_CRASH
+    , STR_TR3_RAPIDS
+    , STR_TR3_TRIBOSS
+    , STR_TR3_ROOFS
+    , STR_TR3_SEWER
+    , STR_TR3_TOWER
+    , STR_TR3_OFFICE
+    , STR_TR3_NEVADA
+    , STR_TR3_COMPOUND
+    , STR_TR3_AREA51
+    , STR_TR3_ANTARC
+    , STR_TR3_MINES
+    , STR_TR3_CITY
+    , STR_TR3_CHAMBER
+    , STR_TR3_STPAUL
+
+    , STR_MAX
 };
+
+extern const char* const* STR;
 
 enum TrackID
 {
@@ -2175,10 +2381,22 @@ enum LevelID
 extern const LevelInfo gLevelInfo[LVL_MAX];
 extern LevelID gLevelID;
 
+enum BarType {
+    BAR_HEALTH,
+    BAR_OXYGEN,
+    BAR_DASH
+};
+
+enum TextAlign {
+    TEXT_ALIGN_LEFT,
+    TEXT_ALIGN_RIGHT,
+    TEXT_ALIGN_CENTER
+};
+
 // renderer internal
 extern uint32 keys;
 extern RectMinMax viewport;
-extern vec3i cameraViewPos;
+extern vec3i gCameraViewPos;
 extern Matrix* matrixPtr;
 extern Matrix matrixStack[MAX_MATRICES];
 extern const uint32 gSinCosTable[4096];
@@ -2192,7 +2410,7 @@ extern SaveGame gSaveGame;
 extern Settings gSettings;
 extern int32 gCurTrack;
 extern int32 gAnimTexFrame;
-
+extern int32 gBrightness;
 extern int32 gLightAmbient;
 extern int32 gRandTable[MAX_RAND_TABLE];
 extern int32 gCaustics[MAX_CAUSTICS];
@@ -2356,8 +2574,6 @@ void matrixFrame(const void* pos, const void* angles);
 void matrixFrameLerp(const void* pos, const void* anglesA, const void* anglesB, int32 delta, int32 rate);
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY);
 
-void drawGlyph(const Sprite *sprite, int32 x, int32 y);
-
 void renderInit();
 void setViewport(const RectMinMax &vp);
 void setPaletteIndex(int32 index);
@@ -2367,13 +2583,22 @@ void renderMesh(const Mesh* mesh);
 void renderShadow(int32 x, int32 z, int32 sx, int32 sz);
 void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index);
 void renderGlyph(int32 vx, int32 vy, int32 index);
+void renderBar(int32 x, int32 y, int32 value, BarType type);
 void flush();
+void renderBackground(void* background);
+void* copyBackground();
 
 void drawInit();
 void drawFree();
+void drawText(int32 x, int32 y, const char* text, TextAlign align);
 void drawModel(const ItemObj* item);
 void drawItem(const ItemObj* item);
 void drawRooms(Camera* camera);
+void drawHUD(Lara* lara);
+void drawNodesLerp(const ItemObj* item, const AnimFrame* frameA, const AnimFrame* frameB, int32 frameDelta, int32 frameRate);
+
+void calcLightingDynamic(const Room* room, const vec3i &point);
+void calcLightingStatic(int32 intensity);
 
 void checkTrigger(const FloorData* fd, ItemObj* lara);
 void readLevel(const uint8 *data);
@@ -2400,7 +2625,10 @@ void sndStopTrack();
 void sndStopSample(int32 index);
 void sndStop();
 
-X_INLINE void dmaFill(void *dst, uint8 value, uint32 count)
+void palGrayRemap(const uint16* palette, uint8* remap);
+void palSet(const uint16* palette, int32 gamma, int32 bright);
+
+X_INLINE void dmaFill(void* dst, uint8 value, uint32 count)
 {
     ASSERT((count & 3) == 0);
 #ifdef __GBA__
@@ -2408,6 +2636,16 @@ X_INLINE void dmaFill(void *dst, uint8 value, uint32 count)
     dma3_fill(dst, v, count);
 #else
     memset(dst, value, count);
+#endif
+}
+
+X_INLINE void dmaCopy(const void* src, void* dst, uint32 size)
+{
+    ASSERT((size & 3) == 0);
+#ifdef __GBA__
+    dma3_cpy(dst, src, size);
+#else
+    memcpy(dst, src, size);
 #endif
 }
 

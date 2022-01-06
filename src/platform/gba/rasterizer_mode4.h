@@ -26,6 +26,9 @@ extern const uint8* tile;
     #define rasterizeFTA rasterizeFTA_asm
     #define rasterizeGTA rasterizeGTA_asm
     #define rasterizeSprite rasterizeSprite_c
+    #define rasterizeLineH rasterizeLineH_c
+    #define rasterizeLineV rasterizeLineV_c
+    #define rasterizeFillS rasterizeFillS_c
 #else
     #define rasterizeS rasterizeS_c
     #define rasterizeF rasterizeF_c
@@ -35,6 +38,9 @@ extern const uint8* tile;
     #define rasterizeFTA rasterizeFTA_c
     #define rasterizeGTA rasterizeGTA_c
     #define rasterizeSprite rasterizeSprite_c
+    #define rasterizeLineH rasterizeLineH_c
+    #define rasterizeLineV rasterizeLineV_c
+    #define rasterizeFillS rasterizeFillS_c
 
 void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
@@ -1032,10 +1038,6 @@ void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     }
 
     bool alignR = w & 1;
-    if (alignR)
-    {
-        w--;
-    }
 
     w >>= 1;
 
@@ -1049,9 +1051,9 @@ void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         if (alignL)
         {
-            uint8 indexB = ft_lightmap[xtile[xu >> 8]];
+            uint8 indexB = xtile[xu >> 8];
             if (indexB) {
-                *(uint16*)xptr = *xptr | (indexB << 8);
+                *(uint16*)xptr = *xptr | (ft_lightmap[indexB] << 8);
             }
 
             xptr += 2;
@@ -1060,15 +1062,15 @@ void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         for (int32 x = 0; x < w; x++)
         {
-            uint8 indexA = ft_lightmap[xtile[xu >> 8]];
+            uint8 indexA = xtile[xu >> 8];
             xu += du;
-            uint8 indexB = ft_lightmap[xtile[xu >> 8]];
+            uint8 indexB = xtile[xu >> 8];
             xu += du;
 
             if (indexA | indexB)
             {
-                if (indexA == 0) indexA = xptr[0];
-                if (indexB == 0) indexB = xptr[1];
+                indexA = (indexA) ? ft_lightmap[indexA] : xptr[0];
+                indexB = (indexB) ? ft_lightmap[indexB] : xptr[1];
                 *(uint16*)xptr = indexA | (indexB << 8);
             }
 
@@ -1077,9 +1079,9 @@ void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         if (alignR)
         {
-            uint8 indexA = ft_lightmap[xtile[xu >> 8]];
+            uint8 indexA = xtile[xu >> 8];
             if (indexA) {
-                *(uint16*)xptr = indexA | (xptr[1] << 8);
+                *(uint16*)xptr = ft_lightmap[indexA] | (xptr[1] << 8);
             }
         }
 
@@ -1089,5 +1091,73 @@ void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     }
 }
 
+X_NOINLINE void rasterizeLineH_c(int32 x, int32 y, int32 width, int32 index)
+{
+    volatile uint8* ptr = (uint8*)fb + y * FRAME_WIDTH + x;
+
+    if (intptr_t(ptr) & 1)
+    {
+        ptr--;
+        *(uint16*)ptr = *ptr | (index << 8);
+        ptr += 2;
+        width--;
+    }
+
+    if (width & 1)
+    {
+        *(uint16*)(ptr + width - 1) = index | (ptr[width] << 8);
+    }
+
+    for (int32 i = 0; i < width / 2; i++)
+    {
+        *(uint16*)ptr = index | (index << 8);
+        ptr += 2;
+    }
+}
+
+X_NOINLINE void rasterizeLineV_c(int32 x, int32 y, int32 height, int32 index)
+{
+    volatile uint8* ptr = (uint8*)fb + y * FRAME_WIDTH + x;
+
+    for (int32 i = 0; i < height; i++)
+    {
+        if (intptr_t(ptr) & 1) {
+            *(uint16*)(ptr - 1) = *(ptr - 1) | (index << 8);
+        } else {
+            *(uint16*)ptr = index | (*ptr << 8);
+        }
+        ptr += FRAME_WIDTH;
+    }
+}
+
+X_NOINLINE void rasterizeFillS_c(int32 x, int32 y, int32 width, int32 height, int32 shade)
+{
+    const uint8* lm = &lightmap[shade * 256];
+
+    for (int32 i = 0; i < height; i++)
+    {
+        volatile uint8* ptr = (uint8*)fb + (y + i) * FRAME_WIDTH + x;
+        int32 w = width;
+
+        if (intptr_t(ptr) & 1)
+        {
+            ptr--;
+            *(uint16*)ptr = ptr[0] | (lm[ptr[1]] << 8);
+            ptr += 2;
+            w--;
+        }
+
+        if (w & 1)
+        {
+            *(uint16*)(ptr + w - 1) = lm[ptr[w - 1]] | (ptr[w] << 8);
+        }
+
+        for (int32 i = 0; i < w / 2; i++)
+        {
+            *(uint16*)ptr = lm[ptr[0]] | (lm[ptr[1]] << 8);
+            ptr += 2;
+        }
+    }
+}
 
 #endif

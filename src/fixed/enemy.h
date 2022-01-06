@@ -583,7 +583,7 @@ struct Enemy : ItemObj
         if (health > 0)
         {
             if (soundId) {
-                soundPlay(soundId, pos);
+                soundPlay(soundId, &pos);
             }
         } else {
             gSaveGame.kills++;

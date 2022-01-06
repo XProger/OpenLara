@@ -3,7 +3,7 @@
 
 #include "common.h"
 
-Room* roomsList[MAX_ROOM_LIST];
+EWRAM_DATA Room* roomsList[MAX_ROOM_LIST];
 
 //#ifdef ROM_READ
 int32 dynSectorsCount;
@@ -353,9 +353,9 @@ bool Room::collideStatic(CollisionInfo &cinfo, const vec3i &p, int32 height)
 bool Room::checkPortal(const Portal* portal)
 {
     vec3i d;
-    d.x = portal->v[0].x - cameraViewPos.x + (info->x << 8);
-    d.y = portal->v[0].y - cameraViewPos.y;
-    d.z = portal->v[0].z - cameraViewPos.z + (info->z << 8);
+    d.x = portal->v[0].x - gCameraViewPos.x + (info->x << 8);
+    d.y = portal->v[0].y - gCameraViewPos.y;
+    d.z = portal->v[0].z - gCameraViewPos.z + (info->z << 8);
 
     Matrix &m = matrixGet();
 

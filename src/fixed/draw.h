@@ -82,25 +82,6 @@ void calcLightingStatic(int32 intensity)
     }
 }
 
-void drawNumber(int32 number, int32 x, int32 y)
-{
-#ifdef __3DO__
-    return;
-#endif
-    static const int32 widths[] = {
-        12, 8, 10, 10, 10, 10, 10, 10, 10, 10
-    };
-
-    const Sprite* glyphSprites = level.sprites + level.models[ITEM_GLYPHS].start;
-
-    while (number > 0)
-    {
-        x -= widths[number % 10];
-        drawGlyph(glyphSprites + 52 + (number % 10), x, y);
-        number /= 10;
-    }
-}
-
 const static uint8 char_width[110] = {
     14, 11, 11, 11, 11, 11, 11, 13, 8, 11, 12, 11, 13, 13, 12, 11, 12, 12, 11, 12, 13, 13, 13, 12, 12, 11, // A-Z
     9, 9, 9, 9, 9, 9, 9, 9, 5, 9, 9, 5, 12, 10, 9, 9, 9, 8, 9, 8, 9, 9, 11, 9, 9, 9, // a-z
@@ -136,22 +117,23 @@ int32 getTextWidth(const char* text)
             w += 6;
             continue;
         }
-        w += char_width[charRemap(c)];
+        w += char_width[charRemap(c)] + 1;
     }
 
     return w;
 }
 
-enum TextAlign {
-    TEXT_ALIGN_LEFT,
-    TEXT_ALIGN_RIGHT,
-    TEXT_ALIGN_CENTER
-};
-
 void drawText(int32 x, int32 y, const char* text, TextAlign align)
 {
+    if (!text || !*text)
+        return;
+
     if (align == TEXT_ALIGN_CENTER) {
         x += (FRAME_WIDTH - getTextWidth(text)) >> 1;
+    }
+
+    if (align == TEXT_ALIGN_RIGHT) {
+        x += FRAME_WIDTH - getTextWidth(text);
     }
 
     char c;
@@ -163,7 +145,7 @@ void drawText(int32 x, int32 y, const char* text, TextAlign align)
         }
         int32 index = charRemap(c);
         renderGlyph(x, y, level.models[ITEM_GLYPHS].start + index);
-        x += char_width[index];
+        x += char_width[index] + 1;
     }
 }
 
@@ -637,7 +619,7 @@ void drawItem(const ItemObj* item)
     }
 }
 
-void drawRoom(const Room* room, Camera* camera)
+void drawRoom(const Room* room)
 {
     setViewport(room->clip);
 
@@ -663,9 +645,9 @@ void drawRoom(const Room* room, Camera* camera)
         renderSprite(sprite->pos.x + rx, sprite->pos.y, sprite->pos.z + rz, sprite->g << 5, sprite->index);
     }
 
-    rx -= cameraViewPos.x;
-    ry = -cameraViewPos.y;
-    rz -= cameraViewPos.z;
+    rx -= gCameraViewPos.x;
+    ry = -gCameraViewPos.y;
+    rz -= gCameraViewPos.z;
 
     for (int32 i = 0; i < info->meshesCount; i++)
     {
@@ -756,7 +738,7 @@ void drawRooms(Camera* camera)
     while (*visRoom)
     {
         Room* room = *visRoom++;
-        drawRoom(room, camera);
+        drawRoom(room);
         room->reset();
     }
 
@@ -776,6 +758,25 @@ void drawRooms(Camera* camera)
 
     setPaletteIndex(0);
     setViewport(camera->view.room->clip);
+}
+
+void drawHUD(Lara* lara)
+{
+    int32 x = (FRAME_WIDTH - (100 + 2 + 2)) - 4;
+    int32 y = 4;
+
+    if (lara->waterState == WATER_STATE_SURFACE || lara->waterState == WATER_STATE_UNDER)
+    {
+        int32 v = (lara->oxygen << 8) / LARA_MAX_OXYGEN;
+        renderBar(x, y, v, BAR_OXYGEN);
+        y += 10;
+    }
+
+    if (lara->extraL->healthTimer || lara->extraL->weaponState == WEAPON_STATE_READY)
+    {
+        int32 v = (lara->health << 8) / LARA_MAX_HEALTH;
+        renderBar(x, y, v, BAR_HEALTH);
+    }
 }
 
 #endif

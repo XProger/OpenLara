@@ -1,8 +1,9 @@
 #include "common.h"
+#include "lang/en.h"
 
-uint32 keys;
-RectMinMax viewport;
-vec3i cameraViewPos;
+EWRAM_DATA uint32 keys;
+EWRAM_DATA RectMinMax viewport;
+vec3i gCameraViewPos;
 Matrix matrixStack[MAX_MATRICES];
 Matrix* matrixPtr = matrixStack;
 
@@ -10,7 +11,7 @@ EWRAM_DATA Sphere gSpheres[2][MAX_SPHERES];
 
 const FloorData* gLastFloorData;
 FloorData gLastFloorSlant;
-TargetInfo tinfo;
+EWRAM_DATA TargetInfo tinfo;
 
 EWRAM_DATA SaveGame gSaveGame;
 EWRAM_DATA Settings gSettings;
@@ -21,6 +22,8 @@ int32 gLightAmbient;
 int32 gRandTable[MAX_RAND_TABLE];
 int32 gCaustics[MAX_CAUSTICS];
 int32 gCausticsFrame;
+
+const char* const* STR = STR_EN;
 
 EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
 
@@ -1246,9 +1249,9 @@ void matrixTranslateRel_c(int32 x, int32 y, int32 z)
 
 void matrixTranslateAbs_c(int32 x, int32 y, int32 z)
 {
-    x -= cameraViewPos.x;
-    y -= cameraViewPos.y;
-    z -= cameraViewPos.z;
+    x -= gCameraViewPos.x;
+    y -= gCameraViewPos.y;
+    z -= gCameraViewPos.z;
     MATRIX_TRANSLATE(x, y, z);
     m.e03 = tx;
     m.e13 = ty;
@@ -1462,7 +1465,7 @@ void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
     m.e22 = (cx * cy) >> FIXED_SHIFT;
     m.e23 = 0;
 
-    cameraViewPos = pos;
+    gCameraViewPos = pos;
 }
 
 void CollisionInfo::setSide(CollisionInfo::SideType st, int32 floor, int32 ceiling)
@@ -1491,4 +1494,80 @@ void CollisionInfo::setSide(CollisionInfo::SideType st, int32 floor, int32 ceili
     s->slantType = slantType;
     s->floor     = floor;
     s->ceiling   = ceiling;
+}
+
+void palGamma(const uint16* srcPal, uint16* dstPal, int32 value)
+{
+    for (int32 i = 0; i < 256; i++)
+    {
+        uint16 src = *srcPal++;
+        int32 r = 31 & (src);
+        int32 g = 31 & (src >> 5);
+        int32 b = 31 & (src >> 10);
+
+        r = X_MIN(31, r + (((r * r >> 2) - r) * value >> 8));
+        g = X_MIN(31, g + (((g * g >> 2) - g) * value >> 8));
+        b = X_MIN(31, b + (((b * b >> 2) - b) * value >> 8));
+
+        *dstPal++ = r | (g << 5) | (b << 10);
+    }
+}
+
+void palBright(const uint16* srcPal, uint16* dstPal, int32 value)
+{
+    value >>= 2;
+
+    for (int32 i = 0; i < 256; i++)
+    {
+        uint16 src = *srcPal++;
+        int32 r = 31 & (src);
+        int32 g = 31 & (src >> 5);
+        int32 b = 31 & (src >> 10);
+
+        r = X_CLAMP(r + value, 0, 31);
+        g = X_CLAMP(g + value, 0, 31);
+        b = X_CLAMP(b + value, 0, 31);
+
+        *dstPal++ = r | (g << 5) | (b << 10);
+    }
+}
+
+void palGrayRemap(const uint16* palette, uint8* remap)
+{
+    static const uint8 grad[8] = {
+        1, 22, 21, 20, 19, 18, 17, 33
+    };
+
+    for (int32 i = 0; i < 256; i++)
+    {
+        uint16 p = *palette++;
+        uint8 r = (p & 31);
+        uint8 g = ((p >> 5) & 31);
+        uint8 b = ((p >> 10) & 31);
+
+        int32 lum = (r * 77 + g * 150 + b * 29) >> (8 + 2);
+
+        *remap++ = grad[lum];
+    }
+}
+
+void palSet(const uint16* palette, int32 gamma, int32 bright)
+{
+    const uint16* pal = palette;
+
+    if (gamma || bright)
+    {
+        uint16 tmp[256];
+        if (gamma) {
+            palGamma(pal, tmp, gamma);
+            pal = tmp;
+        }
+
+        if (bright) {
+            palBright(pal, tmp, bright);
+            pal = tmp;
+        }
+    }
+
+    osSetPalette(pal);
 }
