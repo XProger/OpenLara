@@ -606,7 +606,7 @@ struct Hole : Object // parent class for KeyHole and PuzzleHole
         if (inventory.useSlot == SLOT_MAX)
         {
             if (inventory.numKeys > 0) {
-                inventory.show(lara, this);
+                inventory.open(lara, INV_PAGE_USE, type);
                 return;
             }
         } else {

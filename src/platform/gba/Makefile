@@ -160,6 +160,9 @@ soundbank.bin soundbank.h : $(AUDIOFILES)
 	@echo $(notdir $<)
 	@$(bin2o)
 
+%.SCR.o	%_SCR.h :	%.SCR
+	@echo $(notdir $<)
+	@$(bin2o)
 
 -include $(DEPSDIR)/*.d
 

@@ -45,6 +45,9 @@ ViewportRel viewportRel;
 #define FACE_COLORED    (1 << 14)
 #define FACE_TRIANGLE   (1 << 15)
 #define FACE_SHADOW     (FACE_COLORED | FACE_FLAT | FACE_SPRITE)
+#define FACE_FILL_S     (1 << 16)
+#define FACE_LINE_H     (1 << 17)
+#define FACE_LINE_V     (1 << 18)
 #define FACE_TEXTURE    0x07FF
 
 #if defined(__GBA__)
@@ -702,7 +705,13 @@ void rasterize(uint32 flags, const VertexLink *top)
 #ifdef DEBUG_OVERDRAW
     rasterize_overdraw(pixel, top, top);
 #else
-    if (flags & FACE_COLORED) {
+    if (flags & FACE_FILL_S) {
+        rasterizeFillS(pixel, top, top);
+    } else if (flags & FACE_LINE_H) {
+        rasterizeLineH(pixel, top, top);
+    } else if (flags & FACE_LINE_V) {
+        rasterizeLineV(pixel, top, top);
+    } else if (flags & FACE_COLORED) {
         if (flags & FACE_FLAT) {
             if (flags & FACE_SPRITE) {
                 rasterizeS(pixel, top, top);
@@ -940,18 +949,23 @@ void flush()
 
                     v[0].v = gVertices[face->indices[0]];
                     v[1].v = gVertices[face->indices[1]];
-                    v[2].v = gVertices[face->indices[2]];
-                    if (!(flags & FACE_TRIANGLE)) {
-                        v[3].v = gVertices[face->indices[3]];
-                    }
 
-                    if (flags & FACE_CLIPPED) {
-                        drawPoly(face, v);
+                    if (flags & (FACE_FILL_S | FACE_LINE_H | FACE_LINE_V)) {
+                        rasterize(face->flags, v);
                     } else {
-                        if (flags & FACE_TRIANGLE) {
-                            drawTriangle(face, v);
+                        v[2].v = gVertices[face->indices[2]];
+                        if (!(flags & FACE_TRIANGLE)) {
+                            v[3].v = gVertices[face->indices[3]];
+                        }
+
+                        if (flags & FACE_CLIPPED) {
+                            drawPoly(face, v);
                         } else {
-                            drawQuad(face, v);
+                            if (flags & FACE_TRIANGLE) {
+                                drawTriangle(face, v);
+                            } else {
+                                drawQuad(face, v);
+                            }
                         }
                     }
                 }
@@ -1085,6 +1099,62 @@ void renderShadow(int32 x, int32 z, int32 sx, int32 sz)
     gVerticesBase += 8;
 }
 
+X_NOINLINE void renderFill(int32 x, int32 y, int32 width, int32 height, int32 shade, int32 z)
+{
+    if (gVerticesBase - gVertices + 2 > MAX_VERTICES) {
+        ASSERT(false);
+        return;
+    }
+
+    if (gFacesBase - gFaces + 1 > MAX_FACES) {
+        ASSERT(false);
+        return;
+    }
+
+    gVerticesBase[0].x = x;
+    gVerticesBase[0].y = y;
+    gVerticesBase[0].g = shade;
+
+    gVerticesBase[1].x = width;
+    gVerticesBase[1].y = height;
+
+    Face* f = faceAdd(z);
+    f->flags = FACE_FILL_S;
+    f->indices[0] = gVerticesBase - gVertices;
+    f->indices[1] = f->indices[0] + 1;
+
+    gVerticesBase += 2;
+}
+
+X_NOINLINE void renderLine(int32 x, int32 y, int32 width, int32 height, int32 index, int32 z)
+{
+    if (gVerticesBase - gVertices + 2 > MAX_VERTICES) {
+        ASSERT(false);
+        return;
+    }
+
+    if (gFacesBase - gFaces + 1 > MAX_FACES) {
+        ASSERT(false);
+        return;
+    }
+
+    ASSERT(width == 1 || height == 1);
+
+    gVerticesBase[0].x = x;
+    gVerticesBase[0].y = y;
+    gVerticesBase[0].g = index;
+
+    gVerticesBase[1].x = width;
+    gVerticesBase[1].y = height;
+
+    Face* f = faceAdd(z);
+    f->flags = (height == 1) ? FACE_LINE_H : FACE_LINE_V;
+    f->indices[0] = gVerticesBase - gVertices;
+    f->indices[1] = f->indices[0] + 1;
+
+    gVerticesBase += 2;
+}
+
 void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
 {
     if (gVerticesBase - gVertices + 2 > MAX_VERTICES) {
@@ -1168,7 +1238,7 @@ void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     int32 depth = X_MAX(0, z - 128); // depth hack
 
     Face* f = faceAdd(depth >> OT_SHIFT);
-    f->flags = uint16(FACE_SPRITE);
+    f->flags = FACE_SPRITE;
     f->indices[0] = v1 - gVertices;
     f->indices[1] = index;
 
@@ -1214,57 +1284,52 @@ void renderGlyph(int32 vx, int32 vy, int32 index)
     //v2->g = vg;
 
     Face* f = faceAdd(0);
-    f->flags = uint16(FACE_SPRITE);
+    f->flags = FACE_SPRITE;
     f->indices[0] = v1 - gVertices;
     f->indices[1] = index;
 
     gVerticesBase += 2;
 }
 
-#define BAR_WIDTH   100
 #define BAR_HEIGHT  5
 
-void renderBar(int32 x, int32 y, int32 value, BarType type)
+const int32 BAR_COLORS[BAR_MAX][5] = {
+    {  8, 11,  8,  6, 24 },
+    { 32, 41, 32, 19, 21 },
+    { 28, 29, 28, 26, 27 },
+    { 43, 44, 43, 42, 41 },
+};
+
+X_NOINLINE void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 shade, int32 color1, int32 color2, int32 z)
 {
-    // frame
-    rasterizeLineV(x, y, BAR_HEIGHT + 2 + 2, 19);
-    rasterizeLineV(x + BAR_WIDTH + 2 + 1, y, BAR_HEIGHT + 2 + 2, 17);
-    rasterizeLineH(x + 1, y, BAR_WIDTH + 2, 19);
-    rasterizeLineH(x + 1, y + BAR_HEIGHT + 2 + 1, BAR_WIDTH + 2, 17);
-
     // background
-    x++;
-    y++;
-    rasterizeFillS(x, y, BAR_WIDTH + 2, BAR_HEIGHT + 2, 27);
-
-    // colored bar
-    x++;
-    y++;
-    int32 w = value * BAR_WIDTH >> 8;
-
-    switch (type)
-    {
-        case BAR_HEALTH:
-            rasterizeLineH(x, y++, w, 8);
-            rasterizeLineH(x, y++, w, 11);
-            rasterizeLineH(x, y++, w, 8);
-            rasterizeLineH(x, y++, w, 6);
-            rasterizeLineH(x, y++, w, 24);
-            break;
-        case BAR_OXYGEN:
-            rasterizeLineH(x, y++, w, 32);
-            rasterizeLineH(x, y++, w, 41);
-            rasterizeLineH(x, y++, w, 32);
-            rasterizeLineH(x, y++, w, 19);
-            rasterizeLineH(x, y++, w, 21);
-            break;
-        case BAR_DASH:
-            // TODO
-            break;
+    if (shade >= 0) {
+        renderFill(x + 1, y + 1, width - 2, height - 2, shade, z);
     }
+
+    // frame
+    renderLine(x + 1, y, width - 2, 1, color1, z);
+    renderLine(x + 1, y + height - 1, width - 2, 1, color2, z);
+    renderLine(x, y, 1, height, color1, z);
+    renderLine(x + width - 1, y, 1, height, color2, z);
 }
 
-void renderBackground(void* background)
+void renderBar(int32 x, int32 y, int32 width, int32 value, BarType type)
+{
+    // colored bar
+    int32 ix = x + 2;
+    int32 iy = y + 2;
+    int32 w = value * width >> 8;
+
+    for (int32 i = 0; i < 5; i++)
+    {
+        renderLine(ix, iy++, w, 1, BAR_COLORS[type][i], 0);
+    }
+
+    renderBorder(x, y, width + 4, BAR_HEIGHT + 4, 27, 19, 17, 0);
+}
+
+void renderBackground(const void* background)
 {
     dmaCopy(background, (void*)fb, FRAME_WIDTH * FRAME_HEIGHT);
 }

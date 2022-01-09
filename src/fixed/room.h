@@ -1069,7 +1069,7 @@ void checkTrigger(const FloorData* fd, ItemObj* lara)
             }
 
             case TRIGGER_ACTION_END:
-                nextLevel();
+                nextLevel(LevelID(gLevelID + 1));
                 break;
 
             case TRIGGER_ACTION_SOUNDTRACK:

@@ -29,6 +29,7 @@ EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
 
 #ifdef __GBA__
     #include "TRACKS_IMA.h"
+    #include "TITLE_SCR.h"
     #include "TITLE_PKD.h"
     #include "GYM_PKD.h"
     #include "LEVEL1_PKD.h"
@@ -38,6 +39,8 @@ EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
 #else
     #define LEVEL_INFO(name, title, track, secrets) { #name, NULL, title, track, secrets }
 #endif
+
+LevelID gLevelID = LVL_TR1_TITLE;
 
 const LevelInfo gLevelInfo[LVL_MAX] = {
 // TR1
@@ -66,8 +69,6 @@ const LevelInfo gLevelInfo[LVL_MAX] = {
     //LEVEL_INFO( CAT       , STR_TR1_CAT       , TRACK_TR1_WIND      , 4 ),
     //LEVEL_INFO( END       , STR_TR1_END       , TRACK_TR1_WIND      , 2 )
 };
-
-LevelID gLevelID = LVL_TR1_GYM;
 
 #ifdef PROFILING
     uint32 gCounters[CNT_MAX];
@@ -1505,9 +1506,9 @@ void palGamma(const uint16* srcPal, uint16* dstPal, int32 value)
         int32 g = 31 & (src >> 5);
         int32 b = 31 & (src >> 10);
 
-        r = X_MIN(31, r + (((r * r >> 2) - r) * value >> 8));
-        g = X_MIN(31, g + (((g * g >> 2) - g) * value >> 8));
-        b = X_MIN(31, b + (((b * b >> 2) - b) * value >> 8));
+        r = X_MIN(31, r + (((r * r >> 2) - r) * value >> 10));
+        g = X_MIN(31, g + (((g * g >> 2) - g) * value >> 10));
+        b = X_MIN(31, b + (((b * b >> 2) - b) * value >> 10));
 
         *dstPal++ = r | (g << 5) | (b << 10);
     }

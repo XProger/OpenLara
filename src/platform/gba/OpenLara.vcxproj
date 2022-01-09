@@ -32,6 +32,7 @@
     <ClInclude Include="..\..\fixed\game.h" />
     <ClInclude Include="..\..\fixed\inventory.h" />
     <ClInclude Include="..\..\fixed\item.h" />
+    <ClInclude Include="..\..\fixed\lang\en.h" />
     <ClInclude Include="..\..\fixed\lara.h" />
     <ClInclude Include="..\..\fixed\level.h" />
     <ClInclude Include="..\..\fixed\nav.h" />

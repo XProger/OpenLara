@@ -524,28 +524,31 @@ struct Array
     }
 };
 
+struct _BITMAPFILEHEADER {
+    uint32  bfSize;
+    uint16  bfReserved1;
+    uint16  bfReserved2;
+    uint32  bfOffBits;
+};
+
+struct _BITMAPINFOHEADER {
+    uint32 biSize;
+    uint32 biWidth;
+    uint32 biHeight;
+    uint16 biPlanes;
+    uint16 biBitCount;
+    uint32 biCompression;
+    uint32 biSizeImage;
+    uint32 biXPelsPerMeter;
+    uint32 biYPelsPerMeter;
+    uint32 biClrUsed;
+    uint32 biClrImportant;
+};
+
 void saveBitmap(const char* fileName, uint8* data, int32 width, int32 height, int32 bpp = 24)
 {
-    struct BITMAPFILEHEADER {
-        uint32  bfSize;
-        uint16  bfReserved1;
-        uint16  bfReserved2;
-        uint32  bfOffBits;
-    } fhdr;
-
-    struct BITMAPINFOHEADER {
-        uint32 biSize;
-        uint32 biWidth;
-        uint32 biHeight;
-        uint16 biPlanes;
-        uint16 biBitCount;
-        uint32 biCompression;
-        uint32 biSizeImage;
-        uint32 biXPelsPerMeter;
-        uint32 biYPelsPerMeter;
-        uint32 biClrUsed;
-        uint32 biClrImportant;
-    } ihdr;
+    _BITMAPFILEHEADER fhdr;
+    _BITMAPINFOHEADER ihdr;
 
     memset(&fhdr, 0, sizeof(fhdr));
     memset(&ihdr, 0, sizeof(ihdr));
@@ -572,6 +575,37 @@ void saveBitmap(const char* fileName, uint8* data, int32 width, int32 height, in
         }
         fclose(f);
     }
+}
+
+uint8* loadBitmap(const char* fileName, int32* width, int32* height, int32* bpp)
+{
+    _BITMAPFILEHEADER fhdr;
+    _BITMAPINFOHEADER ihdr;
+
+    FILE *f = fopen(fileName, "rb");
+    if (!f) return NULL;
+
+    uint16 type;
+    fread(&type, sizeof(type), 1, f);
+    fread(&fhdr, sizeof(fhdr), 1, f);
+    fread(&ihdr, sizeof(ihdr), 1, f);
+
+    *width = ihdr.biWidth;
+    *height = ihdr.biHeight;
+    *bpp = ihdr.biBitCount;
+
+    uint8* data = new uint8[ihdr.biWidth * ihdr.biHeight * ihdr.biBitCount / 8];
+    data += ihdr.biWidth * ihdr.biHeight * ihdr.biBitCount / 8;
+
+    for (int32 i = 0; i < ihdr.biHeight; i++)
+    {
+        data -= ihdr.biWidth * ihdr.biBitCount / 8;
+        fread(data, ihdr.biWidth * ihdr.biBitCount / 8, 1, f);
+    }
+
+    fclose(f);
+
+    return data;
 }
 
 #define X_CLAMP(x, a, b) ((x) < (a) ? (a) : ((x) > (b) ? (b) : (x)))
@@ -5577,6 +5611,89 @@ void convertTracks3DO(const char* inDir, const char* outDir)
     FindClose(h);
 }
 
+#define SQR(x) ((x) * (x))
+
+void convertScreen(const char* name, const Palette &pal)
+{
+    char path[256];
+    sprintf(path, "screens/%s.bmp", name);
+
+    int32 width, height, bpp;
+    uint32* data = (uint32*)loadBitmap(path, &width, &height, &bpp);
+
+    ASSERT(data);
+    ASSERT(width == 240 && height == 160 && bpp == 32);
+
+    uint32* uniqueColors = new uint32[width * height];
+    uint32 count = 0;
+
+    for (int32 i = 0; i < width * height; i++)
+    {
+        uint32 c = data[i];
+
+        int32 index = -1;
+
+        for (int32 j = 0; j < count; j++)
+        {
+            if (uniqueColors[j] == c) {
+                index = j;
+                break;
+            }
+        }
+
+        if (index == -1) {
+            index = count++;
+            uniqueColors[index] = c;
+        }
+
+        data[i] = index;
+    }
+
+    for (int32 i = 0; i < count; i++)
+    {
+        uint32 c = uniqueColors[i];
+
+        int32 cr = (c >> 16) & 0xFF;
+        int32 cg = (c >> 8) & 0xFF;
+        int32 cb = c & 0xFF;
+
+        float dist = 256 * 256 * 256;
+        int32 index = 0;
+
+        for (int32 j = 0; j < 256; j++)
+        {
+            int32 r = pal.colors[j * 3 + 0] << 2;
+            int32 g = pal.colors[j * 3 + 1] << 2;
+            int32 b = pal.colors[j * 3 + 2] << 2;
+
+            float d = sqrtf(float(SQR(cr - r) + SQR(cg - g) + SQR(cb - b)));
+            if (d < dist)
+            {
+                dist = d;
+                index = j;
+            }
+        }
+    
+        uniqueColors[i] = index;
+    }
+
+    uint8* indices = new uint8[width * height];
+    for (int32 i = 0; i < width * height; i++)
+    {
+        indices[i] = uniqueColors[data[i]];
+    }
+
+    sprintf(path, "../data/%s.SCR", name);
+
+    FILE *f = fopen(path, "wb");
+    fwrite(indices, 1, width * height, f);
+    fclose(f);
+
+    delete[] data;
+    delete[] uniqueColors;
+    delete[] indices;
+}
+
 uint32 palDump[32][256];
 
 int main()
@@ -5590,6 +5707,10 @@ int main()
         char path[64];
         sprintf(path, "levels/%s.PHD", levelNames[i]);
         levels[i] = new LevelPC(path);
+
+        if (strcmp(levelNames[i], "TITLE") == 0) {
+            convertScreen("TITLE", levels[i]->palette);
+        }
 
         for (int32 j = 0; j < 256; j++)
         {

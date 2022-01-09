@@ -136,6 +136,7 @@ void drawText(int32 x, int32 y, const char* text, TextAlign align)
         x += FRAME_WIDTH - getTextWidth(text);
     }
 
+    int32 index;
     char c;
     while ((c = *text++))
     {
@@ -143,7 +144,14 @@ void drawText(int32 x, int32 y, const char* text, TextAlign align)
             x += 6;
             continue;
         }
-        int32 index = charRemap(c);
+
+        if (c == '$') // special char
+        {
+            index = *text++;
+        } else {
+            index = charRemap(c);
+        }
+
         renderGlyph(x, y, level.models[ITEM_GLYPHS].start + index);
         x += char_width[index] + 1;
     }
@@ -768,15 +776,36 @@ void drawHUD(Lara* lara)
     if (lara->waterState == WATER_STATE_SURFACE || lara->waterState == WATER_STATE_UNDER)
     {
         int32 v = (lara->oxygen << 8) / LARA_MAX_OXYGEN;
-        renderBar(x, y, v, BAR_OXYGEN);
+        renderBar(x, y, 100, v, BAR_OXYGEN);
         y += 10;
     }
 
     if (lara->extraL->healthTimer || lara->extraL->weaponState == WEAPON_STATE_READY)
     {
         int32 v = (lara->health << 8) / LARA_MAX_HEALTH;
-        renderBar(x, y, v, BAR_HEALTH);
+        renderBar(x, y, 100, v, BAR_HEALTH);
     }
+}
+
+void drawDebugInfo()
+{
+    char buf[32];
+    int2str(fps, buf);
+    drawText(2, 16, buf, TEXT_ALIGN_LEFT);
+    //drawText(0, FRAME_HEIGHT - 8, "! early alpha version !", TEXT_ALIGN_CENTER);
+
+    #ifdef PROFILING
+        for (int32 i = 0; i < CNT_MAX; i++)
+        {
+        #ifdef __3DO__
+            extern void drawInt(int32 x, int32 y, int32 c);
+            drawInt(FRAME_WIDTH - 8, 4 + 24 + 8 + 8 * i, gCounters[i]);
+        #else
+            int2str(gCounters[i], buf);
+            drawText(2, 16 + 32 + i * 16, buf, TEXT_ALIGN_LEFT);
+        #endif
+        }
+    #endif
 }
 
 #endif

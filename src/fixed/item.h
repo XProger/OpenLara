@@ -29,6 +29,9 @@ int32 alignOffset(int32 a, int32 b)
 
 void* soundPlay(int16 id, const vec3i* pos)
 {
+    if (id < 0)
+        return NULL;
+
     // TODO gym
     // 0 -> 200
     // 4 -> 204
@@ -652,6 +655,11 @@ void ItemObj::updateRoom(int32 offset)
     roomFloor = sector->getFloor(pos.x, pos.y, pos.z);
 }
 
+bool ItemObj::isKeyHit(InputState state) const
+{
+    return (input & state) && !(extraL->lastInput & state);
+}
+
 vec3i ItemObj::getRelative(const vec3i &point) const
 {
     matrixPush();
@@ -933,7 +941,7 @@ ItemObj::ItemObj(Room* room)
     hSpeed      = 0;
     nextItem    = NULL;
     nextActive  = NULL;
-    animIndex   = level.models[type].animIndex; // ctor called on existing memory, type is already initialized
+    animIndex   = level.models[type].animIndex; // ignore this warning, it's initialized
     frameIndex  = level.anims[animIndex].frameBegin;
     state       = uint8(level.anims[animIndex].state);
     nextState   = state;

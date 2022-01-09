@@ -8,16 +8,18 @@
 #include "draw.h"
 #include "nav.h"
 #include "level.h"
+#include "inventory.h"
 
 LevelID gNextLevel = LVL_MAX;
 
-void nextLevel()
+void nextLevel(LevelID next)
 {
-    if (gLevelID == LVL_TR1_2) {
-        gNextLevel = LVL_TR1_GYM;
+    if ((next == LVL_TR1_3A) && (inventory.state == INV_STATE_NONE)) // alpha version
+    {
+        inventory.open(players[0], INV_PAGE_END);
         return;
     }
-    gNextLevel = LevelID(gLevelID + 1);
+    gNextLevel = next;
 }
 
 struct Game
@@ -72,54 +74,63 @@ struct Game
         }
         ItemObj::sFirstFree = items + level.itemsCount;
 
-        // init items
-        for (int32 i = 0; i < level.itemsCount; i++)
-        {
-            const ItemObjInfo* info = level.itemsInfo + i;
-            ItemObj* item = items + i;
+        if (gLevelID == LVL_TR1_TITLE) {
+            // init dummy Lara for updateInput()
+            items->extraL = playersExtra;
+            items->extraL->camera.mode = CAMERA_MODE_FOLLOW;
+            inventory.open(items, INV_PAGE_TITLE);
+        } else {
+            inventory.page = INV_PAGE_MAIN;
 
-            item->type = info->type;
-            item->intensity = uint8(info->intensity);
+            // init items
+            for (int32 i = 0; i < level.itemsCount; i++)
+            {
+                const ItemObjInfo* info = level.itemsInfo + i;
+                ItemObj* item = items + i;
 
-            item->pos.x = info->pos.x + (rooms[info->roomIndex].info->x << 8);
-            item->pos.y = info->pos.y;
-            item->pos.z = info->pos.z + (rooms[info->roomIndex].info->z << 8);
+                item->type = info->type;
+                item->intensity = uint8(info->intensity);
 
-            item->angle.y = ((info->params.value >> 14) - 2) * ANGLE_90;
-            item->flags = info->params.flags;
-            item->flags.reverse = 0;
-            item->flags.shadow = 0;
+                item->pos.x = info->pos.x + (rooms[info->roomIndex].info->x << 8);
+                item->pos.y = info->pos.y;
+                item->pos.z = info->pos.z + (rooms[info->roomIndex].info->z << 8);
 
-            if (item->type == ITEM_LARA || item->type == ITEM_CUT_1) {
-                players[0] = (Lara*)item;
+                item->angle.y = ((info->params.value >> 14) - 2) * ANGLE_90;
+                item->flags = info->params.flags;
+                item->flags.reverse = 0;
+                item->flags.shadow = 0;
+
+                if (item->type == ITEM_LARA || item->type == ITEM_CUT_1) {
+                    players[0] = (Lara*)item;
+                }
+
+                item->init(rooms + info->roomIndex);
             }
 
-            item->init(rooms + info->roomIndex);
+        // gym
+            //resetLara(0, 7, _vec3i(39038, -1280, 51712), ANGLE_90); // start
+            //resetLara(0, 8, _vec3i(55994, 0, 52603), ANGLE_90); // piano
+            //resetLara(0, 9, _vec3i(47672, 256, 40875), ANGLE_90); // hall
+            //resetLara(0, 13, _vec3i(38953, 3328, 63961), ANGLE_90 + ANGLE_45); // pool
+        // level 1
+            //resetLara(0, 0, _vec3i(74588, 3072, 19673), ANGLE_0); // first darts
+            //resetLara(0, 9, _vec3i(49669, 7680, 57891), ANGLE_0); // first door
+            //resetLara(0, 10, _vec3i(43063, 7168, 61198), ANGLE_0); // transp
+            //resetLara(0, 14, _vec3i(20215, 6656, 52942), ANGLE_90 + ANGLE_45); // bridge
+            //resetLara(0, 17, _vec3i(16475, 6656, 59845), ANGLE_90); // bear
+            //resetLara(0, 26, _vec3i(24475, 6912, 83505), ANGLE_90); // switch timer 1
+            //resetLara(0, 35, _vec3i(35149, 2048, 74189), ANGLE_90); // switch timer 2
+        // level 2
+            //resetLara(0, 15, _vec3i(66179, 0, 25920), -ANGLE_90 - ANGLE_45); // sprites
+            //resetLara(0, 19, _vec3i(61018, 1024, 31214), ANGLE_180); // block
+            //resetLara(0, 14, _vec3i(64026, 512, 20806), ANGLE_0); // key and puzzle
+            //resetLara(0, 5, _vec3i(55644, 0, 29155), -ANGLE_90); // keyhole
+            //resetLara(0, 71, _vec3i(12705, -768, 30195), -ANGLE_90); // puzzle
+            //resetLara(0, 63, _vec3i(31055, -2048, 33406), ANGLE_0); // right room
+            //resetLara(0, 44, _vec3i(27868, -1024, 29191), -ANGLE_90); // swing blades
+        // level 3a
+            //resetLara(0, 44, _vec3i(73798, 2304, 9819), ANGLE_90); // uw gears
         }
-
-    // gym
-        //resetLara(0, 7, _vec3i(39038, -1280, 51712), ANGLE_90); // start
-        //resetLara(0, 8, _vec3i(55994, 0, 52603), ANGLE_90); // piano
-        //resetLara(0, 9, _vec3i(47672, 256, 40875), ANGLE_90); // hall
-        //resetLara(0, 13, _vec3i(38953, 3328, 63961), ANGLE_90 + ANGLE_45); // pool
-    // level 1
-        //resetLara(0, 0, _vec3i(74588, 3072, 19673), ANGLE_0); // first darts
-        //resetLara(0, 9, _vec3i(49669, 7680, 57891), ANGLE_0); // first door
-        //resetLara(0, 10, _vec3i(43063, 7168, 61198), ANGLE_0); // transp
-        //resetLara(0, 14, _vec3i(20215, 6656, 52942), ANGLE_90 + ANGLE_45); // bridge
-        //resetLara(0, 17, _vec3i(16475, 6656, 59845), ANGLE_90); // bear
-        //resetLara(0, 26, _vec3i(24475, 6912, 83505), ANGLE_90); // switch timer 1
-        //resetLara(0, 35, _vec3i(35149, 2048, 74189), ANGLE_90); // switch timer 2
-    // level 2
-        //resetLara(0, 15, _vec3i(66179, 0, 25920), -ANGLE_90 - ANGLE_45); // sprites
-        //resetLara(0, 19, _vec3i(61018, 1024, 31214), ANGLE_180); // block
-        //resetLara(0, 14, _vec3i(64026, 512, 20806), ANGLE_0); // key and puzzle
-        //resetLara(0, 5, _vec3i(55644, 0, 29155), -ANGLE_90); // keyhole
-        //resetLara(0, 71, _vec3i(12705, -768, 30195), -ANGLE_90); // puzzle
-        //resetLara(0, 63, _vec3i(31055, -2048, 33406), ANGLE_0); // right room
-        //resetLara(0, 44, _vec3i(27868, -1024, 29191), -ANGLE_90); // swing blades
-    // level 3a
-        //resetLara(0, 44, _vec3i(73798, 2304, 9819), ANGLE_90); // uw gears
 
         drawInit();
     }
@@ -163,14 +174,6 @@ struct Game
     {
         PROFILE(CNT_UPDATE);
 
-        if (gNextLevel != LVL_MAX)
-        {
-            gLevelID = gNextLevel;
-            gNextLevel = LVL_MAX;
-            startLevel(gLevelInfo[gLevelID].name);
-            frames = 1;
-        }
-
         if (frames > MAX_UPDATE_FRAMES) {
             frames = MAX_UPDATE_FRAMES;
         }
@@ -185,9 +188,14 @@ struct Game
             ASSERT(lara);
             lara->updateInput();
             inventory.update(frames);
+
+            if ((inventory.page != INV_PAGE_TITLE) && (inventory.state == INV_STATE_NONE))
+            {
+                lara->useItem(inventory.useSlot);
+            }
         }
 
-        if (inventory.state == INV_STATE_NONE)
+        if ((inventory.page != INV_PAGE_TITLE) && (inventory.state == INV_STATE_NONE))
         {
             for (int32 i = 0; i < frames; i++)
             {
@@ -195,30 +203,14 @@ struct Game
             }
             updateLevel(frames);
         }
-    }
 
-    void showDebugInfo()
-    {
-        if (inventory.state != INV_STATE_NONE)
-            return;
-
-        char buf[32];
-        int2str(fps, buf);
-        drawText(2, 16, buf, TEXT_ALIGN_LEFT);
-        //drawText(0, FRAME_HEIGHT - 8, "! early alpha version !", TEXT_ALIGN_CENTER);
-
-        #ifdef PROFILING
-            for (int32 i = 0; i < CNT_MAX; i++)
-            {
-            #ifdef __3DO__
-                extern void drawInt(int32 x, int32 y, int32 c);
-                drawInt(FRAME_WIDTH - 8, 4 + 24 + 8 + 8 * i, gCounters[i]);
-            #else
-                int2str(gCounters[i], buf);
-                drawText(2, 16 + 32 + i * 16, buf, TEXT_ALIGN_LEFT);
-            #endif
-            }
-        #endif
+        if ((gNextLevel != LVL_MAX) && (inventory.state == INV_STATE_NONE))
+        {
+            gLevelID = gNextLevel;
+            gNextLevel = LVL_MAX;
+            startLevel(gLevelInfo[gLevelID].name);
+            update(1);
+        }
     }
 
     void render()
@@ -244,7 +236,10 @@ struct Game
                 inventory.draw();
             }
 
-            showDebugInfo();
+            if (inventory.state == INV_STATE_NONE)
+            {
+                drawDebugInfo();
+            }
 
             flush();
         }

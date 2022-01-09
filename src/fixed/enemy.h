@@ -38,24 +38,21 @@ struct Enemy : ItemObj
     void setExtra(ExtraInfoEnemy* extra)
     {
         ASSERT(!extraE);
+        ASSERT(extra);
 
-        extraE = extra;
-
-        if (!extraE)
-            return;
-
-        if (extraE->enemy)
+        if (extra->enemy)
         {
-            extraE->enemy->flags.status = ITEM_FLAGS_STATUS_INVISIBLE;
-            extraE->enemy->disable();
+            extra->enemy->flags.status = ITEM_FLAGS_STATUS_INVISIBLE;
+            extra->enemy->disable();
         }
 
-        extraE->enemy = this;
-        extraE->rotHead = extraE->rotNeck = 0;
-        extraE->maxTurn = 0;
-        extraE->nav.stepHeight = 256;
-        extraE->nav.dropHeight = -256;
-        extraE->nav.vSpeed = 0;
+        extra->enemy = this;
+        extra->rotHead = extra->rotNeck = 0;
+        extra->maxTurn = 0;
+        extra->nav.stepHeight = 256;
+        extra->nav.dropHeight = -256;
+        extra->nav.vSpeed = 0;
+        extraE = extra;
 
         initExtra();
 

@@ -448,6 +448,9 @@ extern int32 fps;
 #define ANGLE_SHIFT_90  14
 #define ANGLE_SHIFT_180 15
 
+#define LARA_MAX_HEALTH         1000
+#define LARA_MAX_OXYGEN         1800    // TODO +30 sec for TR5
+
 #define X_CLAMP(x, a, b) ((x) < (a) ? (a) : ((x) > (b) ? (b) : (x)))
 #define X_MIN(a,b)       ((a) < (b) ? (a) : (b))
 #define X_MAX(a,b)       ((a) > (b) ? (a) : (b))
@@ -1375,6 +1378,7 @@ enum Weapon
     // WEAPON_CROSSBOW
     // WEAPON_GRAPPLING
     // WEAPON_FLARE
+    WEAPON_NONE,
     WEAPON_MAX
 };
 
@@ -1537,7 +1541,10 @@ struct ItemObj
     uint8 waterState;
 
     uint16 headOffset; // enemies only
-    uint16 aggression; // enemies only
+    union {
+        uint16 gymTimer;   // lara only
+        uint16 aggression; // enemies only
+    };
 
     int16 health;
     union {
@@ -1596,6 +1603,8 @@ struct ItemObj
 
     void updateRoom(int32 offset = 0);
 
+    bool isKeyHit(InputState state) const; // Lara only
+
     vec3i getRelative(const vec3i &point) const;
 
     int32 getWaterLevel() const;
@@ -1642,7 +1651,6 @@ struct SaveGame
     uint32 kills;
     TrackFlags tracks[64];
     uint32 flipped;
-    int32 gamma;
 };
 
 struct Settings
@@ -1650,6 +1658,10 @@ struct Settings
     struct Controls {
         bool retarget;
     } controls;
+
+    struct Detail {
+        int8 gamma;
+    } detail;
 };
 
 #define FD_SET_END(x,end)   ((x) |= ((end) << 15))
@@ -2070,6 +2082,11 @@ struct IMA_STATE
 
 enum StringID {
       STR_EMPTY
+    , STR_ALPHA_END_1
+    , STR_ALPHA_END_2
+    , STR_ALPHA_END_3
+    , STR_ALPHA_END_4
+    , STR_ALPHA_END_5
 // common
     , STR_LOADING
     , STR_LEVEL_STATS
@@ -2157,6 +2174,8 @@ enum StringID {
     , STR_REVERBERATION
     , STR_OPT_SUBTITLES
     , STR_OPT_LANGUAGE
+    , STR_OPT_SOUND_SFX
+    , STR_OPT_SOUND_MUSIC
 // controls options
     , STR_SET_CONTROLS
     , STR_OPT_CONTROLS_KEYBOARD
@@ -2164,17 +2183,33 @@ enum StringID {
     , STR_OPT_CONTROLS_VIBRATION
     , STR_OPT_CONTROLS_RETARGET
     , STR_OPT_CONTROLS_MULTIAIM
-/*
     // controls
-    , STR_CTRL_FIRST
-    , STR_CTRL_LAST = STR_CTRL_FIRST + cMAX - 1
-    // keys
-    , STR_KEY_FIRST
-    , STR_KEY_LAST  = STR_KEY_FIRST + ikBack
-    // gamepad
-    , STR_JOY_FIRST
-    , STR_JOY_LAST  = STR_JOY_FIRST + jkMAX - 1
-*/
+    , STR_CTRL_RUN
+    , STR_CTRL_BACK
+    , STR_CTRL_RIGHT
+    , STR_CTRL_LEFT
+    , STR_CTRL_WALK
+    , STR_CTRL_JUMP
+    , STR_CTRL_ACTION
+    , STR_CTRL_WEAPON
+    , STR_CTRL_LOOK
+    , STR_CTRL_ROLL
+    , STR_CTRL_INVENTORY
+    , STR_CTRL_PAUSE
+    // control keys
+    , STR_KEY_UP
+    , STR_KEY_DOWN
+    , STR_KEY_RIGHT
+    , STR_KEY_LEFT
+    , STR_KEY_A
+    , STR_KEY_B
+    , STR_KEY_L
+    , STR_KEY_R
+    , STR_KEY_SELECT
+    , STR_KEY_START
+    , STR_KEY_L_R
+    , STR_KEY_L_A
+    , STR_KEY_L_B
 // inventory items
     , STR_UNKNOWN
     , STR_EXPLOSIVE
@@ -2327,7 +2362,7 @@ enum TrackID
 {
     TRACK_NONE          = -1,
 // TR1
-    TRACK_TR1_TITLE     = 2,
+    TRACK_TR1_TITLE     = 4,    // TODO 2
     TRACK_TR1_CAVES     = 5,
     TRACK_TR1_SECRET    = 13,
     TRACK_TR1_CISTERN   = 57,
@@ -2354,27 +2389,27 @@ enum LevelID
     LVL_TR1_GYM,
     LVL_TR1_1,
     LVL_TR1_2,
-    //LVL_TR1_3A,
-    //LVL_TR1_3B,
-    //LVL_TR1_CUT_1,
-    //LVL_TR1_4,
-    //LVL_TR1_5,
-    //LVL_TR1_6,
-    //LVL_TR1_7A,
-    //LVL_TR1_7B,
-    //LVL_TR1_CUT_2,
-    //LVL_TR1_8A,
-    //LVL_TR1_8B,
-    //LVL_TR1_8C,
-    //LVL_TR1_10A,
-    //LVL_TR1_CUT_3,
-    //LVL_TR1_10B,
-    //LVL_TR1_CUT_4,
-    //LVL_TR1_10C,
-    //LVL_TR1_EGYPT,
-    //LVL_TR1_CAT,
-    //LVL_TR1_END,
-    //LVL_TR1_END2,
+    LVL_TR1_3A,
+    LVL_TR1_3B,
+    LVL_TR1_CUT_1,
+    LVL_TR1_4,
+    LVL_TR1_5,
+    LVL_TR1_6,
+    LVL_TR1_7A,
+    LVL_TR1_7B,
+    LVL_TR1_CUT_2,
+    LVL_TR1_8A,
+    LVL_TR1_8B,
+    LVL_TR1_8C,
+    LVL_TR1_10A,
+    LVL_TR1_CUT_3,
+    LVL_TR1_10B,
+    LVL_TR1_CUT_4,
+    LVL_TR1_10C,
+    LVL_TR1_EGYPT,
+    LVL_TR1_CAT,
+    LVL_TR1_END,
+    LVL_TR1_END2,
     LVL_MAX
 };
 
@@ -2384,7 +2419,9 @@ extern LevelID gLevelID;
 enum BarType {
     BAR_HEALTH,
     BAR_OXYGEN,
-    BAR_DASH
+    BAR_DASH,
+    BAR_OPTION,
+    BAR_MAX
 };
 
 enum TextAlign {
@@ -2583,10 +2620,13 @@ void renderMesh(const Mesh* mesh);
 void renderShadow(int32 x, int32 z, int32 sx, int32 sz);
 void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index);
 void renderGlyph(int32 vx, int32 vy, int32 index);
-void renderBar(int32 x, int32 y, int32 value, BarType type);
+void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 shade, int32 color1, int32 color2, int32 z);
+void renderBar(int32 x, int32 y, int32 width, int32 value, BarType type);
 void flush();
-void renderBackground(void* background);
+void renderBackground(const void* background);
 void* copyBackground();
+
+int32 getTextWidth(const char* text);
 
 void drawInit();
 void drawFree();
@@ -2610,7 +2650,7 @@ bool useSwitch(ItemObj* item, int32 timer);
 bool useKey(ItemObj* item, ItemObj* lara);
 bool usePickup(ItemObj* item);
 
-void nextLevel();
+void nextLevel(LevelID next);
 
 int32 doTutorial(ItemObj* lara, int32 track);
 
@@ -2627,6 +2667,8 @@ void sndStop();
 
 void palGrayRemap(const uint16* palette, uint8* remap);
 void palSet(const uint16* palette, int32 gamma, int32 bright);
+
+void updateFading(int32 frames);
 
 X_INLINE void dmaFill(void* dst, uint8 value, uint32 count)
 {

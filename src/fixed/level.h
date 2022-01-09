@@ -61,7 +61,7 @@ void readLevel_GBA(const uint8* data)
 #ifndef MODEHW
     // initialize global pointers
     gBrightness = -128;
-    palSet(level.palette, gSaveGame.gamma, gBrightness);
+    palSet(level.palette, gSettings.detail.gamma << 4, gBrightness);
     memcpy(lightmap, level.lightmap, sizeof(lightmap));
 #endif
 
@@ -144,11 +144,11 @@ void animTexturesShift()
 {
     const int16* data = level.animTexData;
 
-    int32 texRangesCount = *data++;
+    int16 texRangesCount = *data++;
 
     for (int32 i = 0; i < texRangesCount; i++)
     {
-        int32 count = *data++;
+        int16 count = *data++;
 
         Texture tmp = level.textures[*data];
         while (count > 0)
@@ -161,14 +161,14 @@ void animTexturesShift()
     }
 }
 
-#define FADING_RATE 16
+#define FADING_RATE_SHIFT 4
 
 void updateFading(int32 frames)
 {
     if (gBrightness == 0)
         return;
 
-    frames *= FADING_RATE;
+    frames <<= FADING_RATE_SHIFT;
 
     if (gBrightness < 0)
     {
@@ -186,7 +186,7 @@ void updateFading(int32 frames)
         }
     }
 
-    palSet(level.palette, gSaveGame.gamma, gBrightness);
+    palSet(level.palette, gSettings.detail.gamma << 4, gBrightness);
 }
 
 void updateLevel(int32 frames)

@@ -1,5 +1,6 @@
 #if defined(_WIN32) || defined(__DOS__)
     const void* TRACKS_IMA;
+    const void* TITLE_SCR;
     const void* levelData;
 #endif
 
@@ -361,8 +362,10 @@ void soundFill()
 #if defined(_WIN32)
 HDC hDC;
 
-void blit() {
-    for (int i = 0; i < FRAME_WIDTH * FRAME_HEIGHT; i++) {
+void blit()
+{
+    for (int i = 0; i < FRAME_WIDTH * FRAME_HEIGHT; i++)
+    {
         uint16 c = MEM_PAL_BG[((uint8*)fb)[i]];
         SCREEN[i] = (((c << 3) & 0xFF) << 16) | ((((c >> 5) << 3) & 0xFF) << 8) | ((c >> 10 << 3) & 0xFF) | 0xFF000000;
     }
@@ -370,8 +373,16 @@ void blit() {
     StretchDIBits(hDC, 0, 0, WND_WIDTH, WND_HEIGHT, 0, 0, FRAME_WIDTH, FRAME_HEIGHT, SCREEN, &bmi, DIB_RGB_COLORS, SRCCOPY);
 }
 
-LRESULT CALLBACK wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    switch (msg) {
+LRESULT CALLBACK wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    switch (msg)
+    {
+        case WM_ACTIVATE:
+        {
+            keys = 0;
+            break;
+        }
+
         case WM_DESTROY :
         {
             PostQuitMessage(0);
@@ -482,6 +493,22 @@ void* osLoadLevel(const char* name)
             fclose(f);
 
             TRACKS_IMA = data;
+        }
+
+        if (!TITLE_SCR)
+        {
+            FILE *f = fopen("data/TITLE.SCR", "rb");
+            if (!f)
+                return NULL;
+
+            fseek(f, 0, SEEK_END);
+            int32 size = ftell(f);
+            fseek(f, 0, SEEK_SET);
+            uint8* data = new uint8[size];
+            fread(data, 1, size, f);
+            fclose(f);
+
+            TITLE_SCR = data;
         }
         #endif
     }

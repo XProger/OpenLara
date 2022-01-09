@@ -94,8 +94,6 @@
 #define LARA_RADIUS             100
 #define LARA_RADIUS_WATER       300
 #define LARA_RADIUS_CLIMB       220
-#define LARA_MAX_HEALTH         1000
-#define LARA_MAX_OXYGEN         1800    // TODO +30 sec for TR5
 #define LARA_HEIGHT             762
 #define LARA_TURN_ACCEL         (ANGLE(9) / 4)
 #define LARA_TURN_JUMP          ANGLE(3)
@@ -2780,11 +2778,6 @@ struct Lara : ItemObj
     #endif
     }
 
-    bool isKeyHit(InputState state)
-    {
-        return (input & state) && !(extraL->lastInput & state);
-    }
-
     void updateLook()
     {
         ExtraInfoLara::Arm &R = extraL->armR;
@@ -3767,14 +3760,55 @@ struct Lara : ItemObj
         }
     }
 
+    void changeWeapon(Weapon weapon)
+    {
+        extraL->goalWeapon = weapon;
+        if ((extraL->weaponState == WEAPON_STATE_FREE) && (extraL->goalWeapon == extraL->weapon))
+        {
+            extraL->weapon = WEAPON_NONE;
+        }
+    }
+
+    void useItem(InvSlot slot)
+    {
+        switch (slot)
+        {
+            case SLOT_PISTOLS:
+                changeWeapon(WEAPON_PISTOLS);
+                break;
+            case SLOT_SHOTGUN:
+                changeWeapon(WEAPON_SHOTGUN);
+                break;
+            case SLOT_MAGNUMS:
+                changeWeapon(WEAPON_MAGNUMS);
+                break;
+            case SLOT_UZIS:
+                changeWeapon(WEAPON_UZIS);
+                break;
+            case SLOT_MEDIKIT_BIG:
+            case SLOT_MEDIKIT_SMALL:
+                if (health < LARA_MAX_HEALTH)
+                {
+                    health += (slot == SLOT_MEDIKIT_BIG) ? LARA_MAX_HEALTH : (LARA_MAX_HEALTH >> 1);
+                    if (health > LARA_MAX_HEALTH)
+                        health = LARA_MAX_HEALTH;
+                    inventory.remove(slot, 1);
+                    extraL->healthTimer = 40;
+                    soundPlay(SND_HEALTH, &pos);
+                }
+                break;
+            default: ;
+        }
+    }
+
     virtual void hit(int32 damage, const vec3i &point, int32 soundId)
     {
         if (health <= 0 || damage <= 0)
             return;
 
         osJoyVibrate(0, 0xFF, 0xFF);
-        health -= damage;
         extraL->healthTimer = 40;
+        health = X_MAX(0, health - damage);
     }
 
     virtual void update()
@@ -3788,7 +3822,7 @@ struct Lara : ItemObj
             restore();
         }
 
-        if (isKeyHit(IN_SELECT))
+        if (isKeyHit(IN_SELECT) && (gBrightness == 0))
         {
             inventory.open(this, INV_PAGE_MAIN);
         }
@@ -3959,13 +3993,15 @@ int32 doTutorial(ItemObj* lara, int32 track)
 
         case 50 : // end of GYM
             if (gSaveGame.tracks[track].once) {
-                //timer += Core::deltaTime;
-                //if (timer > 3.0f)
-                //    game->loadNextLevel();
+                lara->gymTimer++;
+                if (lara->gymTimer > 90)
+                {
+                    nextLevel(LVL_TR1_TITLE);
+                }
             } else {
                 if (lara->state != Lara::STATE_WATER_OUT)
                     track = 0;
-                //timer = 0.0f;
+                lara->gymTimer = 0;
             }
             break;
     }
