@@ -39,7 +39,6 @@ void Camera::init(ItemObj* lara)
 
     mode = CAMERA_MODE_FOLLOW;
 
-    modeSwitch = false;
     lastFixed = false;
     center = false;
 }
@@ -307,27 +306,12 @@ void Camera::lookAt(int32 offset)
 
     laraItem->extraL->torso.angle = laraItem->extraL->head.angle;
 
-    lookAtItem->flags.animated = true; // use as once flag
+    lookAtItem->flags |= ITEM_FLAG_ANIMATED; // use as once flag
     mode = CAMERA_MODE_LOOK;
 }
 
 void Camera::update()
 {
-    if (keys & IK_START)
-    {
-        if (!modeSwitch)
-        {
-            modeSwitch = true;
-            if (mode != CAMERA_MODE_FREE) {
-                mode = CAMERA_MODE_FREE;
-            } else {
-                mode = CAMERA_MODE_FOLLOW;
-            }
-        }
-    } else {
-        modeSwitch = false;
-    }
-
     if (mode == CAMERA_MODE_FREE)
     {
         updateFree();

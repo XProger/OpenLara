@@ -29,6 +29,9 @@ int32 alignOffset(int32 a, int32 b)
 
 void* soundPlay(int16 id, const vec3i* pos)
 {
+    if (!gSettings.audio_sfx)
+        return NULL;
+
     if (id < 0)
         return NULL;
 
@@ -179,7 +182,7 @@ void ItemObj::move()
 
     int32 sp = anim->speed;
 
-    if (flags.gravity)
+    if (flags & ITEM_FLAG_GRAVITY)
     {
         sp += anim->accel * (frameIndex - anim->frameBegin - 1);
         hSpeed -= sp >> 16;
@@ -292,7 +295,7 @@ void ItemObj::animCmd(bool fx, const Anim* anim)
                         vSpeed = ptr[0];
                     }
                     hSpeed = ptr[1];
-                    flags.gravity = true;
+                    flags |= ITEM_FLAG_GRAVITY;
                 }
                 ptr += 2;
                 break;
@@ -310,7 +313,8 @@ void ItemObj::animCmd(bool fx, const Anim* anim)
             case ANIM_CMD_KILL:
             {
                 if (!fx) {
-                    flags.status = ITEM_FLAGS_STATUS_INACTIVE;
+                    flags &= ~ITEM_FLAG_STATUS;
+                    flags |= ITEM_FLAG_STATUS_INACTIVE;
                 }
                 break;
             }
@@ -531,7 +535,7 @@ void ItemObj::activate()
 {
     //ASSERT(!flags.active) TODO check LEVEL3B
 
-    flags.active = true;
+    flags |= ITEM_FLAG_ACTIVE;
 
     nextActive = ItemObj::sFirstActive;
     ItemObj::sFirstActive = this;
@@ -548,7 +552,7 @@ void ItemObj::deactivate()
 
         if (curr == this)
         {
-            flags.active = false;
+            flags &= ~ITEM_FLAG_ACTIVE;
             nextActive = NULL;
 
             if (prev) {
@@ -609,7 +613,7 @@ void ItemObj::fxBlood(const vec3i &fxPos, int16 fxAngleY, int16 fxSpeed)
 
     blood->hSpeed = fxSpeed;
     blood->timer = 4;
-    blood->flags.animated = true;
+    blood->flags |= ITEM_FLAG_ANIMATED;
 }
 
 void ItemObj::fxSmoke(const vec3i &fxPos)
@@ -620,7 +624,7 @@ void ItemObj::fxSmoke(const vec3i &fxPos)
         return;
 
     smoke->timer = 3;
-    smoke->flags.animated = true;
+    smoke->flags |= ITEM_FLAG_ANIMATED;
 }
 
 void ItemObj::fxSplash()
@@ -637,7 +641,7 @@ void ItemObj::fxSplash()
             return;
 
         splash->hSpeed = int16(rand_draw() >> 8);
-        splash->flags.animated = true;
+        splash->flags |= ITEM_FLAG_ANIMATED;
     }
 }
 
@@ -951,25 +955,19 @@ ItemObj::ItemObj(Room* room)
     hitMask     = 0;
     visibleMask = 0xFFFFFFFF;
 
-    flags.save = true;
-    flags.gravity = false;
-    flags.active = false;
-    flags.status = ITEM_FLAGS_STATUS_NONE;
-    flags.collision = true;
-    flags.animated = false;
-    flags.shadow = false;
+    flags &= (ITEM_FLAG_ONCE | ITEM_FLAG_MASK); // and this...
+    flags |= ITEM_FLAG_COLLISION;
 
-    if (flags.once) // once -> invisible
+    if (flags & ITEM_FLAG_ONCE) // once -> invisible
     {
-        flags.status = ITEM_FLAGS_STATUS_INVISIBLE;
-        flags.once = false;
+        flags &= ~ITEM_FLAG_ONCE;
+        flags |= ITEM_FLAG_STATUS_INVISIBLE;
     }
 
-    if (flags.mask == ITEM_FLAGS_MASK_ALL) // full set of mask -> reverse
+    if ((flags & ITEM_FLAG_MASK) == ITEM_FLAG_MASK) // full set of mask -> reverse
     {
-        flags.mask = 0;
-        flags.active = true;
-        flags.reverse = true;
+        flags &= ~ITEM_FLAG_MASK;
+        flags |= ITEM_FLAG_REVERSE;
         activate();
     }
 
@@ -988,6 +986,70 @@ void ItemObj::update()
 void ItemObj::draw()
 {
     drawItem(this);
+}
+
+struct ItemSave {
+    int16 x;
+    int16 y;
+    int16 z; 
+    int16 ax;
+    int16 ay;
+    uint16 animIndex;
+    uint16 frameIndex;
+    uint16 flags;
+    uint16 timer;
+    uint8 state;
+    uint8 nextState;
+    uint8 goalState;
+    uint8 roomIndex;
+};
+
+uint8* ItemObj::save(uint8* data)
+{
+    ItemSave* sg = (ItemSave*)data;
+
+    sg->x          = pos.x - (room->info->x << 8);
+    sg->y          = pos.y - (room->info->yTop);
+    sg->z          = pos.z - (room->info->z << 8);
+    sg->ax         = angle.x;
+    sg->ay         = angle.y;
+    sg->animIndex  = animIndex;
+    sg->frameIndex = frameIndex;
+    sg->flags      = flags;
+    sg->timer      = timer;
+    sg->state      = state;
+    sg->nextState  = nextState;
+    sg->goalState  = goalState;
+    sg->roomIndex  = room - rooms;
+
+    return data + sizeof(ItemSave);
+}
+
+uint8* ItemObj::load(uint8* data)
+{
+    ItemSave* sg = (ItemSave*)data;
+
+    if (room) {
+        room->remove(this);
+    }
+
+    room = rooms + sg->roomIndex;
+    room->add(this);
+
+    pos.x       = sg->x + (room->info->x << 8);
+    pos.y       = sg->y + (room->info->yTop);
+    pos.z       = sg->z + (room->info->z << 8);
+    angle.x     = sg->ax;
+    angle.y     = sg->ay;
+    animIndex   = sg->animIndex;
+    frameIndex  = sg->frameIndex;
+    flags       = sg->flags;
+    timer       = sg->timer;
+    state       = sg->state;
+    nextState   = sg->nextState;
+    goalState   = sg->goalState;
+
+    return data + sizeof(ItemSave);
 }
 
 void ItemObj::collide(Lara* lara, CollisionInfo* cinfo)

@@ -874,7 +874,7 @@ void checkCamera(const FloorData* fd, Camera* camera)
             break;
     };
 
-    if (!lookAt && camera->lookAtItem && camera->lookAtItem != camera->lastItem && camera->lookAtItem->flags.animated) {
+    if (!lookAt && camera->lookAtItem && camera->lookAtItem != camera->lastItem && (camera->lookAtItem->flags & ITEM_FLAG_ANIMATED)) {
         camera->lookAtItem = NULL;
     }
 }
@@ -977,7 +977,7 @@ void checkTrigger(const FloorData* fd, ItemObj* lara)
                 ASSERT(FD_ARGS(triggerCmd) < level.itemsCount);
                 ItemObj* item = items + FD_ARGS(triggerCmd);
                 
-                if (item->flags.once)
+                if (item->flags & ITEM_FLAG_ONCE)
                     break;
 
                 item->timer = FD_TIMER(data);
@@ -986,25 +986,27 @@ void checkTrigger(const FloorData* fd, ItemObj* lara)
                 }
 
                 if (FD_TRIGGER_TYPE(cmd) == TRIGGER_TYPE_SWITCH) {
-                    item->flags.mask ^= FD_MASK(data);
+                    item->flags ^= (FD_MASK(data) << ITEM_FLAGS_MASK_SHIFT);
                 } else if (FD_TRIGGER_TYPE(cmd) == TRIGGER_TYPE_ANTIPAD) {
-                    item->flags.mask &= ~FD_MASK(data);
+                    item->flags &= ~(FD_MASK(data) << ITEM_FLAGS_MASK_SHIFT);
                 } else {
-                    item->flags.mask |= FD_MASK(data);
+                    item->flags |= (FD_MASK(data) << ITEM_FLAGS_MASK_SHIFT);
                 }
 
-                if (item->flags.mask != ITEM_FLAGS_MASK_ALL)
+                if ((item->flags & ITEM_FLAG_MASK) != ITEM_FLAG_MASK)
                     break;
 
-                item->flags.once |= FD_ONCE(data);
+                if (FD_ONCE(data)) {
+                    item->flags |= ITEM_FLAG_ONCE;
+                }
 
-                if (item->flags.active)
+                if (item->flags & ITEM_FLAG_ACTIVE)
                     break;
 
                 item->activate();
 
-                if ((item->flags.status == ITEM_FLAGS_STATUS_NONE) && item->flags.active) {
-                    item->flags.status = ITEM_FLAGS_STATUS_ACTIVE;
+                if (!(item->flags & ITEM_FLAG_STATUS) && (item->flags & ITEM_FLAG_ACTIVE)) {
+                    item->flags |= ITEM_FLAG_STATUS_ACTIVE;
                 }
 
                 break;
@@ -1015,7 +1017,7 @@ void checkTrigger(const FloorData* fd, ItemObj* lara)
                 uint16 cam = *fd++;
                 FD_SET_END(triggerCmd, FD_END(cam));
 
-                if (level.cameras[FD_ARGS(triggerCmd)].flags.once)
+                if (level.cameras[FD_ARGS(triggerCmd)].flags & FIXED_CAMERA_FLAG_ONCE)
                     break;
 
                 camera->index = FD_ARGS(triggerCmd);
@@ -1037,7 +1039,7 @@ void checkTrigger(const FloorData* fd, ItemObj* lara)
                     }
 
                     if (FD_ONCE(cam)) {
-                        level.cameras[camera->index].flags.once = true;
+                        level.cameras[camera->index].flags |= FIXED_CAMERA_FLAG_ONCE;
                     }
                 
                     camera->speed = (FD_SPEED(cam) << 3) + 1;
@@ -1078,20 +1080,23 @@ void checkTrigger(const FloorData* fd, ItemObj* lara)
 
                 if (track == 0) break;
 
-                SaveGame::TrackFlags &flags = gSaveGame.tracks[track];
+                uint8 &flags = gSaveGame.tracks[track];
 
-                if (flags.once)
+                if (flags & TRACK_FLAG_ONCE)
                     break;
 
                 if (FD_TRIGGER_TYPE(cmd) == TRIGGER_TYPE_SWITCH)
-                    flags.mask ^= FD_MASK(data);
+                    flags ^= FD_MASK(data);
                 else if (FD_TRIGGER_TYPE(cmd) == TRIGGER_TYPE_ANTIPAD)
-                    flags.mask &= ~FD_MASK(data);
+                    flags &= ~FD_MASK(data);
                 else
-                    flags.mask |= FD_MASK(data);
+                    flags |= FD_MASK(data);
 
-                if (flags.mask == ITEM_FLAGS_MASK_ALL) {
-                    flags.once |= FD_ONCE(data);
+                if ((flags & TRACK_FLAG_MASK) == TRACK_FLAG_MASK)
+                {
+                    if (FD_ONCE(data)) {
+                        flags |= TRACK_FLAG_ONCE;
+                    }
                     sndPlayTrack(track);
                 } else {
                     sndStopTrack();

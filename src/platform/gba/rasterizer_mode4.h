@@ -995,8 +995,8 @@ void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     int32 iw = FixedInvU(w);
     int32 ih = FixedInvU(h);
 
-    int32 du = (R->t.uv.u << 8) * iw >> 16;
-    int32 dv = (R->t.uv.v << 8) * ih >> 16;
+    int32 du = R->t.uv.u * iw >> 8;
+    int32 dv = R->t.uv.v * ih >> 8;
 
     if (L->v.y < 0)
     {
@@ -1148,7 +1148,7 @@ X_NOINLINE void rasterizeFillS_c(uint16* pixel, const VertexLink* L, const Verte
     int32 width = R->v.x;
     int32 height = R->v.y;
 
-    const uint8* lm = &lightmap[shade * 256];
+    const uint8* lm = &lightmap[shade << 8];
 
     for (int32 i = 0; i < height; i++)
     {
@@ -1170,7 +1170,8 @@ X_NOINLINE void rasterizeFillS_c(uint16* pixel, const VertexLink* L, const Verte
 
         for (int32 i = 0; i < w / 2; i++)
         {
-            *(uint16*)ptr = lm[ptr[0]] | (lm[ptr[1]] << 8);
+            uint16 p = *(uint16*)ptr;
+            *(uint16*)ptr = lm[p & 0xFF] | (lm[p >> 8] << 8);
             ptr += 2;
         }
 

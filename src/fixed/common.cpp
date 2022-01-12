@@ -13,8 +13,10 @@ const FloorData* gLastFloorData;
 FloorData gLastFloorSlant;
 EWRAM_DATA TargetInfo tinfo;
 
-EWRAM_DATA SaveGame gSaveGame;
 EWRAM_DATA Settings gSettings;
+EWRAM_DATA SaveGame gSaveGame;
+EWRAM_DATA uint8 gSaveData[SAVEGAME_SIZE - sizeof(SaveGame)];
+
 EWRAM_DATA int32 gCurTrack;
 EWRAM_DATA int32 gAnimTexFrame;
 

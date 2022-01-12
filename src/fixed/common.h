@@ -224,6 +224,11 @@ X_INLINE int32 abs(int32 x) {
 
 // system
 extern int32 osGetSystemTimeMS();
+extern bool osSaveSettings();
+extern bool osLoadSettings();
+extern bool osCheckSave();
+extern bool osSaveGame();
+extern bool osLoadGame();
 extern void osJoyVibrate(int32 index, int32 L, int32 R);
 extern void osSetPalette(const uint16* palette);
 extern void* osLoadLevel(const char* name);
@@ -677,7 +682,7 @@ struct Face
     #define SND_BUFFER_SIZE     (4 * BLOCK_SIZE_CD)
     #define SND_BUFFERS         4
 
-    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 31) // 34 for LEVEL10C! >_<
+    #define MAX_RAM_LVL         (BLOCK_SIZE_DRAM * 29) // 34 for LEVEL10C! >_<
     #define MAX_RAM_TEX         (BLOCK_SIZE_VRAM * 44)
     #define MAX_RAM_CEL         (MAX_FACES * sizeof(Face))
     #define MAX_RAM_SND         (SND_BUFFERS * SND_BUFFER_SIZE)
@@ -764,15 +769,9 @@ struct MeshVertex
 
 struct Portal
 {
-/*#ifdef __3DO__
-    uint32 roomIndex;
-    uint32 normalMask;
-    vec3i v[4];
-#else*/
     uint16 roomIndex;
     vec3s n;
     vec3s v[4];
-//#endif
 };
 
 struct Sector
@@ -1019,36 +1018,43 @@ struct SpriteSeq {
     uint16 start;
 };
 
+
+#define FIXED_CAMERA_FLAG_TIMER         0xFF
+#define FIXED_CAMERA_FLAG_ONCE          (1 << 8)
+#define FIXED_CAMERA_FLAG_SPEED_SHIFT   9
+#define FIXED_CAMERA_FLAG_SPEED         (31 << FIXED_CAMERA_FLAG_SPEED_SHIFT)
+
 struct FixedCamera {
     vec3i pos;
     int16 roomIndex;
-    struct {
-        uint16 timer:8, once:1, speed:5, :2;
-    } flags;
+    uint16 flags;
 };
 
-struct ItemObjFlags {
-    uint16 save:1, gravity:1, active:1, status:2, collision:1, injured:1, animated:1, once:1, mask:5, reverse:1, shadow:1; // TODO
-};
+#define ITEM_FLAGS_STATUS_SHIFT     3
+#define ITEM_FLAGS_MASK_SHIFT       9
+#define ITEM_FLAGS_MASK_ALL         31
+
+#define ITEM_FLAG_GRAVITY           (1 << 1)
+#define ITEM_FLAG_ACTIVE            (1 << 2)
+#define ITEM_FLAG_STATUS            (3 << ITEM_FLAGS_STATUS_SHIFT)
+#define ITEM_FLAG_STATUS_ACTIVE         (1 << ITEM_FLAGS_STATUS_SHIFT)
+#define ITEM_FLAG_STATUS_INACTIVE       (2 << ITEM_FLAGS_STATUS_SHIFT)
+#define ITEM_FLAG_STATUS_INVISIBLE      (3 << ITEM_FLAGS_STATUS_SHIFT)
+#define ITEM_FLAG_COLLISION         (1 << 5)
+#define ITEM_FLAG_INJURED           (1 << 6)
+#define ITEM_FLAG_ANIMATED          (1 << 7)
+#define ITEM_FLAG_ONCE              (1 << 8)
+#define ITEM_FLAG_MASK              (ITEM_FLAGS_MASK_ALL << ITEM_FLAGS_MASK_SHIFT)
+#define ITEM_FLAG_REVERSE           (1 << 14)
+#define ITEM_FLAG_SHADOW            (1 << 15)
 
 struct ItemObjInfo {
     uint8 type;
     uint8 roomIndex;
     vec3s pos;
     uint16 intensity;
-
-    union {
-        ItemObjFlags flags;
-        uint16 value;
-    } params;
+    uint16 flags;
 };
-
-#define ITEM_FLAGS_MASK_ALL         0x1F
-
-#define ITEM_FLAGS_STATUS_NONE      0
-#define ITEM_FLAGS_STATUS_ACTIVE    1
-#define ITEM_FLAGS_STATUS_INACTIVE  2
-#define ITEM_FLAGS_STATUS_INVISIBLE 3
 
 #define FILE_ITEM_SIZE (sizeof(ItemObjInfo) - 2)
 
@@ -1293,7 +1299,6 @@ struct Camera {
 
     CameraMode mode;
 
-    bool modeSwitch;
     bool lastFixed;
     bool center;
 
@@ -1488,6 +1493,7 @@ struct ExtraInfoLara
 
     uint16 lastInput;
     int8 healthTimer;
+
     bool dozy;
 };
 
@@ -1523,7 +1529,7 @@ struct ItemObj
     vec3i pos;
     vec3s angle;
 
-    ItemObjFlags flags;
+    uint16 flags;
 
     int16 vSpeed;
     int16 hSpeed;
@@ -1634,34 +1640,46 @@ struct ItemObj
     virtual void collide(Lara* lara, CollisionInfo* cinfo);
     virtual void update();
     virtual void draw();
+    virtual uint8* save(uint8* data);
+    virtual uint8* load(uint8* data);
 };
+
+#define TRACK_FLAG_ONCE     32
+#define TRACK_FLAG_MASK     31
+
+#define SAVEGAME_VER    1
+#define SAVEGAME_SIZE   (8 * 1024)  // 8k EWRAM
 
 struct SaveGame
 {
-    struct TrackFlags {
-        uint8 once:1, mask:5, :2;
-    };
+    uint32 version;
+    uint32 dataSize;
 
+    uint8  level;
+    int8   track;
     uint32 time;
     uint32 distance;
-    uint32 secrets;
-    uint32 pickups;
-    uint32 mediUsed;
-    uint32 ammoUsed;
-    uint32 kills;
-    TrackFlags tracks[64];
-    uint32 flipped;
+
+    uint16 secrets;
+    uint16 pickups;
+    uint16 mediUsed;
+    uint16 ammoUsed;
+    uint16 kills;
+    uint16 flipped;
+    uint8 tracks[64];
 };
+
+#define SETTINGS_VER    1
+#define SETTINGS_SIZE   128
 
 struct Settings
 {
-    struct Controls {
-        bool retarget;
-    } controls;
-
-    struct Detail {
-        int8 gamma;
-    } detail;
+    uint8 version;
+    uint8 controls_vibration:1;
+    uint8 audio_sfx:1;
+    uint8 audio_music:1;
+    uint8 video_gamma:5;
+    uint8 video_fps:1;
 };
 
 #define FD_SET_END(x,end)   ((x) |= ((end) << 15))
@@ -2087,6 +2105,10 @@ enum StringID {
     , STR_ALPHA_END_3
     , STR_ALPHA_END_4
     , STR_ALPHA_END_5
+    , STR_ALPHA_END_6
+    , STR_GBA_SAVE_WARNING_1
+    , STR_GBA_SAVE_WARNING_2
+    , STR_GBA_SAVE_WARNING_3
 // common
     , STR_LOADING
     , STR_LEVEL_STATS
@@ -2097,7 +2119,7 @@ enum StringID {
     , STR_NO
     , STR_OFF
     , STR_ON
-    , STR_NO_STEREO
+    , STR_OK
     , STR_SBS
     , STR_ANAGLYPH
     , STR_SPLIT
@@ -2150,6 +2172,7 @@ enum StringID {
     , STR_GAMMA
 // passport menu
     , STR_LOAD_GAME
+    , STR_SAVE_GAME
     , STR_START_GAME
     , STR_RESTART_LEVEL
     , STR_EXIT_TO_TITLE
@@ -2157,6 +2180,8 @@ enum StringID {
     , STR_SELECT_LEVEL
 // detail options
     , STR_SELECT_DETAIL
+    , STR_OPT_DETAIL_GAMMA
+    , STR_OPT_DETAIL_FPS
     , STR_OPT_DETAIL_FILTER
     , STR_OPT_DETAIL_LIGHTING
     , STR_OPT_DETAIL_SHADOWS
@@ -2410,6 +2435,7 @@ enum LevelID
     LVL_TR1_CAT,
     LVL_TR1_END,
     LVL_TR1_END2,
+    LVL_LOAD,
     LVL_MAX
 };
 
@@ -2443,8 +2469,11 @@ extern const uint32 gSinCosTable[4096];
 #endif
 
 extern Sphere gSpheres[2][MAX_SPHERES];
-extern SaveGame gSaveGame;
+
 extern Settings gSettings;
+extern SaveGame gSaveGame;
+extern uint8 gSaveData[SAVEGAME_SIZE - sizeof(SaveGame)];
+
 extern int32 gCurTrack;
 extern int32 gAnimTexFrame;
 extern int32 gBrightness;
@@ -2650,7 +2679,10 @@ bool useSwitch(ItemObj* item, int32 timer);
 bool useKey(ItemObj* item, ItemObj* lara);
 bool usePickup(ItemObj* item);
 
+void startLevel(const char* name);
 void nextLevel(LevelID next);
+bool gameSave();
+bool gameLoad();
 
 int32 doTutorial(ItemObj* lara, int32 track);
 

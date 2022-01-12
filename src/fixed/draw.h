@@ -145,8 +145,7 @@ void drawText(int32 x, int32 y, const char* text, TextAlign align)
             continue;
         }
 
-        if (c == '$') // special char
-        {
+        if (c == '$') { // special char
             index = *text++;
         } else {
             index = charRemap(c);
@@ -613,7 +612,7 @@ void drawModel(const ItemObj* item)
     matrixPop();
 
 // shadow
-    if (vis && item->flags.shadow) {
+    if (vis && (item->flags & ITEM_FLAG_SHADOW)) {
         drawShadow(item, 160);  // TODO per item shadow size
     }
 }
@@ -716,7 +715,7 @@ void drawRoom(const Room* room)
     ItemObj* item = room->firstItem;
     while (item)
     {
-        if (item->flags.status != ITEM_FLAGS_STATUS_INVISIBLE) {
+        if ((item->flags & ITEM_FLAG_STATUS) != ITEM_FLAG_STATUS_INVISIBLE) {
             item->draw();
         }
         item = item->nextItem;
@@ -735,10 +734,10 @@ void drawRooms(Camera* camera)
         Lara* lara = players[i];
         if (lara)
         {
-            lara->flags.status = ITEM_FLAGS_STATUS_NONE;
+            lara->flags &= ~ITEM_FLAG_STATUS;
             setPaletteIndex(ROOM_FLAG_WATER(lara->room->info->flags) ? 1 : 0);
             lara->draw();
-            lara->flags.status = ITEM_FLAGS_STATUS_INVISIBLE; // skip drawing in the general pass
+            lara->flags |= ITEM_FLAG_STATUS_INVISIBLE; // skip drawing in the general pass
         }
     }
 
@@ -756,7 +755,7 @@ void drawRooms(Camera* camera)
         Lara* lara = players[i];
         if (lara)
         {
-            lara->flags.status = ITEM_FLAGS_STATUS_NONE;
+            lara->flags &= ~ITEM_FLAG_STATUS;
         }
     }
 
@@ -787,25 +786,27 @@ void drawHUD(Lara* lara)
     }
 }
 
-void drawDebugInfo()
+void drawFPS()
 {
+    if (!gSettings.video_fps)
+        return;
+
     char buf[32];
     int2str(fps, buf);
     drawText(2, 16, buf, TEXT_ALIGN_LEFT);
     //drawText(0, FRAME_HEIGHT - 8, "! early alpha version !", TEXT_ALIGN_CENTER);
+}
 
-    #ifdef PROFILING
-        for (int32 i = 0; i < CNT_MAX; i++)
-        {
-        #ifdef __3DO__
-            extern void drawInt(int32 x, int32 y, int32 c);
-            drawInt(FRAME_WIDTH - 8, 4 + 24 + 8 + 8 * i, gCounters[i]);
-        #else
-            int2str(gCounters[i], buf);
-            drawText(2, 16 + 32 + i * 16, buf, TEXT_ALIGN_LEFT);
-        #endif
-        }
-    #endif
+void drawProfiling()
+{
+#ifdef PROFILING
+    for (int32 i = 0; i < CNT_MAX; i++)
+    {
+        int2str(gCounters[i], buf);
+        drawText(2, 16 + 32 + i * 16, buf, TEXT_ALIGN_LEFT);
+    }
+    flush();
+#endif
 }
 
 #endif

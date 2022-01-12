@@ -357,9 +357,9 @@ struct Lara : ItemObj
             
             while (item)
             {
-                if (item->flags.status != ITEM_FLAGS_STATUS_INVISIBLE)
+                if ((item->flags & ITEM_FLAG_STATUS) != ITEM_FLAG_STATUS_INVISIBLE)
                 {
-                    if (item->flags.collision)
+                    if (item->flags & ITEM_FLAG_COLLISION)
                     {
                         vec3i d = pos - item->pos;
 
@@ -638,7 +638,7 @@ struct Lara : ItemObj
 
         s_rotate(LARA_TURN_FAST, 1);
 
-        if ((input & IN_JUMP) && !flags.gravity) {
+        if ((input & IN_JUMP) && !(flags & ITEM_FLAG_GRAVITY)) {
             goalState = STATE_JUMP;
         } else {
             s_checkWalk(STATE_STOP);
@@ -1250,7 +1250,7 @@ struct Lara : ItemObj
     S_HANDLER( STATE_DEATH_MIDAS )
     {
         s_ignoreEnemy();
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
     }
 
     S_HANDLER( STATE_SWAN_DIVE )
@@ -1323,7 +1323,7 @@ struct Lara : ItemObj
         goalState = state;
         hSpeed = 0;
         vSpeed = 0;
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
         pos = cinfo.pos;
 
         return true;
@@ -1336,7 +1336,7 @@ struct Lara : ItemObj
             c_applyOffset();
             goalState = STATE_STOP;
             hSpeed = 0;
-            flags.gravity = false;
+            flags &= ~ITEM_FLAG_GRAVITY;
             return true;
         }
 
@@ -1399,7 +1399,7 @@ struct Lara : ItemObj
             angle.z = 0;
             hSpeed = 0;
             vSpeed = 0;
-            flags.gravity = false;
+            flags &= ~ITEM_FLAG_GRAVITY;
         }
 
         return false;
@@ -1469,7 +1469,7 @@ struct Lara : ItemObj
         animSet(fallAnimIndex, true);
 
         vSpeed = 0;
-        flags.gravity = true;
+        flags |= ITEM_FLAG_GRAVITY;
 
         return true;
     }
@@ -1642,7 +1642,7 @@ struct Lara : ItemObj
 
         c_applyOffset();
 
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
         hSpeed = 0;
         vSpeed = 0;
 
@@ -1655,12 +1655,12 @@ struct Lara : ItemObj
 
         if ((health > 0) && (input & IN_ACTION))
         {
-            flags.gravity = false;
+            flags &= ~ITEM_FLAG_GRAVITY;
             vSpeed = 0;
             return false;
         }
 
-        flags.gravity = true;
+        flags |= ITEM_FLAG_GRAVITY;
         hSpeed = 2;
         vSpeed = 1;
 
@@ -1713,7 +1713,7 @@ struct Lara : ItemObj
         angle.z = 0;
         hSpeed = 0;
         vSpeed = 0;
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
 
         return true;
     }
@@ -1769,7 +1769,7 @@ struct Lara : ItemObj
 
         pos.y += cinfo.m.floor;
         vSpeed = 0;
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
 
         if (state == STATE_JUMP) {
             animProcess();
@@ -1853,7 +1853,7 @@ struct Lara : ItemObj
     void c_roll()
     {
         vSpeed = 0;
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
 
         cinfo.gapPos      = -WALL;
         cinfo.gapNeg      = -LARA_STEP_HEIGHT;
@@ -1912,13 +1912,13 @@ struct Lara : ItemObj
 
             hSpeed = 2;
             vSpeed = 1;
-            flags.gravity = true;
+            flags |= ITEM_FLAG_GRAVITY;
             setWeaponState(WEAPON_STATE_FREE);
             return;
         }
 
         vSpeed  = 0;
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
 
         if (noFloor || (cinfo.type != CT_FRONT) || (cinfo.m.ceiling >= 0) || abs(cinfo.r.floor - cinfo.l.floor) >= LARA_HANG_SLANT)
         {
@@ -2096,7 +2096,7 @@ struct Lara : ItemObj
     C_HANDLER( STATE_WALK )
     {
         vSpeed = 0;
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
         cinfo.stopOnLava = true;
 
         c_angle(ANGLE_0);
@@ -2206,7 +2206,7 @@ struct Lara : ItemObj
     C_HANDLER( STATE_STOP )
     {
         vSpeed = 0;
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
 
         c_angle(ANGLE_0);
 
@@ -2248,7 +2248,7 @@ struct Lara : ItemObj
     C_HANDLER( STATE_BACK_FAST )
     {
         vSpeed = 0;
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
 
         c_angle(ANGLE_180);
 
@@ -2304,7 +2304,7 @@ struct Lara : ItemObj
 
     C_HANDLER( STATE_FALL )
     {
-        flags.gravity = true;
+        flags |= ITEM_FLAG_GRAVITY;
         c_jump();
     }
 
@@ -2330,7 +2330,7 @@ struct Lara : ItemObj
 
     C_HANDLER( STATE_REACH )
     {
-        flags.gravity = true;
+        flags |= ITEM_FLAG_GRAVITY;
         c_angle(ANGLE_0);
         c_jump();
     }
@@ -2355,7 +2355,7 @@ struct Lara : ItemObj
     C_HANDLER( STATE_COMPRESS )
     {
         vSpeed  = 0;
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
 
         cinfo.gapPos      = -WALL;
         cinfo.gapNeg      = WALL;
@@ -2369,14 +2369,13 @@ struct Lara : ItemObj
             pos = cinfo.pos;
             hSpeed = 0;
             vSpeed = 0;
-            flags.gravity = false;
         }
     }
 
     C_HANDLER( STATE_BACK )
     {
         vSpeed  = 0;
-        flags.gravity = false;
+        flags &= ~ITEM_FLAG_GRAVITY;
 
         c_angle(ANGLE_180);
 
@@ -2710,7 +2709,7 @@ struct Lara : ItemObj
 
         health = LARA_MAX_HEALTH;
         oxygen = LARA_MAX_OXYGEN;
-        flags.shadow = true;
+        flags |= ITEM_FLAG_SHADOW;
 
         extraL->camera.init(this);
         extraL->healthTimer = 100;
@@ -2722,16 +2721,6 @@ struct Lara : ItemObj
         extraL->lastInput = input;
 
         input = 0;
-
-        if (extraL->camera.mode == CAMERA_MODE_FREE)
-            return;
-
-        if (keys & IK_LEFT)    input |= IN_LEFT;
-        if (keys & IK_RIGHT)   input |= IN_RIGHT;
-        if (keys & IK_UP)      input |= IN_UP;
-        if (keys & IK_DOWN)    input |= IN_DOWN;
-        if (keys & IK_START)   input |= IN_START;
-        if (keys & IK_SELECT)  input |= IN_SELECT;
 
     #ifdef __3DO__
         if (keys & IK_A) input |= IN_JUMP;
@@ -2776,6 +2765,27 @@ struct Lara : ItemObj
             }
         }
     #endif
+
+        if (keys & IK_LEFT)    input |= IN_LEFT;
+        if (keys & IK_RIGHT)   input |= IN_RIGHT;
+        if (keys & IK_UP)      input |= IN_UP;
+        if (keys & IK_DOWN)    input |= IN_DOWN;
+        if (keys & IK_SELECT)  input |= IN_SELECT;
+
+        if (extraL->camera.mode == CAMERA_MODE_FREE) {
+            input = 0;
+        }
+
+        if (keys & IK_START)   input |= IN_START;
+
+        if (isKeyHit(IN_START))
+        {
+            if (extraL->camera.mode != CAMERA_MODE_FREE) {
+                extraL->camera.mode = CAMERA_MODE_FREE;
+            } else {
+                extraL->camera.mode = CAMERA_MODE_FOLLOW;
+            }
+        }
     }
 
     void updateLook()
@@ -2871,7 +2881,7 @@ struct Lara : ItemObj
                         break;
 
                     waterState = WATER_STATE_UNDER;
-                    flags.gravity = false;
+                    flags &= ~ITEM_FLAG_GRAVITY;
                     oxygen = LARA_MAX_OXYGEN;
 
                     pos.y += 100;
@@ -2902,7 +2912,7 @@ struct Lara : ItemObj
                     fxSplash();
                 } else if (waterDist > LARA_WADE_MIN_DEPTH) {
                     waterState = WATER_STATE_WADE;
-                    if (!flags.gravity) {
+                    if (!(flags & ITEM_FLAG_GRAVITY)) {
                         goalState = STATE_STOP;
                     }
                 }
@@ -2923,7 +2933,7 @@ struct Lara : ItemObj
                     waterState = WATER_STATE_ABOVE;
                     animSet(ANIM_FALL_FORTH, true);
                     hSpeed = vSpeed / 4;
-                    flags.gravity = true;
+                    flags |= ITEM_FLAG_GRAVITY;
                 }
 
                 vSpeed = 0;
@@ -2949,7 +2959,7 @@ struct Lara : ItemObj
                     animSet(ANIM_FALL_FORTH, true);
                     hSpeed = vSpeed / 4;
                     vSpeed = 0;
-                    flags.gravity = true;
+                    flags |= ITEM_FLAG_GRAVITY;
                 }
 
                 angle.x = angle.z = 0;
@@ -2980,7 +2990,7 @@ struct Lara : ItemObj
 
                     extraL->swimTimer = 0;
                     vSpeed = 0;
-                    flags.gravity = false;
+                    flags &= ~ITEM_FLAG_GRAVITY;
                     angle.x = angle.z = 0;
                     updateRoom(0);
                 }
@@ -3588,7 +3598,7 @@ struct Lara : ItemObj
     {
         ExtraInfoLara::Arm &arm = extraL->armR;
 
-        if (arm.target && arm.target->health <= 0 && gSettings.controls.retarget)
+        if (arm.target && arm.target->health <= 0)
         {
             arm.target = NULL;
         }
@@ -3655,7 +3665,7 @@ struct Lara : ItemObj
             if (item->health <= 0)
                 continue;
 
-            if (item->flags.status != ITEM_FLAGS_STATUS_ACTIVE)
+            if ((item->flags & ITEM_FLAG_STATUS) != ITEM_FLAG_STATUS_ACTIVE)
                 continue;
 
             vec3i d = item->pos - pos;
@@ -3824,7 +3834,7 @@ struct Lara : ItemObj
 
         if (isKeyHit(IN_SELECT) && (gBrightness == 0))
         {
-            inventory.open(this, INV_PAGE_MAIN);
+            inventory.open(this, (health > 0) ? INV_PAGE_MAIN : INV_PAGE_DEATH);
         }
 
         updateLook();
@@ -3948,6 +3958,100 @@ struct Lara : ItemObj
         animIndex = tmpAnimIndex;
         frameIndex = tmpFrameIndex;
     }
+
+    struct LaraSave {
+        int16 vSpeed;
+        int16 hSpeed;
+        int16 health; // oxygen already saved as alias of ItemObj::timer
+
+        uint8 weaponState;
+        uint8 weapon;
+        uint8 goalWeapon;
+        uint8 waterState;
+
+        struct Arm {
+            uint16 animIndex;
+            uint16 frameIndex;
+        };
+
+        Arm armR;
+        Arm armL;
+
+        uint8 cameraRoom;
+        uint8 cameraLastIndex;
+
+        int16 cameraViewX;
+        int16 cameraViewY;
+        int16 cameraViewZ;
+
+        uint16 meshes[JOINT_MAX];
+    };
+
+    virtual uint8* save(uint8* data)
+    {
+        data = ItemObj::save(data);
+
+        LaraSave* sg = (LaraSave*)data;
+
+        sg->vSpeed = vSpeed;
+        sg->hSpeed = hSpeed;
+        sg->health = health;
+        sg->weaponState = extraL->weaponState;
+        sg->weapon = extraL->weapon;
+        sg->goalWeapon = extraL->goalWeapon;
+        sg->waterState = waterState;
+
+        sg->armR.animIndex  = extraL->armR.animIndex;
+        sg->armR.frameIndex = extraL->armR.frameIndex;
+        sg->armL.animIndex  = extraL->armL.animIndex;
+        sg->armL.frameIndex = extraL->armL.frameIndex;
+
+        const Room* camRoom = extraL->camera.view.room;
+        sg->cameraRoom = camRoom - rooms;
+        sg->cameraLastIndex = extraL->camera.lastIndex;
+        sg->cameraViewX = extraL->camera.view.pos.x - (camRoom->info->x << 8);
+        sg->cameraViewY = extraL->camera.view.pos.y - (camRoom->info->yTop);
+        sg->cameraViewZ = extraL->camera.view.pos.z - (camRoom->info->z << 8);
+
+        ASSERT(sizeof(sg->meshes) == sizeof(extraL->meshes));
+        memcpy(sg->meshes, extraL->meshes, sizeof(extraL->meshes));
+
+        return data + sizeof(LaraSave);
+    }
+
+    virtual uint8* load(uint8* data)
+    {
+        data = ItemObj::load(data);
+
+        LaraSave* sg = (LaraSave*)data;
+
+        vSpeed = sg->vSpeed;
+        hSpeed = sg->hSpeed;
+        health = sg->health;
+        extraL->weaponState = sg->weaponState;
+        extraL->weapon = sg->weapon;
+        extraL->goalWeapon = sg->goalWeapon;
+        waterState = sg->waterState;
+
+        extraL->armR.animIndex  = sg->armR.animIndex;
+        extraL->armR.frameIndex = sg->armR.frameIndex;
+        extraL->armL.animIndex  = sg->armL.animIndex;
+        extraL->armL.frameIndex = sg->armL.frameIndex;
+
+        extraL->camera.init(this);
+
+        Room* camRoom = rooms + sg->cameraRoom;
+        extraL->camera.view.room = camRoom;
+        extraL->camera.lastIndex = sg->cameraLastIndex;
+        extraL->camera.view.pos.x = sg->cameraViewX + (camRoom->info->x << 8);
+        extraL->camera.view.pos.y = sg->cameraViewY + (camRoom->info->yTop);
+        extraL->camera.view.pos.z = sg->cameraViewZ + (camRoom->info->z << 8);
+
+        ASSERT(sizeof(sg->meshes) == sizeof(extraL->meshes));
+        memcpy(extraL->meshes, sg->meshes, sizeof(extraL->meshes));
+
+        return data + sizeof(LaraSave);
+    }
 };
 
 const Lara::Handler Lara::sHandlers[X_MAX] = { LARA_STATES(DECL_S_HANDLER) };
@@ -3967,7 +4071,7 @@ int32 doTutorial(ItemObj* lara, int32 track)
     switch (track)
     {
         case 28 :
-            if (gSaveGame.tracks[track].once && lara->state == Lara::STATE_JUMP_UP) {
+            if ((gSaveGame.tracks[track] & TRACK_FLAG_ONCE) && lara->state == Lara::STATE_JUMP_UP) {
                 track = 29;
             }
             break;
@@ -3980,7 +4084,7 @@ int32 doTutorial(ItemObj* lara, int32 track)
             break;
 
         case 42 :
-            if (gSaveGame.tracks[track].once && lara->state == Lara::STATE_HANG) {
+            if ((gSaveGame.tracks[track] & TRACK_FLAG_ONCE) && lara->state == Lara::STATE_HANG) {
                 track = 43;
             }
             break;
@@ -3992,7 +4096,7 @@ int32 doTutorial(ItemObj* lara, int32 track)
             break;
 
         case 50 : // end of GYM
-            if (gSaveGame.tracks[track].once) {
+            if (gSaveGame.tracks[track] & TRACK_FLAG_ONCE) {
                 lara->gymTimer++;
                 if (lara->gymTimer > 90)
                 {

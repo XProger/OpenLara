@@ -21,6 +21,7 @@ enum InvState {
     INV_STATE_CLOSING,
     INV_STATE_CLOSE,
     INV_STATE_READY,
+    INV_STATE_DEATH,
     INV_STATE_SPIN,
     INV_STATE_SELECT,
     INV_STATE_DESELECT,
@@ -32,7 +33,6 @@ enum InvState {
 
 enum InvPage {
     INV_PAGE_TITLE,
-    INV_PAGE_SAVE,
     INV_PAGE_DEATH,
     INV_PAGE_END,
     INV_PAGE_USE,
@@ -75,13 +75,23 @@ enum InvSlot {
 };
 
 enum PassportPage {
-    PASSPORT_PAGE_SELECT_LEVEL,
+    PASSPORT_PAGE_LOAD_GAME,
+    PASSPORT_PAGE_SAVE_GAME,
     PASSPORT_PAGE_EXIT_TO_TITLE
 };
 
 enum OptionID
 {
-    OPT_ID_GAMMA = 0
+// controls
+    OPT_ID_RUMBLE = 0,
+// audio
+    OPT_ID_SFX = 0,
+    OPT_ID_MUSIC = 1,
+// video
+    OPT_ID_GAMMA = 0,
+    OPT_ID_FPS = 1,
+// passport
+    OPT_ID_OK = 5
 };
 
 struct InvItem
@@ -192,8 +202,20 @@ struct Inventory
         OPT_BAR,
         OPT_SWITCH,
         OPT_VALUE,
-        OPT_CTRL
+        OPT_TEXT
     };
+
+    #define OPTION(t,s,v)\
+        options[optionsCount].type  = t;\
+        options[optionsCount].str   = s;\
+        options[optionsCount].value = v;\
+        optionsCount++
+
+    #define OPTION_SPACE()       optionsHeight +=  8; OPTION(OPT_SPACE, STR_EMPTY, 0)
+    #define OPTION_BTN(s,v)      optionsHeight += 18; OPTION(OPT_BUTTON, s, v)
+    #define OPTION_BAR(s,v)      optionsHeight += 18; OPTION(OPT_BAR, s, v)
+    #define OPTION_SWITCH(s,v)   optionsHeight += 18; OPTION(OPT_SWITCH, s, v)
+    #define OPTION_TEXT(s)       optionsHeight += 18; OPTION(OPT_TEXT, s, 0)
 
     struct Option
     {
@@ -204,7 +226,7 @@ struct Inventory
 
     Option options[32];
 
-    Inventory()
+    void init()
     {
         memset(counts, 0, sizeof(counts));
 
@@ -229,8 +251,8 @@ struct Inventory
             add(ITEM_INV_MEDIKIT_BIG, 5);
         }
 
-        add(ITEM_INV_KEY_ITEM_1);
-        add(ITEM_INV_PUZZLE_1);
+        //add(ITEM_INV_KEY_ITEM_1);
+        //add(ITEM_INV_PUZZLE_1);
     }
 
     ItemType remapToInv(ItemType type)
@@ -371,13 +393,14 @@ struct Inventory
 
     void setSelection(bool selected)
     {
+        InvSlot slot = itemsList[itemIndex];
+
         if (selected) {
-            const InvItem &item = INV_SLOTS[itemsList[itemIndex]];
+            const InvItem &item = INV_SLOTS[slot];
             selDistTarget = item.selDist;
             selRotPreTarget = item.selRotPre;
             selRotXTarget = item.selRotX;
             selRotYTarget = item.selRotY;
-            passportPage = PASSPORT_PAGE_SELECT_LEVEL;
         } else {
             selDistTarget = 0;
             selRotPreTarget = 0;
@@ -392,6 +415,11 @@ struct Inventory
 
         frameTarget = (selected) ? getAnimLength() : 0;
         itemVisMask = 0xFFFFFFFF;
+
+        if (selected && slot == SLOT_PASSPORT) {
+            passportPage = (page == INV_PAGE_OPTIONS) ? PASSPORT_PAGE_SAVE_GAME : PASSPORT_PAGE_LOAD_GAME;
+            frameTarget += passportPage * 5;
+        }
     }
 
     void setPage(InvPage page)
@@ -422,12 +450,16 @@ struct Inventory
             case INV_PAGE_MAIN:
             {
                 ADD_SLOT(SLOT_COMPASS);
-                ADD_SLOT(SLOT_PISTOLS);
-                ADD_SLOT(SLOT_SHOTGUN);
-                ADD_SLOT(SLOT_MAGNUMS);
-                ADD_SLOT(SLOT_UZIS);
-                ADD_SLOT(SLOT_MEDIKIT_BIG);
-                ADD_SLOT(SLOT_MEDIKIT_SMALL);
+
+                if (gLevelID != LVL_TR1_GYM)
+                {
+                    ADD_SLOT(SLOT_PISTOLS);
+                    ADD_SLOT(SLOT_SHOTGUN);
+                    ADD_SLOT(SLOT_MAGNUMS);
+                    ADD_SLOT(SLOT_UZIS);
+                    ADD_SLOT(SLOT_MEDIKIT_BIG);
+                    ADD_SLOT(SLOT_MEDIKIT_SMALL);
+                }
                 break;
             }
 
@@ -494,7 +526,7 @@ struct Inventory
             return;
         }
 
-        setState(INV_STATE_OPENING, INV_STATE_READY, 16);
+        setState(INV_STATE_OPENING, (page == INV_PAGE_DEATH) ? INV_STATE_DEATH : INV_STATE_READY, 16);
         setHeight(-256);
         setRadius(INV_RING_RADIUS);
         setPage(page);
@@ -599,8 +631,10 @@ struct Inventory
         {
             if (type == ITEM_INV_PASSPORT)
             {
-                if (passportPage == PASSPORT_PAGE_SELECT_LEVEL)
-                    return STR_SELECT_LEVEL;
+                if (passportPage == PASSPORT_PAGE_LOAD_GAME)
+                    return STR_LOAD_GAME;
+                if (passportPage == PASSPORT_PAGE_SAVE_GAME)
+                    return STR_SAVE_GAME;
                 if (passportPage == PASSPORT_PAGE_EXIT_TO_TITLE)
                     return STR_EXIT_TO_TITLE;
             }
@@ -696,7 +730,7 @@ struct Inventory
                     optionIndex = 0;
                 }
 
-                if (options[optionIndex].type == OPT_SPACE) {
+                if ((options[optionIndex].type == OPT_SPACE) || (options[optionIndex].type == OPT_TEXT)) {
                     continue;
                 }
 
@@ -714,7 +748,7 @@ struct Inventory
                     optionIndex = optionsCount - 1;
                 }
 
-                if (options[optionIndex].type == OPT_SPACE) {
+                if ((options[optionIndex].type == OPT_SPACE) || (options[optionIndex].type == OPT_TEXT)) {
                     continue;
                 }
 
@@ -722,12 +756,40 @@ struct Inventory
             }
         }
 
-        if (options[optionIndex].type == OPT_SWITCH)
+        Option &opt = options[optionIndex];
+
+        switch (opt.type)
         {
-            if (lara->isKeyHit(IN_ACTION) || lara->isKeyHit(IN_LEFT) || lara->isKeyHit(IN_RIGHT))
+            case OPT_BAR:
             {
-                options[optionIndex].value = !options[optionIndex].value;
+                if (lara->isKeyHit(IN_LEFT))
+                {
+                    opt.value -= 16;
+                    if (opt.value < 0) {
+                        opt.value = 0;
+                    }
+                }
+
+                if (lara->isKeyHit(IN_RIGHT))
+                {
+                    opt.value += 16;
+                    if (opt.value > 256) {
+                        opt.value = 256;
+                    }
+                }
+                break;
             }
+
+            case OPT_SWITCH:
+            {
+                if (lara->isKeyHit(IN_ACTION) || lara->isKeyHit(IN_LEFT) || lara->isKeyHit(IN_RIGHT))
+                {
+                    opt.value = !opt.value;
+                }
+                break;
+            }
+
+            default: ;
         }
     }
 
@@ -751,77 +813,133 @@ struct Inventory
 
     void onPassport()
     {
-        if (page == INV_PAGE_OPTIONS)
+        if ((passportPage == PASSPORT_PAGE_SAVE_GAME) && (optionsCount > 0)) // error message
         {
-            if ((passportPage == PASSPORT_PAGE_SELECT_LEVEL) && lara->isKeyHit(IN_RIGHT)) {
+            if (lara->isKeyHit(IN_ACTION) || lara->isKeyHit(IN_JUMP))
+            {
+                frameTarget = 0;
+                nextState = INV_STATE_CLOSE;
+            }
+            return;
+        }
+
+        if ((page == INV_PAGE_OPTIONS) || (page == INV_PAGE_DEATH))
+        {
+            if ((passportPage == PASSPORT_PAGE_LOAD_GAME) && lara->isKeyHit(IN_RIGHT)) {
+                passportPage = PASSPORT_PAGE_SAVE_GAME;
+                frameTarget += 5;
+                initOptions();
+                soundPlay(SND_INV_PAGE, NULL);
+            } else if ((passportPage == PASSPORT_PAGE_SAVE_GAME) && lara->isKeyHit(IN_RIGHT)) {
                 passportPage = PASSPORT_PAGE_EXIT_TO_TITLE;
                 frameTarget += 5;
                 initOptions();
                 soundPlay(SND_INV_PAGE, NULL);
-            }
-            if ((passportPage == PASSPORT_PAGE_EXIT_TO_TITLE) && lara->isKeyHit(IN_LEFT)) {
-                passportPage = PASSPORT_PAGE_SELECT_LEVEL;
+            } else if ((passportPage == PASSPORT_PAGE_EXIT_TO_TITLE) && lara->isKeyHit(IN_LEFT)) {
+                passportPage = PASSPORT_PAGE_SAVE_GAME;
+                frameTarget -= 5;
+                initOptions();
+                soundPlay(SND_INV_PAGE, NULL);
+            } else if ((passportPage == PASSPORT_PAGE_SAVE_GAME) && lara->isKeyHit(IN_LEFT)) {
+                passportPage = PASSPORT_PAGE_LOAD_GAME;
                 frameTarget -= 5;
                 initOptions();
                 soundPlay(SND_INV_PAGE, NULL);
             }
         }
 
-        if (lara->input & IN_ACTION)
+        if (lara->isKeyHit(IN_ACTION))
         {
-            frameTarget = 0;
-            nextState = INV_STATE_CLOSE;
-            if (passportPage == PASSPORT_PAGE_SELECT_LEVEL) {
-                nextLevel(LevelID(options[optionIndex].value));
+            Option &opt = options[optionIndex];
+
+            if (passportPage == PASSPORT_PAGE_LOAD_GAME)
+            {
+                nextLevel(LevelID(opt.value));
+                frameTarget = 0;
+                nextState = INV_STATE_CLOSE;
             }
-            if (passportPage == PASSPORT_PAGE_EXIT_TO_TITLE) {
+            
+            if (passportPage == PASSPORT_PAGE_SAVE_GAME)
+            {
+                if (!gameSave())
+                {
+                    optionsHeight = 4;
+                    optionsCount = 0;
+                    optionIndex = OPT_ID_OK;
+                    OPTION_SPACE();
+                    OPTION_TEXT(STR_GBA_SAVE_WARNING_1);
+                    OPTION_TEXT(STR_GBA_SAVE_WARNING_2);
+                    OPTION_TEXT(STR_GBA_SAVE_WARNING_3);
+                    OPTION_SPACE();
+                    OPTION_BTN(STR_OK, 0);
+                } else {
+                    frameTarget = 0;
+                    nextState = INV_STATE_CLOSE;
+                }
+            }
+
+            if (passportPage == PASSPORT_PAGE_EXIT_TO_TITLE)
+            {
                 nextLevel(LVL_TR1_TITLE);
+                frameTarget = 0;
+                nextState = INV_STATE_CLOSE;
             }
         }
     }
 
     void onDetail()
     {
+        Option &opt = options[optionIndex];
+        
         if (optionIndex == OPT_ID_GAMMA)
         {
-            Option &opt = options[optionIndex];
+            int32 gamma = opt.value >> 4;
 
-            int32 gamma = opt.value;
-            int32 gammaOld = gamma;
-
-            if (lara->isKeyHit(IN_LEFT))
+            if (gSettings.video_gamma != gamma)
             {
-                gamma -= 16;
-                if (gamma < 0) {
-                    gamma = 0;
-                }
+                gSettings.video_gamma = gamma;
+                palSet(level.palette, gamma << 4, gBrightness);
+                osSaveSettings();
             }
+        }
 
-            if (lara->isKeyHit(IN_RIGHT))
+        if (optionIndex == OPT_ID_FPS)
+        {
+            if (gSettings.video_fps != opt.value)
             {
-                gamma += 16;
-                if (gamma > 256) {
-                    gamma = 256;
-                }
-            }
-
-            if (gammaOld != gamma)
-            {
-                opt.value = gamma;
-                gSettings.detail.gamma = gamma >> 4;
-                palSet(level.palette, gamma, gBrightness);
+                gSettings.video_fps = opt.value;
+                osSaveSettings();
             }
         }
     }
 
     void onSound()
     {
-        //
+        Option &opt = options[optionIndex];
+        
+        if ((optionIndex == OPT_ID_SFX) && (gSettings.audio_sfx != opt.value))
+        {
+            gSettings.audio_sfx = opt.value;
+            osSaveSettings();
+        }
+
+        if ((optionIndex == OPT_ID_MUSIC) && (gSettings.audio_music != opt.value))
+        {
+            gSettings.audio_music = opt.value;
+            osSaveSettings();
+        }
     }
 
     void onControls()
     {
-        //
+        Option &opt = options[optionIndex];
+
+        if ((optionIndex == OPT_ID_RUMBLE) && (gSettings.controls_vibration != opt.value))
+        {
+            gSettings.controls_vibration = opt.value;
+            osJoyVibrate(0, 0xFF, 0xFF);
+            osSaveSettings();
+        }
     }
 
     void onHome()
@@ -1008,7 +1126,7 @@ struct Inventory
                             setRot(ANGLE_180, rot - ANGLE_180);
                             setPitch(-ANGLE_45);
                         }
-                    } else if ((lara->input & IN_SELECT) && (page != INV_PAGE_TITLE)) {
+                    } else if ((lara->isKeyHit(IN_SELECT) || lara->isKeyHit(IN_JUMP)) && (page != INV_PAGE_TITLE)) {
                         soundPlay(SND_INV_HIDE, NULL);
                         useSlot = SLOT_MAX;
                         close();
@@ -1020,6 +1138,15 @@ struct Inventory
                     }
                 }
 
+                break;
+            }
+
+            case INV_STATE_DEATH:
+            {
+                soundPlay(INV_SLOTS[itemsList[itemIndex]].snd, NULL);
+                setState(INV_STATE_SELECT, INV_STATE_SHOW, 8);
+                setSelection(true);
+                initOptions();
                 break;
             }
 
@@ -1077,51 +1204,44 @@ struct Inventory
     void initOptions()
     {
         optionsCount = 0;
+        optionIndex = 0;
+        optionsWidth = 216;
+        optionsHeight = 4;
 
         InvSlot slot = itemsList[itemIndex];
-        int32 idx = 0;
-
-        #define OPTION(t,s,v)\
-            options[idx].type  = t;\
-            options[idx].str   = s;\
-            options[idx].value = v;\
-            idx++
-
-        #define OPTION_SPACE()       OPTION(OPT_SPACE, STR_EMPTY, 0)
-        #define OPTION_BTN(s,v)      OPTION(OPT_BUTTON, s, v)
-        #define OPTION_BAR(s,v)      OPTION(OPT_BAR, s, v)
-        #define OPTION_SWITCH(s,v)   OPTION(OPT_SWITCH, s, v)
-        #define OPTION_CTRL(s,v)     OPTION(OPT_CTRL, s, v)
-        #define OPTION_END()         optionsCount = idx;
 
         switch (slot)
         {
             case SLOT_PASSPORT:
             {
-                if (passportPage == PASSPORT_PAGE_SELECT_LEVEL)
+                if (passportPage == PASSPORT_PAGE_LOAD_GAME)
                 {
                     OPTION_BTN(STR_TR1_LEVEL1, LVL_TR1_1);
                     OPTION_BTN(STR_TR1_LEVEL2, LVL_TR1_2);
+                    if (osCheckSave())
+                    {
+                        OPTION_SPACE();
+                        OPTION_BTN(STR_CURRENT_POSITION, LVL_LOAD);
+                        optionIndex = optionsCount - 1;
+                    }
                 }
-                OPTION_END();
                 break;
             }
             case SLOT_DETAIL:
             {
-                OPTION_BAR(STR_GAMMA, gSettings.detail.gamma << 4);
-                OPTION_END();
+                OPTION_BAR(STR_OPT_DETAIL_GAMMA, gSettings.video_gamma << 4);
+                OPTION_SWITCH(STR_OPT_DETAIL_FPS, gSettings.video_fps);
                 break;
             }
             case SLOT_SOUND:
             {
-                OPTION_SWITCH(STR_OPT_SOUND_SFX, 1);
-                OPTION_SWITCH(STR_OPT_SOUND_MUSIC, 1);
-                OPTION_END();
+                OPTION_SWITCH(STR_OPT_SOUND_SFX, gSettings.audio_sfx);
+                OPTION_SWITCH(STR_OPT_SOUND_MUSIC, gSettings.audio_music);
                 break;
             }
             case SLOT_CONTROLS:
             {
-                OPTION_SWITCH(STR_OPT_CONTROLS_VIBRATION, 1);
+                OPTION_SWITCH(STR_OPT_CONTROLS_VIBRATION, gSettings.controls_vibration);
             /*
                 OPTION_SPACE();
                 OPTION_CTRL(STR_CTRL_RUN, 0);
@@ -1137,15 +1257,10 @@ struct Inventory
                 OPTION_CTRL(STR_CTRL_INVENTORY, 0);
                 OPTION_CTRL(STR_CTRL_PAUSE, 0);
             */
-                OPTION_END();
                 break;
             }
-            default: OPTION_END();
+            default: ;
         }
-
-        optionIndex = 0;
-        optionsWidth = 216;
-        optionsHeight = optionsCount * 18 + 4;
     }
 
     void drawOptions()
@@ -1178,6 +1293,7 @@ struct Inventory
             {
                 case OPT_SPACE:
                 {
+                    y -= 10;
                     break;
                 }
 
@@ -1197,7 +1313,7 @@ struct Inventory
                 case OPT_SWITCH:
                 {
                     drawText(-FRAME_WIDTH / 2 - 8, y + 16, STR[opt.str], TEXT_ALIGN_RIGHT);
-                    drawText(32, y + 16, STR[opt.value ? STR_ON : STR_OFF], TEXT_ALIGN_CENTER);
+                    drawText(44, y + 16, STR[opt.value ? STR_ON : STR_OFF], TEXT_ALIGN_CENTER);
                     break;
                 }
 
@@ -1206,8 +1322,9 @@ struct Inventory
                     break;
                 }
 
-                case OPT_CTRL:
+                case OPT_TEXT:
                 {
+                    drawText(0, y + 16, STR[opt.str], TEXT_ALIGN_CENTER);
                     break;
                 }
             }
@@ -1304,8 +1421,8 @@ struct Inventory
 
     void drawEndPage()
     {
-        int32 y = 64;
-        for (int32 i = 0; i < STR_ALPHA_END_5 - STR_ALPHA_END_1; i++)
+        int32 y = 48;
+        for (int32 i = 0; i <= STR_ALPHA_END_6 - STR_ALPHA_END_1; i++)
         {
             drawText(0, y, STR[STR_ALPHA_END_1 + i], TEXT_ALIGN_CENTER);
             y += 16;
@@ -1362,15 +1479,14 @@ struct Inventory
                     if ((page == INV_PAGE_OPTIONS) || (page == INV_PAGE_DEATH))
                     {
                         int32 len = getTextWidth(str);
-                        if (passportPage == PASSPORT_PAGE_SELECT_LEVEL) {
+                        if ((passportPage == PASSPORT_PAGE_LOAD_GAME) || (passportPage == PASSPORT_PAGE_SAVE_GAME)) {
                             drawText((FRAME_WIDTH + len) / 2 + 4, FRAME_HEIGHT - 8, "$\x6D", TEXT_ALIGN_LEFT);
                         }
-                        if (passportPage == PASSPORT_PAGE_EXIT_TO_TITLE) {
+                        if ((passportPage == PASSPORT_PAGE_SAVE_GAME) || (passportPage == PASSPORT_PAGE_EXIT_TO_TITLE)) {
                             drawText((FRAME_WIDTH - len) / 2 - 18, FRAME_HEIGHT - 8, "$\x6C", TEXT_ALIGN_LEFT);
                         }
                     }
                 }
-
             }
 
         }

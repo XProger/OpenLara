@@ -66,18 +66,18 @@ struct Object : ItemObj
 
     bool isActive()
     {
-        if ((flags.mask != ITEM_FLAGS_MASK_ALL) || (timer == -1))
-            return flags.reverse == 1;
+        if (((flags & ITEM_FLAG_MASK) != ITEM_FLAG_MASK) || (timer == -1))
+            return (flags & ITEM_FLAG_REVERSE);
 
         if (timer == 0)
-            return flags.reverse == 0;
-        
+            return !(flags & ITEM_FLAG_REVERSE);
+
         timer--;
 
         if (timer == 0)
             timer = -1;
 
-        return flags.reverse == 0;
+        return !(flags & ITEM_FLAG_REVERSE);
     }
 
     bool checkLimit(Lara* lara, const int16* limitData)
@@ -139,7 +139,7 @@ struct SpriteEffect : ItemObj
         {
             tick = 0;
 
-            if (flags.animated)
+            if (flags & ITEM_FLAG_ANIMATED)
             {
                 frameIndex++;
                 if (frameIndex >= -level.models[type].count)
@@ -238,7 +238,7 @@ struct Door : Object
 
     Door(Room* room) : Object(room)
     {
-        flags.collision = true;
+        flags |= ITEM_FLAG_COLLISION;
         action(true);
     }
 
@@ -339,12 +339,12 @@ struct Crystal : Object
 {
     Crystal(Room* room) : Object(room)
     {
-        activate();
+        flags &= ~ITEM_FLAG_STATUS;
+        flags |= ITEM_FLAG_STATUS_INVISIBLE; // disable crystals for now
     }
 
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
     {
-        collideDefault(lara, cinfo);
         // TODO
     }
 };
@@ -361,7 +361,7 @@ struct Switch : Object
 
     virtual void update()
     {
-        flags.mask |= ITEM_FLAGS_MASK_ALL;
+        flags |= ITEM_FLAG_MASK;
         if (!isActive())
         {
             goalState = STATE_DOWN;
@@ -381,7 +381,7 @@ struct Switch : Object
         if (lara->state != Lara::STATE_STOP)
             return;
 
-        if (flags.status != ITEM_FLAGS_STATUS_NONE)
+        if (flags & ITEM_FLAG_STATUS)
             return;
 
         if (!checkLimit(lara, LIMIT_SWITCH))
@@ -396,24 +396,26 @@ struct Switch : Object
         goalState = isDown ? STATE_UP : STATE_DOWN;
         lara->animSkip(isDown ? Lara::STATE_SWITCH_DOWN : Lara::STATE_SWITCH_UP, Lara::STATE_STOP, true);
         activate();
-        flags.status = ITEM_FLAGS_STATUS_ACTIVE;
+        flags &= ~ITEM_FLAG_STATUS;
+        flags |= ITEM_FLAG_STATUS_ACTIVE;
         lara->extraL->weaponState = WEAPON_STATE_BUSY;
     }
 
     bool use(int32 t)
     {
-        if (flags.status == ITEM_FLAGS_STATUS_INACTIVE)
+        if ((flags & ITEM_FLAG_STATUS) == ITEM_FLAG_STATUS_INACTIVE)
         {
+            flags &= ~ITEM_FLAG_STATUS;
+
             if (t > 0 && state == Switch::STATE_UP)
             {
                 if (t != 1) {
                     t *= 30;
                 }
                 timer = t;
-                flags.status = ITEM_FLAGS_STATUS_ACTIVE;
+                flags |= ITEM_FLAG_STATUS_ACTIVE;
             } else {
                 deactivate();
-                flags.status = ITEM_FLAGS_STATUS_NONE;
             }
             return true;
         }
@@ -449,7 +451,8 @@ struct SwitchWater : Switch
 
         lara->animSkip(Lara::STATE_SWITCH_DOWN, Lara::STATE_UW_TREAD, true);
         activate();
-        flags.status = ITEM_FLAGS_STATUS_ACTIVE;
+        flags &= ~ITEM_FLAG_STATUS;
+        flags |= ITEM_FLAG_STATUS_ACTIVE;
 
         //TODO TR2+
         //lara->weaponState = WEAPON_STATE_BUSY;
@@ -463,9 +466,10 @@ struct Key : Object
 
     bool use(ItemObj* lara)
     {
-        if (flags.status == ITEM_FLAGS_STATUS_ACTIVE && lara->extraL->weaponState == WEAPON_STATE_FREE) // TODO check weapons
+        if (((flags & ITEM_FLAG_STATUS) == ITEM_FLAG_STATUS_ACTIVE) && (lara->extraL->weaponState == WEAPON_STATE_FREE)) // TODO check weapons
         {
-            flags.status = ITEM_FLAGS_STATUS_INACTIVE;
+            flags &= ~ITEM_FLAG_STATUS;
+            flags |= ITEM_FLAG_STATUS_INACTIVE;
             return true;
         }
         return false;
@@ -482,9 +486,10 @@ struct Pickup : Object
 
     bool use()
     {
-        if (flags.status == ITEM_FLAGS_STATUS_INVISIBLE)
+        if ((flags & ITEM_FLAG_STATUS) == ITEM_FLAG_STATUS_INVISIBLE)
         {
-            flags.status = ITEM_FLAGS_STATUS_INACTIVE;
+            flags &= ~ITEM_FLAG_STATUS;
+            flags |= ITEM_FLAG_STATUS_INACTIVE;
             return true;
         }
         return false;
@@ -510,7 +515,8 @@ struct Pickup : Object
                 inventory.add((ItemType)type);
                 gSaveGame.pickups++;
                 room->remove(this);
-                flags.status = ITEM_FLAGS_STATUS_INVISIBLE;
+                flags &= ~ITEM_FLAG_STATUS;
+                flags |= ITEM_FLAG_STATUS_INVISIBLE;
             }
             else if (lara->state == Lara::STATE_STOP)
             {
@@ -543,7 +549,8 @@ struct Pickup : Object
                 inventory.add((ItemType)type);
                 gSaveGame.pickups++;
                 room->remove(this);
-                flags.status = ITEM_FLAGS_STATUS_INVISIBLE;
+                flags &= ~ITEM_FLAG_STATUS;
+                flags |= ITEM_FLAG_STATUS_INVISIBLE;
             }
             else if (lara->state == Lara::STATE_UW_TREAD)
             {
@@ -591,7 +598,7 @@ struct Hole : Object // parent class for KeyHole and PuzzleHole
         if (lara->extraL->weaponState != WEAPON_STATE_FREE)
             return;
 
-        if (flags.status != ITEM_FLAGS_STATUS_NONE)
+        if (flags & ITEM_FLAG_STATUS)
             return;
 
         if (lara->state != Lara::STATE_STOP || lara->animIndex != Lara::ANIM_STAND_NORMAL)
@@ -615,7 +622,8 @@ struct Hole : Object // parent class for KeyHole and PuzzleHole
                 lara->moveTo(_vec3i(0, 0, offset), this, false);
                 lara->animSkip(stateUse, Lara::STATE_STOP);
                 lara->extraL->weaponState = WEAPON_STATE_BUSY;
-                flags.status = ITEM_FLAGS_STATUS_ACTIVE;
+                flags &= ~ITEM_FLAG_STATUS;
+                flags |= ITEM_FLAG_STATUS_ACTIVE;
                 return;
             }
 
@@ -690,7 +698,7 @@ struct TrapFloor : Object
             case STATE_STATIC:
                 if (getLara(pos)->pos.y != pos.y - 512)
                 {
-                    flags.status = ITEM_FLAGS_STATUS_NONE;
+                    flags &= ~ITEM_FLAG_STATUS;
                     deactivate();
                     return;
                 }
@@ -702,14 +710,14 @@ struct TrapFloor : Object
             case STATE_FALL:
                 if (goalState != STATE_DOWN)
                 {
-                    flags.gravity = true;
+                    flags |= ITEM_FLAG_GRAVITY;
                 }
                 break;
         }
 
         animProcess();
 
-        if (flags.status == ITEM_FLAGS_STATUS_INACTIVE)
+        if ((flags & ITEM_FLAG_STATUS) == ITEM_FLAG_STATUS_INACTIVE)
         {
             deactivate();
             return;
@@ -723,7 +731,7 @@ struct TrapFloor : Object
         {
             pos.y = roomFloor;
             vSpeed = 0;
-            flags.gravity = false;
+            flags &= ~ITEM_FLAG_GRAVITY;
             goalState = STATE_DOWN;
         }
     }
@@ -753,12 +761,12 @@ struct TrapSwingBlade : Object
 
     TrapSwingBlade(Room* room) : Object(room)
     {
-        flags.shadow = true;
+        flags |= ITEM_FLAG_SHADOW;
     }
 
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
     {
-        if (flags.status != ITEM_FLAGS_STATUS_ACTIVE)
+        if ((flags & ITEM_FLAG_STATUS) != ITEM_FLAG_STATUS_ACTIVE)
             return;
 
         if (state != STATE_SWING)
@@ -794,7 +802,7 @@ struct Dart : Object
 {
     Dart(Room* room) : Object(room)
     {
-        flags.shadow = true;
+        flags |= ITEM_FLAG_SHADOW;
     }
 
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
@@ -855,7 +863,8 @@ struct TrapDartEmitter : Object
                 soundPlay(SND_DART, &pos);
 
                 dart->intensity = 0;
-                dart->flags.status = ITEM_FLAGS_STATUS_ACTIVE;
+                dart->flags &= ~ITEM_FLAG_STATUS;
+                dart->flags |= ITEM_FLAG_STATUS_ACTIVE;
                 dart->activate();
 
                 fxSmoke(p);
@@ -878,7 +887,7 @@ struct Block : Object
 
     Block(Room* room) : Object(room)
     {
-        if (flags.status != ITEM_FLAGS_STATUS_INVISIBLE) {
+        if ((flags & ITEM_FLAG_STATUS) != ITEM_FLAG_STATUS_INVISIBLE) {
             updateFloor(-1024);
         }
     }
@@ -959,7 +968,7 @@ struct Block : Object
         if (!(lara->input & IN_ACTION))
             return;
 
-        if (flags.status == ITEM_FLAGS_STATUS_ACTIVE)
+        if ((flags & ITEM_FLAG_STATUS) == ITEM_FLAG_STATUS_ACTIVE)
             return;
 
         if (lara->pos.y != pos.y)
@@ -999,7 +1008,8 @@ struct Block : Object
             updateFloor(1024);
 
             activate();
-            flags.status = ITEM_FLAGS_STATUS_ACTIVE;
+            flags &= ~ITEM_FLAG_STATUS;
+            flags |= ITEM_FLAG_STATUS_ACTIVE;
 
             animProcess();
             lara->animProcess();
@@ -1024,7 +1034,7 @@ struct Block : Object
 
     virtual void update()
     {
-        if (flags.once)
+        if (flags & ITEM_FLAG_ONCE)
         {
             updateFloor(1024);
             remove();
@@ -1037,25 +1047,40 @@ struct Block : Object
 
         if (pos.y > roomFloor)
         {
-            flags.gravity = true;
+            flags |= ITEM_FLAG_GRAVITY;
         }
-        else if (flags.gravity)
+        else if (flags & ITEM_FLAG_GRAVITY)
         {
-            flags.gravity = false;
-            flags.status = ITEM_FLAGS_STATUS_INACTIVE;
+            flags &= ~(ITEM_FLAG_GRAVITY | ITEM_FLAG_STATUS);
+            flags |= ITEM_FLAG_STATUS_INACTIVE;
             pos.y = roomFloor;
             // TODO EarthQuake + playSound 70 (Thor room)
         }
 
-        if (flags.status == ITEM_FLAGS_STATUS_INACTIVE)
+        if ((flags & ITEM_FLAG_STATUS) == ITEM_FLAG_STATUS_INACTIVE)
         {
             deactivate();
-            flags.status = ITEM_FLAGS_STATUS_NONE;
+            flags &= ~ITEM_FLAG_STATUS;
 
             updateFloor(-1024);
 
             checkTrigger(gLastFloorData, NULL);
         }
+    }
+
+    virtual uint8* load(uint8* data)
+    {
+        if ((flags & ITEM_FLAG_STATUS) != ITEM_FLAG_STATUS_INVISIBLE) {
+            updateFloor(1024);
+        }
+
+        data = ItemObj::load(data);
+
+        if ((flags & ITEM_FLAG_STATUS) != ITEM_FLAG_STATUS_INVISIBLE) {
+            updateFloor(-1024);
+        }
+
+        return data;
     }
 };
 

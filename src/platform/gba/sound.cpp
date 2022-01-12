@@ -163,6 +163,9 @@ void sndFreeSamples()
 
 void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode)
 {
+    if (!gSettings.audio_sfx)
+        return NULL;
+
     const uint8 *data = level.soundData + level.soundOffsets[index];
     int32 size = *(int32*)data;
     data += 4;
@@ -203,6 +206,9 @@ void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode)
 
 void sndPlayTrack(int32 track)
 {
+    if (!gSettings.audio_music)
+        return;
+
     if (track == gCurTrack)
         return;
 

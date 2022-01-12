@@ -21,7 +21,7 @@ struct Enemy : ItemObj
 {
     Enemy(Room* room, int32 _health, int32 _radius, int32 _headOffset, int32 _aggression) : ItemObj(room)
     {
-        flags.shadow = true;
+        flags |= ITEM_FLAG_SHADOW;
 
     #ifndef STATIC_ITEMS
         angle.y += (rand_logic() - 0x4000) >> 1;
@@ -42,7 +42,8 @@ struct Enemy : ItemObj
 
         if (extra->enemy)
         {
-            extra->enemy->flags.status = ITEM_FLAGS_STATUS_INVISIBLE;
+            extra->enemy->flags &= ~ITEM_FLAG_STATUS;
+            extra->enemy->flags |= ITEM_FLAG_STATUS_INVISIBLE;
             extra->enemy->disable();
         }
 
@@ -185,9 +186,9 @@ struct Enemy : ItemObj
             extraE->nav.nextBox = NO_BOX;
         }
 
-        uint32 nextMood = tinfo.target->health <= 0 ? MOOD_SLEEP : (flags.animated ? getMoodWild() : getMoodNormal());
+        uint32 nextMood = tinfo.target->health <= 0 ? MOOD_SLEEP : ((flags & ITEM_FLAG_ANIMATED) ? getMoodWild() : getMoodNormal());
 
-        flags.injured = false;
+        flags &= ~ITEM_FLAG_INJURED;
 
         if (mood != nextMood)
         {
@@ -335,7 +336,7 @@ struct Enemy : ItemObj
         bool inZone = checkZone();
 
         if (mood == MOOD_SLEEP || mood == MOOD_STALK)
-            return inZone ? MOOD_ATTACK : (flags.injured ? MOOD_ESCAPE : mood);
+            return inZone ? MOOD_ATTACK : ((flags & ITEM_FLAG_INJURED) ? MOOD_ESCAPE : mood);
 
         if (mood == MOOD_ATTACK)
             return inZone ? mood : MOOD_SLEEP;
@@ -349,7 +350,7 @@ struct Enemy : ItemObj
 
         if (mood == MOOD_SLEEP || mood == MOOD_STALK)
         {
-            if (flags.injured && (rand_logic() < 0x800 || !inZone))
+            if ((flags & ITEM_FLAG_INJURED) && (rand_logic() < 0x800 || !inZone))
                 return MOOD_ESCAPE;
             if (inZone)
                 return ((tinfo.dist < 3072) || (mood == MOOD_STALK && extraE->nav.nextBox == NO_BOX)) ? MOOD_ATTACK : MOOD_STALK;
@@ -357,7 +358,7 @@ struct Enemy : ItemObj
         }
          
         if (mood == MOOD_ATTACK)
-            return (flags.injured && rand_logic() < 0x800) ? MOOD_ESCAPE : (!inZone ? MOOD_SLEEP : mood);
+            return ((flags & ITEM_FLAG_INJURED) && rand_logic() < 0x800) ? MOOD_ESCAPE : (!inZone ? MOOD_SLEEP : mood);
 
         return (inZone && rand_logic() < 0x100) ? MOOD_STALK : mood;
     }
@@ -513,7 +514,7 @@ struct Enemy : ItemObj
             ItemObj* item = room->firstItem;
             while (item)
             {
-                if (item->type != ITEM_LARA && item != this && item->health > 0 && item->flags.status == ITEM_FLAGS_STATUS_ACTIVE)
+                if (item->type != ITEM_LARA && item != this && item->health > 0 && ((item->flags & ITEM_FLAG_STATUS) == ITEM_FLAG_STATUS_ACTIVE))
                 {
                     int32 dx = item->pos.x - pos.x;
                     int32 dz = item->pos.z - pos.z;
@@ -566,8 +567,9 @@ struct Enemy : ItemObj
 
         ItemObj::activate();
 
-        if (!enable(flags.status == ITEM_FLAGS_STATUS_NONE)) {
-            flags.status = ITEM_FLAGS_STATUS_INVISIBLE;
+        if (!enable(!(flags & ITEM_FLAG_STATUS))) {
+            flags &= ~ITEM_FLAG_STATUS;
+            flags |= ITEM_FLAG_STATUS_INVISIBLE;
         }
     }
 
@@ -593,7 +595,7 @@ struct Enemy : ItemObj
             fxBlood(point, 0, 0);
         }
 
-        flags.injured = true;
+        flags |= ITEM_FLAG_INJURED;
     }
 
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
@@ -615,18 +617,20 @@ struct Enemy : ItemObj
 
     virtual void update()
     {
-        if (flags.status == ITEM_FLAGS_STATUS_INVISIBLE)
+        if ((flags & ITEM_FLAG_STATUS) == ITEM_FLAG_STATUS_INVISIBLE)
         {
             if (!enable(false))
                 return;
-            flags.status = ITEM_FLAGS_STATUS_ACTIVE;
+            flags &= ~ITEM_FLAG_STATUS;
+            flags |= ITEM_FLAG_STATUS_ACTIVE;
         }
 
     #ifdef HIDE_CORPSES
         if ((health <= 0) && !corpseTimer--)
         {
             deactivate();
-            flags.status = ITEM_FLAGS_STATUS_INVISIBLE;
+            flags &= ~ITEM_FLAG_STATUS;
+            flags |= ITEM_FLAG_STATUS_INVISIBLE;
         }
     #endif
 
@@ -651,9 +655,9 @@ struct Enemy : ItemObj
         angle.z += X_CLAMP((tinfo.tilt << 2) - angle.z, -ANGLE(3), ANGLE(3));
         angle.y += tinfo.turn;
 
-        if (flags.status == ITEM_FLAGS_STATUS_INACTIVE)
+        if ((flags & ITEM_FLAG_STATUS) == ITEM_FLAG_STATUS_INACTIVE)
         {
-            flags.collision = false;
+            flags &= ~ITEM_FLAG_COLLISION;
             health = NOT_ENEMY;
             disable();
         #ifndef HIDE_CORPSES
@@ -670,6 +674,44 @@ struct Enemy : ItemObj
     virtual void initExtra()
     {
         // empty
+    }
+
+    struct EnemySave {
+        int16 vSpeed;
+        int16 hSpeed;
+        int16 health;
+        uint8 mood;
+        uint8 waterState;
+    };
+
+    virtual uint8* save(uint8* data)
+    {
+        data = ItemObj::save(data);
+        
+        EnemySave* sg = (EnemySave*)data;
+
+        sg->vSpeed = vSpeed;
+        sg->hSpeed = hSpeed;
+        sg->health = health;
+        sg->mood = mood;
+        sg->waterState = waterState;
+
+        return data + sizeof(EnemySave);
+    }
+
+    virtual uint8* load(uint8* data)
+    {
+        data = ItemObj::load(data);
+
+        EnemySave* sg = (EnemySave*)data;
+
+        vSpeed = sg->vSpeed;
+        hSpeed = sg->hSpeed;
+        health = sg->health;
+        mood = sg->mood;
+        waterState = sg->waterState;
+
+        return data + sizeof(EnemySave);
     }
 };
 
@@ -865,7 +907,7 @@ struct Bear : Enemy
 
     Bear(Room* room) : Enemy(room, 20, 341, 500, AGGRESSION_LVL_3)
     {
-        flags.animated = true; // TODO WILD flag
+        flags |= ITEM_FLAG_ANIMATED; // TODO WILD flag
     }
 
     virtual void hit(int32 damage, const vec3i &point, int32 soundId)
@@ -885,16 +927,16 @@ struct Bear : Enemy
                 case STATE_RUN:
                     return STATE_STOP;
                 case STATE_STOP:
-                    flags.reverse = 0; // TODO special flag
+                    flags &= ~ITEM_FLAG_REVERSE; // TODO special flag
                     return STATE_DEATH;
                 case STATE_HOWL:
-                    flags.reverse = 1;
+                    flags |= ITEM_FLAG_REVERSE;
                     return STATE_DEATH;
                 case STATE_DEATH:
-                    if (flags.reverse && (hitMask & HIT_MASK) && tinfo.target) // fall on Lara 
+                    if ((flags & ITEM_FLAG_REVERSE) && (hitMask & HIT_MASK) && tinfo.target) // fall on Lara 
                     {
                         tinfo.target->hit(200, _vec3i(0, 0, 0), 0);
-                        flags.reverse = false;
+                        flags &= ~ITEM_FLAG_REVERSE;
                     }
                     return STATE_DEATH;
                 default:
@@ -903,10 +945,12 @@ struct Bear : Enemy
         }
 
         // hold the injured flag until death
-        if (flags.injured) {
-            flags.reverse = 1;
+        if (flags & ITEM_FLAG_INJURED) {
+            flags |= ITEM_FLAG_REVERSE;
         } else {
-            flags.injured = flags.reverse;
+            if (flags & ITEM_FLAG_REVERSE) {
+                flags |= ITEM_FLAG_INJURED;
+            }
         }
 
         switch (state)
@@ -940,7 +984,7 @@ struct Bear : Enemy
                 return (mood == MOOD_SLEEP) ? STATE_WALK : STATE_RUN;
             }
             case STATE_HIND: {
-                if (flags.injured) {
+                if (flags & ITEM_FLAG_INJURED) {
                     nextState = STATE_NONE;
                     return STATE_HOWL;
                 }
@@ -977,7 +1021,7 @@ struct Bear : Enemy
                 {
                     if (tinfo.dist < 2048)
                     {
-                        if (!flags.injured && (rand_logic() < 0x300))
+                        if (!(flags & ITEM_FLAG_INJURED) && (rand_logic() < 0x300))
                         {
                             nextState = STATE_HOWL;
                             return STATE_STOP;
@@ -989,7 +1033,7 @@ struct Bear : Enemy
                 break;
             }
             case STATE_HOWL: {
-                if (flags.injured)
+                if (flags & ITEM_FLAG_INJURED)
                 {
                     nextState = STATE_NONE;
                     return STATE_STOP;
@@ -1045,9 +1089,13 @@ struct Bat : Enemy
         if (health <= 0)
         {
             hSpeed = 0;
-            flags.gravity = (pos.y < roomFloor);
+            if (pos.y < roomFloor) {
+                flags |= ITEM_FLAG_GRAVITY;
+            } else {
+                flags &= ~ITEM_FLAG_GRAVITY;
+            }
 
-            if (flags.gravity) {
+            if (flags & ITEM_FLAG_GRAVITY) {
                 return STATE_CIRCLING;
             }
 

@@ -61,7 +61,7 @@ void readLevel_GBA(const uint8* data)
 #ifndef MODEHW
     // initialize global pointers
     gBrightness = -128;
-    palSet(level.palette, gSettings.detail.gamma << 4, gBrightness);
+    palSet(level.palette, gSettings.video_gamma << 4, gBrightness);
     memcpy(lightmap, level.lightmap, sizeof(lightmap));
 #endif
 
@@ -186,7 +186,7 @@ void updateFading(int32 frames)
         }
     }
 
-    palSet(level.palette, gSettings.detail.gamma << 4, gBrightness);
+    palSet(level.palette, gSettings.video_gamma << 4, gBrightness);
 }
 
 void updateLevel(int32 frames)

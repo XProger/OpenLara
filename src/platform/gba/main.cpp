@@ -6,8 +6,6 @@
 
 #include "game.h"
 
-Game game;
-
 int32 fps;
 int32 frameIndex = 0;
 int32 fpsCounter = 0;
@@ -35,6 +33,68 @@ int32 fpsCounter = 0;
         return GetTickCount();
     }
 
+    bool osSaveSettings()
+    {
+        FILE* f = fopen("settings.dat", "wb");
+        if (!f) return false;
+        fwrite(&gSettings, sizeof(gSettings), 1, f);
+        fclose(f);
+        return true;
+    }
+
+    bool osLoadSettings()
+    {
+        FILE* f = fopen("settings.dat", "rb");
+        if (!f) return false;
+        uint8 version;
+        fread(&version, 1, 1, f);
+        if (version != gSettings.version) {
+            fclose(f);
+            return false;
+        }
+        fread((uint8*)&gSettings + 1, sizeof(gSettings) - 1, 1, f);
+        fclose(f);
+        return true;
+    }
+
+    bool osCheckSave()
+    {
+        FILE* f = fopen("savegame.dat", "rb");
+        if (!f) return false;
+        fclose(f);
+        return true;
+    }
+
+    bool osSaveGame()
+    {
+        FILE* f = fopen("savegame.dat", "wb");
+        if (!f) return false;
+        fwrite(&gSaveGame, sizeof(gSaveGame), 1, f);
+        fwrite(&gSaveData, gSaveGame.dataSize, 1, f);
+        fclose(f);
+        return true;
+    }
+
+    bool osLoadGame()
+    {
+        FILE* f = fopen("savegame.dat", "rb");
+        if (!f) return false;
+
+        uint32 version;
+        fread(&version, sizeof(version), 1, f);
+
+        if (SAVEGAME_VER != version)
+        {
+            fclose(f);
+            return false;
+        }
+
+        fread(&gSaveGame.dataSize, sizeof(gSaveGame) - sizeof(version), 1, f);
+        fread(&gSaveData, gSaveGame.dataSize, 1, f);
+        fclose(f);
+        return true;
+    }
+
     void osJoyVibrate(int32 index, int32 L, int32 R) {}
 
 #elif defined(__GBA__)
@@ -46,6 +106,100 @@ int32 fpsCounter = 0;
     int32 osGetSystemTimeMS()
     {
         return 0; // TODO
+    }
+
+    const uint8 SRAM_MAGIC[4] = { 14, 02, 19, 68 }; 
+
+    int32 byteCopy(volatile uint8* dst, const volatile uint8* src, uint32 count)
+    {
+        for (uint32 i = 0; i < count; i++)
+        {
+            *dst++ = *src++;
+        }
+        return count;
+    }
+
+    bool checkSRAM(volatile uint8* src)
+    {
+        for (uint32 i = 0; i < sizeof(SRAM_MAGIC); i++)
+        {
+            if (SRAM_MAGIC[i] != *src++)
+                return false;
+        }
+        return true;
+    }
+
+    bool osSaveSettings()
+    {
+        volatile uint8* ptr = (uint8*)MEM_SRAM;
+
+        byteCopy(ptr, SRAM_MAGIC, 4);
+        if (!checkSRAM(ptr))
+            return false;
+        ptr += 4;
+
+        volatile uint8* data = (uint8*)&gSettings;
+        byteCopy(ptr, data, sizeof(gSettings));
+
+        return true;
+    }
+
+    bool osLoadSettings()
+    {
+        volatile uint8* ptr = (uint8*)MEM_SRAM;
+        
+        if (!checkSRAM(ptr))
+            return false;
+        ptr += 4;
+
+        if (SETTINGS_VER != *ptr)
+            return false;
+
+        volatile uint8* data = (uint8*)&gSettings;
+        byteCopy(data, ptr, sizeof(gSettings));
+
+        return true;
+    }
+
+    bool osCheckSave()
+    {
+        volatile uint8* ptr = (uint8*)MEM_SRAM + SETTINGS_SIZE;
+
+        if (!checkSRAM(ptr))
+            return false;
+        ptr += 4;
+
+        uint32 version;
+        byteCopy((uint8*)&version, ptr, sizeof(version));
+
+        return (SAVEGAME_VER == version);
+    }
+
+    bool osSaveGame()
+    {
+        volatile uint8* ptr = (uint8*)MEM_SRAM + SETTINGS_SIZE;
+
+        byteCopy(ptr, SRAM_MAGIC, 4);
+        if (!checkSRAM(ptr))
+            return false;
+
+        ptr += 4;
+        ptr += byteCopy(ptr, (uint8*)&gSaveGame, sizeof(gSaveGame));
+        byteCopy(ptr, (uint8*)&gSaveData, gSaveGame.dataSize);
+        return true;
+    }
+
+    bool osLoadGame()
+    {
+        if (!osCheckSave())
+            return false;
+
+        volatile uint8* ptr = (uint8*)MEM_SRAM + SETTINGS_SIZE + 4; // skip magic
+
+        ptr += byteCopy((uint8*)&gSaveGame, ptr, sizeof(gSaveGame));
+        byteCopy((uint8*)&gSaveData, ptr, gSaveGame.dataSize);
+
+        return true;
     }
 
     #define GPIO_RUMBLE_DATA      (*(vu16*)0x80000C4)
@@ -83,6 +237,8 @@ int32 fpsCounter = 0;
 
     void osJoyVibrate(int32 index, int32 L, int32 R)
     {
+        if (!gSettings.controls_vibration)
+            return;
         rumbleSet(X_MAX(L, R) > 0);
     }
 #elif defined(__TNS__)
@@ -114,6 +270,31 @@ int32 fpsCounter = 0;
     int32 osGetSystemTimeMS()
     {
         return *timerCLK / 33;
+    }
+
+    bool osSaveSettings()
+    {
+        return false;
+    }
+
+    bool osLoadSettings()
+    {
+        return false;
+    }
+
+    bool osCheckSave()
+    {
+        return false;
+    }
+
+    bool osSaveGame()
+    {
+        return false;
+    }
+
+    bool osLoadGame()
+    {
+        return false;
     }
 
     void osJoyVibrate(int32 index, int32 L, int32 R) {}
@@ -289,6 +470,31 @@ int32 fpsCounter = 0;
     int32 osGetSystemTimeMS()
     {
         return 0;
+    }
+
+    bool osSaveSettings()
+    {
+        return false;
+    }
+
+    bool osLoadSettings()
+    {
+        return false;
+    }
+
+    bool osCheckSave()
+    {
+        return false;
+    }
+
+    bool osSaveGame()
+    {
+        return false;
+    }
+
+    bool osLoadGame()
+    {
+        return false;
     }
 
     void osJoyVibrate(int32 index, int32 L, int32 R) {}
@@ -542,7 +748,7 @@ int main(void) {
 
     soundInit();
 
-    game.init(gLevelInfo[gLevelID].name);
+    gameInit(gLevelInfo[gLevelID].name);
 
     MSG msg;
 
@@ -559,10 +765,10 @@ int main(void) {
 
             int32 count = frame - lastFrame;
             if (GetAsyncKeyState('T')) count *= 10;
-            game.update(count);
+            gameUpdate(count);
             lastFrame = frame;
 
-            game.render();
+            gameRender();
 
             blit();
         }
@@ -608,7 +814,7 @@ int main(void) {
     rumbleInit();
     soundInit();
 
-    game.init(gLevelInfo[gLevelID].name);
+    gameInit(gLevelInfo[gLevelID].name);
 
     uint16 mode = DCNT_BG2 | DCNT_PAGE;
 
@@ -647,7 +853,7 @@ int main(void) {
 
         lastFrameIndex = frame;
 
-        game.update(delta);
+        gameUpdate(delta);
 
         #ifdef PROFILING
             VBlankIntrWait();
@@ -655,7 +861,7 @@ int main(void) {
         REG_DISPCNT = (mode ^= DCNT_PAGE);
         fb ^= 0xA000;
 
-        game.render();
+        gameRender();
 
         fpsCounter++;
         if (frameIndex >= 60) {
@@ -676,7 +882,7 @@ int main(void) {
     timerInit();
     inputInit();
 
-    game.init(gLevelInfo[gLevelID].name);
+    gameInit(gLevelInfo[gLevelID].name);
 
     int startTime = GetTickCount();
     int lastTime = -16;
@@ -692,10 +898,10 @@ int main(void) {
         }
 
         int time = GetTickCount() - startTime;
-        game.update((time - lastTime) / 16);
+        gameUpdate((time - lastTime) / 16);
         lastTime = time;
 
-        game.render();
+        gameRender();
 
         lcd_blit(fb, SCR_320x240_8);
         //msleep(16);
@@ -712,7 +918,7 @@ int main(void) {
     videoAcquire();
     inputAcquire();
 
-    game.init(gLevelInfo[gLevelID].name);
+    gameInit(gLevelInfo[gLevelID].name);
 
     int32 lastFrameIndex = -1;
 
@@ -726,10 +932,10 @@ int main(void) {
             break;
 
         int32 frame = frameIndex / 2;
-        game.update(frame - lastFrameIndex);
+        gameUpdate(frame - lastFrameIndex);
         lastFrameIndex = frame;
 
-        game.render();
+        gameRender();
 
         fpsCounter++;
         if (frameIndex >= 60) {
