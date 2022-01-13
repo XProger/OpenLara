@@ -73,7 +73,7 @@ MAX_INT32       = 0x7FFFFFFF
     sub vx1, vx1, vx0
     sub vy2, vy2, vy0
     mlas tmp, vx1, vy2, tmp
-    bgt \skip
+    ble \skip
 .endm
 
 .macro tex index, uv

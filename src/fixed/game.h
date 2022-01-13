@@ -10,7 +10,7 @@
 #include "level.h"
 #include "inventory.h"
 
-LevelID gNextLevel = LVL_MAX;
+EWRAM_DATA LevelID gNextLevel = LVL_MAX;
 
 void nextLevel(LevelID next)
 {
@@ -27,6 +27,9 @@ bool gameSave()
     gSaveGame.version = SAVEGAME_VER;
     gSaveGame.level = gLevelID;
     gSaveGame.track = gCurTrack;
+    gSaveGame.randSeedLogic = gRandSeedLogic;
+    gSaveGame.randSeedDraw = gRandSeedDraw;
+
     uint8* ptr = gSaveData;
     ItemObj* item = items;
     for (int32 i = 0; i < level.itemsCount; i++, item++)
@@ -51,8 +54,6 @@ bool gameLoad()
     startLevel(gLevelInfo[gLevelID].name);
     gSaveGame = tmp;
 
-    memset(enemiesExtra, 0, sizeof(enemiesExtra));
-
     ItemObj::sFirstActive = NULL;
     ItemObj::sFirstFree = items + level.itemsCount;
 
@@ -70,6 +71,9 @@ bool gameLoad()
     if (gSaveGame.track != -1) {
         sndPlayTrack(gSaveGame.track);
     }
+
+    gRandSeedLogic = gSaveGame.randSeedLogic;
+    gRandSeedDraw = gSaveGame.randSeedDraw;
 
     return true;
 }
@@ -115,6 +119,7 @@ void gameLoadLevel(const void* data)
     drawFree();
 
     memset(&gSaveGame, 0, sizeof(gSaveGame));
+    memset(enemiesExtra, 0, sizeof(enemiesExtra));
 
     ItemObj::sFirstActive = NULL;
     ItemObj::sFirstFree = NULL;
@@ -198,8 +203,8 @@ void gameLoadLevel(const void* data)
 
 void startLevel(const char* name)
 {
-    set_seed_logic(osGetSystemTimeMS() * 3);
-    set_seed_draw(osGetSystemTimeMS() * 7);
+    gRandSeedLogic = osGetSystemTimeMS() * 3;
+    gRandSeedDraw = osGetSystemTimeMS() * 7;
 
     sndStop();
     sndFreeSamples();

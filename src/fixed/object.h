@@ -807,7 +807,8 @@ struct Dart : Object
 
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
     {
-        collideDefault(lara, cinfo);
+        if (!updateHitMask(lara, cinfo))
+            return;
 
         if (hitMask)
         {
@@ -976,7 +977,7 @@ struct Block : Object
 
         uint16 quadrant = uint16(lara->angle.y + ANGLE_45) >> ANGLE_SHIFT_90;
 
-        if (lara->state == Lara::STATE_BLOCK_READY)
+        if ((lara->animIndex == Lara::ANIM_BLOCK_READY) && (lara->input & (IN_UP | IN_DOWN)))
         {
             if (!lara->animIsEnd(0))
                 return;
@@ -992,17 +993,13 @@ struct Block : Object
                 lara->goalState = Lara::STATE_BLOCK_PUSH;
                 goalState = STATE_PUSH;
             }
-            else if (lara->input & IN_DOWN)
+            else
             {
                 if (!checkPull(lara))
                     return;
 
                 lara->goalState = Lara::STATE_BLOCK_PULL;
                 goalState = STATE_PULL;
-            }
-            else
-            {
-                return;
             }
 
             updateFloor(1024);

@@ -23,10 +23,10 @@ EWRAM_DATA Model models[MAX_MODELS];
 EWRAM_DATA const Mesh* meshes[MAX_MESHES];
 EWRAM_DATA StaticMesh staticMeshes[MAX_STATIC_MESHES];
 
-ItemObj* ItemObj::sFirstActive;
-ItemObj* ItemObj::sFirstFree;
+EWRAM_DATA ItemObj* ItemObj::sFirstActive;
+EWRAM_DATA ItemObj* ItemObj::sFirstFree;
 
-int32 gBrightness;
+EWRAM_DATA int32 gBrightness;
 
 void readLevel_GBA(const uint8* data)
 {

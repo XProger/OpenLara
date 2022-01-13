@@ -144,8 +144,8 @@ enum {
     JOINT_MASK_BRAID      = JOINT_MASK_HEAD   | JOINT_MASK_TORSO  | JOINT_MASK_ARM_L1 | JOINT_MASK_ARM_L2 | JOINT_MASK_ARM_R1 | JOINT_MASK_ARM_R2
 };
 
-Lara* players[MAX_PLAYERS];
-CollisionInfo cinfo;
+EWRAM_DATA Lara* players[MAX_PLAYERS];
+EWRAM_DATA CollisionInfo cinfo;
 
 const WeaponParams weaponParams[WEAPON_MAX] = {
     { // WEAPON_PISTOLS
@@ -295,6 +295,7 @@ struct Lara : ItemObj
         ANIM_SURF               = 114,
         ANIM_SURF_SWIM          = 116,
         ANIM_SURF_DIVE          = 119,
+        ANIM_BLOCK_READY        = 120,
 
         ANIM_HIT_FRONT          = 125,
         ANIM_HIT_BACK           = 126,

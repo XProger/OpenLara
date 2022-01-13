@@ -267,7 +267,7 @@ struct Enemy : ItemObj
         extraE->nav.nextBox = tinfo.boxIndexTarget;
 
         if (extraE->nav.zoneType == ZONE_FLY) {
-            extraE->nav.pos.y += getFrame()->box.minY; // attack Laras head
+            extraE->nav.pos.y += tinfo.target->getFrame()->box.minY; // attack Laras head
         }
     }
 
@@ -447,65 +447,69 @@ struct Enemy : ItemObj
 
     void updateLocation()
     {
+        Room* oldRoom = room;
+
         updateRoom();
 
-        bool badPos = false;
+        int32 h = pos.y - roomFloor; 
+        bool badPos = (h > extraE->nav.stepHeight) || (h < extraE->nav.dropHeight);
 
-        if (extraE->nav.zoneType == ZONE_FLY)
+        if (!badPos)
         {
-            int32 dy = X_CLAMP(tinfo.waypoint.y - pos.y, -extraE->nav.vSpeed, extraE->nav.vSpeed);
-            int32 y = pos.y + dy;
-
-            const Sector* sector = room->getSector(pos.x, pos.z);
-
-            int32 floor = sector->getFloor(pos.x, y, pos.z);
-            if (y > floor)
+            if (extraE->nav.zoneType == ZONE_FLY)
             {
-                if (pos.y > floor)
+                int32 dy = X_CLAMP(tinfo.waypoint.y - pos.y, -extraE->nav.vSpeed, extraE->nav.vSpeed);
+                int32 y = pos.y + dy;
+
+                const Sector* sector = room->getSector(pos.x, pos.z);
+
+                int32 floor = sector->getFloor(pos.x, y, pos.z);
+                if (y > floor)
                 {
-                    pos.x = tinfo.pos.x;
-                    pos.z = tinfo.pos.z;
-                    dy = -extraE->nav.vSpeed; // go up
-                } else {
-                    pos.y = floor;
-                    dy = 0;
+                    if (pos.y > floor)
+                    {
+                        pos.x = tinfo.pos.x;
+                        pos.z = tinfo.pos.z;
+                        dy = -extraE->nav.vSpeed; // go up
+                    } else {
+                        pos.y = floor;
+                        dy = 0;
+                    }
                 }
-            }
 
-            int32 ceiling = sector->getCeiling(pos.x, y, pos.z);
-            if (y < ceiling)
-            {
-                if (pos.y < ceiling)
+                int32 ceiling = sector->getCeiling(pos.x, y, pos.z);
+                if (y < ceiling)
                 {
-                    pos.x = tinfo.pos.x;
-                    pos.z = tinfo.pos.z;
-                    dy = extraE->nav.vSpeed; // go down
-                } else {
-                    pos.y = ceiling;
-                    dy = 0;
+                    if (pos.y < ceiling)
+                    {
+                        pos.x = tinfo.pos.x;
+                        pos.z = tinfo.pos.z;
+                        dy = extraE->nav.vSpeed; // go down
+                    } else {
+                        pos.y = ceiling;
+                        dy = 0;
+                    }
                 }
-            }
 
-            // update vertical position
-            pos.y += dy;
+                // update vertical position
+                pos.y += dy;
 
-            // update pitch
-            int32 pitch = 0;
-            if (hSpeed) {
-                pitch = phd_atan(hSpeed, -dy);
-            }
-            angle.x = angleLerp(angle.x, pitch, ANGLE_1);
+                // update pitch
+                int32 pitch = 0;
+                if (hSpeed) {
+                    pitch = phd_atan(hSpeed, -dy);
+                }
+                angle.x = angleLerp(angle.x, pitch, ANGLE_1);
 
-            updateRoom();
-        } else {
-            pos.y = X_MIN(pos.y, roomFloor);
-
-            if (pos.y > roomFloor) {
-                pos.y = roomFloor;
-            } else if (roomFloor - pos.y > 64) {
-                pos.y += 64;
-            } else if (pos.y < roomFloor) {
-                pos.y = roomFloor;
+                updateRoom();
+            } else {
+                if (pos.y > roomFloor) {
+                    pos.y = roomFloor;
+                } else if (pos.y < roomFloor - 64) {
+                    pos.y += 64;
+                } else {
+                    pos.y = roomFloor;
+                }
             }
         }
 
@@ -538,18 +542,16 @@ struct Enemy : ItemObj
             badPos = (boxIndex == NO_BOX) || (tinfo.zoneIndex != zones[boxIndex]);
         }
 
-        if (!badPos) // check for wrong height delta
-        {
-            int32 h = pos.y - roomFloor;
-            badPos = (h > extraE->nav.stepHeight) || (h < extraE->nav.dropHeight);
-        }
-
         if (badPos)
         {
             angle.y += tinfo.turn; // apply turn again for double rotation speed if blocked by something
             pos = tinfo.pos;
 
-            updateRoom();
+            if (room != oldRoom)
+            {
+                room->remove(this);
+                oldRoom->add(this);
+            }
         }
 
     #ifdef _DEBUG

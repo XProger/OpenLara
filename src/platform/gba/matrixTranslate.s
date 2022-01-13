@@ -13,7 +13,7 @@ m   .req lr
 matrixTranslateRel_asm:
     stmfd sp!, {r4-r5, lr}
 
-    ldr m, =matrixPtr
+    ldr m, =gMatrixPtr
     ldr m, [m]
 
     // x
@@ -50,7 +50,7 @@ matrixTranslateAbs_asm:
     sub y, y, e1
     sub z, z, e2
 
-    ldr m, =matrixPtr
+    ldr m, =gMatrixPtr
     ldr m, [m]
 
     // x
@@ -81,7 +81,7 @@ matrixTranslateAbs_asm:
 matrixTranslateSet_asm:
     stmfd sp!, {r4-r5, lr}
 
-    ldr m, =matrixPtr
+    ldr m, =gMatrixPtr
     ldr m, [m]
 
     // x

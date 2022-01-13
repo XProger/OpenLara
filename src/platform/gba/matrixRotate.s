@@ -35,7 +35,7 @@ matrixRotateX_asm:
 
     sincos angle, s, c
 
-    ldr m, =matrixPtr
+    ldr m, =gMatrixPtr
     ldr m, [m]
 
     add m, m, #4    // skip first column
@@ -65,7 +65,7 @@ matrixRotateY_asm:
 
     sincos angle, s, c
 
-    ldr m, =matrixPtr
+    ldr m, =gMatrixPtr
     ldr m, [m]
 
     ldr e0, [m, #0]
@@ -98,7 +98,7 @@ matrixRotateZ_asm:
 
     sincos angle, s, c
 
-    ldr m, =matrixPtr
+    ldr m, =gMatrixPtr
     ldr m, [m]
 
     ldmia m, {e0, e1}
@@ -155,7 +155,7 @@ matrixRotateYXZ_asm:
 
     stmfd sp!, {r4-r11, lr}
 
-    ldr mm, =matrixPtr
+    ldr mm, =gMatrixPtr
     ldr mm, [mm]
     ldmia mm, {e00, e01, e02}
     add mm, #(4 * 4)
@@ -194,7 +194,7 @@ matrixRotateYXZ_asm:
     rotxy e21, e20, sinZ, cosZ, tmp
 
 .done:  
-    ldr mm, =matrixPtr
+    ldr mm, =gMatrixPtr
     ldr mm, [mm]
 
     stmia mm, {e00, e01, e02}
@@ -216,7 +216,7 @@ matrixRotateYQ_asm:
     cmp q, #2
     bxeq lr
 
-    ldr n, =matrixPtr
+    ldr n, =gMatrixPtr
     ldr n, [n]
 
     cmp q, #0

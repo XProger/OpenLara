@@ -113,7 +113,7 @@ void setPaletteIndex(int32 index)
 
 X_INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c)
 {
-    return (b->x - a->x) * (c->y - a->y) > (c->x - a->x) * (b->y - a->y);
+    return (b->x - a->x) * (c->y - a->y) <= (c->x - a->x) * (b->y - a->y);
 }
 
 X_INLINE int32 classify(const Vertex &v, const RectMinMax &clip)
@@ -205,6 +205,10 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
         }
 
         PERSPECTIVE(x, y, z);
+
+        // use this in case of overflow
+        //x = X_CLAMP(x, -GUARD_BAND, GUARD_BAND);
+        //y = X_CLAMP(y, -GUARD_BAND, GUARD_BAND);
 
         x += (FRAME_WIDTH  >> 1);
         y += (FRAME_HEIGHT >> 1);
@@ -636,11 +640,13 @@ int32 sphereIsVisible_c(int32 sx, int32 sy, int32 sz, int32 r)
 
 VertexLink* clipPoly(VertexLink* poly, VertexLink* tmp, int32 &pCount)
 {
-    #define LERP(a,b,t)         (b + ((a - b) * t >> 12))
-    #define LERP2(a,b,ta,tb)    (b + (((a - b) * ta / tb) >> 12) )
+    #define LERP_SHIFT          6
+    #define LERP(a,b,t)         (b + ((a - b) * t >> LERP_SHIFT))
+    //#define LERP2(a,b,ta,tb)    LERP(a,b,t)
+    #define LERP2(a,b,ta,tb)    (b + (((a - b) * ta / tb) >> LERP_SHIFT) ) // less gaps between clipped polys, but slow
 
     #define CLIP_AXIS(X, Y, edge, output) {\
-        int32 ta = (edge - b->v.X) << 12;\
+        int32 ta = (edge - b->v.X) << LERP_SHIFT;\
         int32 tb = (a->v.X - b->v.X);\
         ASSERT(tb != 0);\
         int32 t = ta / tb;\
@@ -719,7 +725,8 @@ void rasterize(uint32 flags, const VertexLink *top)
                 rasterizeF(pixel, top, top, flags & FACE_TEXTURE);
             }
         } else {
-            rasterizeG(pixel, top, top, flags & FACE_TEXTURE);
+            ASSERT(false);
+            //rasterizeG(pixel, top, top, flags & FACE_TEXTURE); // unused
         }
     } else {
         if (flags & FACE_SPRITE) {
@@ -1338,13 +1345,7 @@ void* copyBackground()
 {
     dmaCopy((void*)fb, gBackgroundCopy, FRAME_WIDTH * FRAME_HEIGHT);
 
-    uint8 remap[256];
-    palGrayRemap(level.palette, remap);
-
-    for (int32 i = 0; i < FRAME_WIDTH * FRAME_HEIGHT; i++)
-    {
-        gBackgroundCopy[i] = remap[gBackgroundCopy[i]];
-    }
+    palGrayRemap(gBackgroundCopy, FRAME_WIDTH * FRAME_HEIGHT);
 
     return gBackgroundCopy;
 }

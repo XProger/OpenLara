@@ -799,7 +799,7 @@ struct Light
 };
 
 #define STATIC_MESH_ID(flags)           ((flags) & 0x3F)
-#define STATIC_MESH_QUADRANT(flags)     (((flags) >> 6) & 63)
+#define STATIC_MESH_QUADRANT(flags)     (((flags) >> 6) & 3)
 #define STATIC_MESH_ROT(flags)          ((STATIC_MESH_QUADRANT(flags) - 2) * ANGLE_90)
 #define STATIC_MESH_INTENSITY(flags)    ((((flags) >> 8) & 0xFF) << 5)
 
@@ -1657,11 +1657,12 @@ struct SaveGame
 
     uint8  level;
     int8   track;
+    uint8  secrets;
+    uint8  pickups;
     uint32 time;
     uint32 distance;
-
-    uint16 secrets;
-    uint16 pickups;
+    uint32 randSeedLogic;
+    uint32 randSeedDraw;
     uint16 mediUsed;
     uint16 ammoUsed;
     uint16 kills;
@@ -2460,13 +2461,9 @@ enum TextAlign {
 extern uint32 keys;
 extern RectMinMax viewport;
 extern vec3i gCameraViewPos;
-extern Matrix* matrixPtr;
-extern Matrix matrixStack[MAX_MATRICES];
+extern Matrix* gMatrixPtr;
+extern Matrix gMatrixStack[MAX_MATRICES];
 extern const uint32 gSinCosTable[4096];
-
-#ifndef MODEHW
-    extern AABBi frustumAABB;
-#endif
 
 extern Sphere gSpheres[2][MAX_SPHERES];
 
@@ -2495,8 +2492,9 @@ X_INLINE void swap(T &a, T &b) {
     b = tmp;
 }
 
-void set_seed_logic(int32 seed);
-void set_seed_draw(int32 seed);
+extern int32 gRandSeedLogic;
+extern int32 gRandSeedDraw;
+
 int32 rand_logic();
 int32 rand_draw();
 
@@ -2554,7 +2552,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     z = (a & 0x03FF) << 6;
 #endif
 
-#define matrixGet() *matrixPtr
+#define matrixGet() *gMatrixPtr
 
 #ifdef USE_ASM
     extern "C" {
@@ -2629,7 +2627,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     int32 sphereIsVisible_c(int32 x, int32 y, int32 z, int32 r);
 #endif
 
-#define matrixPop()     matrixPtr--
+#define matrixPop()     gMatrixPtr--
 
 X_INLINE vec3i matrixGetDir(const Matrix &m)
 {
@@ -2697,30 +2695,12 @@ void sndStopTrack();
 void sndStopSample(int32 index);
 void sndStop();
 
-void palGrayRemap(const uint16* palette, uint8* remap);
+void palGrayRemap(uint8* data, int32 size);
 void palSet(const uint16* palette, int32 gamma, int32 bright);
 
 void updateFading(int32 frames);
 
-X_INLINE void dmaFill(void* dst, uint8 value, uint32 count)
-{
-    ASSERT((count & 3) == 0);
-#ifdef __GBA__
-    vu32 v = value;
-    dma3_fill(dst, v, count);
-#else
-    memset(dst, value, count);
-#endif
-}
-
-X_INLINE void dmaCopy(const void* src, void* dst, uint32 size)
-{
-    ASSERT((size & 3) == 0);
-#ifdef __GBA__
-    dma3_cpy(dst, src, size);
-#else
-    memcpy(dst, src, size);
-#endif
-}
+void dmaFill(void* dst, uint8 value, uint32 count);
+void dmaCopy(const void* src, void* dst, uint32 size);
 
 #endif

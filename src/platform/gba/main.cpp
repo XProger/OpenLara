@@ -6,9 +6,9 @@
 
 #include "game.h"
 
-int32 fps;
-int32 frameIndex = 0;
-int32 fpsCounter = 0;
+EWRAM_DATA int32 fps;
+EWRAM_DATA int32 frameIndex = 0;
+EWRAM_DATA int32 fpsCounter = 0;
 
 #if defined(_WIN32)
     uint32 SCREEN[FRAME_WIDTH * FRAME_HEIGHT];
@@ -209,7 +209,7 @@ int32 fpsCounter = 0;
 
     #define CART_RUMBLE_TICKS     3
 
-    int32 cartRumbleTick = 0;
+    EWRAM_DATA int32 cartRumbleTick = 0;
 
     void rumbleInit()
     {
@@ -506,7 +506,7 @@ int32 fpsCounter = 0;
     EWRAM_DATA ALIGN16 uint8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
 //#endif
 
-uint32 curSoundBuffer = 0;
+EWRAM_DATA uint32 curSoundBuffer = 0;
 
 #if defined(_WIN32)
 HWAVEOUT waveOut;

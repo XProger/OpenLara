@@ -87,7 +87,7 @@ SIZE    = (6 * 3 * 4)
 
 .global boxIsVisible_asm
 boxIsVisible_asm:
-    ldr m, =matrixPtr
+    ldr m, =gMatrixPtr
     ldr m, [m]
     ldr bz, [m, #(11 * 4)]
     add bz, bz, #VIEW_OFF_F

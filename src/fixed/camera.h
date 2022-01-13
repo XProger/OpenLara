@@ -166,6 +166,15 @@ void Camera::move(Location &to, int32 speed)
 
     view.pos += d;
     view.room = to.room->getRoom(view.pos.x, view.pos.y, view.pos.z);
+
+    const Sector* sector = view.room->getSector(view.pos.x, view.pos.z);
+
+    int32 floor = sector->getFloor(view.pos.x, view.pos.y, view.pos.z) - 256;
+    if (view.pos.y >= floor && to.pos.y >= floor)
+    {
+        trace(target, view, true);
+        view.room = view.room->getRoom(view.pos.x, view.pos.y, view.pos.z);
+    }
 }
 
 void Camera::updateFree()
@@ -193,6 +202,20 @@ void Camera::updateFree()
         view.pos.x -= m.e20 * CAM_SPEED >> 10;
         view.pos.y -= m.e21 * CAM_SPEED >> 10;
         view.pos.z -= m.e22 * CAM_SPEED >> 10;
+    }
+
+    if (keys & IK_R)
+    {
+        view.pos.x += m.e00 * CAM_SPEED >> 10;
+        view.pos.y += m.e01 * CAM_SPEED >> 10;
+        view.pos.z += m.e02 * CAM_SPEED >> 10;
+    }
+
+    if (keys & IK_L)
+    {
+        view.pos.x -= m.e00 * CAM_SPEED >> 10;
+        view.pos.y -= m.e01 * CAM_SPEED >> 10;
+        view.pos.z -= m.e02 * CAM_SPEED >> 10;
     }
 
     view.room = view.room->getRoom(view.pos.x, view.pos.y, view.pos.z);

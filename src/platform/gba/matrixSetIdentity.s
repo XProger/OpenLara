@@ -10,7 +10,7 @@ m   .req lr
 .global matrixSetIdentity_asm
 matrixSetIdentity_asm:
     stmfd sp!, {lr}
-    ldr m, =matrixPtr
+    ldr m, =gMatrixPtr
     ldr m, [m]
     mov e0, #0x4000
     mov e1, #0

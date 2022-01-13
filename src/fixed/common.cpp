@@ -4,8 +4,8 @@
 EWRAM_DATA uint32 keys;
 EWRAM_DATA RectMinMax viewport;
 vec3i gCameraViewPos;
-Matrix matrixStack[MAX_MATRICES];
-Matrix* matrixPtr = matrixStack;
+Matrix gMatrixStack[MAX_MATRICES];
+Matrix* gMatrixPtr = gMatrixStack;
 
 EWRAM_DATA Sphere gSpheres[2][MAX_SPHERES];
 
@@ -25,7 +25,7 @@ int32 gRandTable[MAX_RAND_TABLE];
 int32 gCaustics[MAX_CAUSTICS];
 int32 gCausticsFrame;
 
-const char* const* STR = STR_EN;
+EWRAM_DATA const char* const* STR = STR_EN;
 
 EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
 
@@ -42,7 +42,7 @@ EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
     #define LEVEL_INFO(name, title, track, secrets) { #name, NULL, title, track, secrets }
 #endif
 
-LevelID gLevelID = LVL_TR1_TITLE;
+EWRAM_DATA LevelID gLevelID = LVL_TR1_TITLE;
 
 const LevelInfo gLevelInfo[LVL_MAX] = {
 // TR1
@@ -76,29 +76,19 @@ const LevelInfo gLevelInfo[LVL_MAX] = {
     uint32 gCounters[CNT_MAX];
 #endif
 
-int32 rand_seed_logic;
-int32 rand_seed_draw;
-
-void set_seed_logic(int32 seed)
-{
-    rand_seed_logic = seed;
-}
-
-void set_seed_draw(int32 seed)
-{
-    rand_seed_draw = seed;
-}
+int32 gRandSeedLogic;
+int32 gRandSeedDraw;
 
 #define X_RAND(seed) (((seed = 0x3039 + seed * 0x41C64E6D) >> 10) & 0x7FFF);
 
 int32 rand_logic()
 {
-    return X_RAND(rand_seed_logic);
+    return X_RAND(gRandSeedLogic);
 }
 
 int32 rand_draw()
 {
-    return X_RAND(rand_seed_draw);
+    return X_RAND(gRandSeedDraw);
 }
 
 #ifdef USE_DIV_TABLE
@@ -1154,9 +1144,9 @@ X_INLINE int16 lerpAngleSlow(int16 a, int16 b, int32 mul, int32 div)
 #ifndef USE_ASM
 void matrixPush_c()
 {
-    ASSERT(matrixPtr - matrixStack < MAX_MATRICES);
-    memcpy(matrixPtr + 1, matrixPtr, sizeof(Matrix));
-    matrixPtr++;
+    ASSERT(gMatrixPtr - gMatrixStack < MAX_MATRICES);
+    memcpy(gMatrixPtr + 1, gMatrixPtr, sizeof(Matrix));
+    gMatrixPtr++;
 }
 
 void matrixSetIdentity_c()
@@ -1440,7 +1430,7 @@ void matrixFrameLerp(const void* pos, const void* anglesA, const void* anglesB, 
 
     matrixRotateYXZ(aX, aY, aZ);
 
-    matrixLerp(*(matrixPtr + 1), delta, rate);
+    matrixLerp(*(gMatrixPtr + 1), delta, rate);
 }
 
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY)
@@ -1535,22 +1525,29 @@ void palBright(const uint16* srcPal, uint16* dstPal, int32 value)
     }
 }
 
-void palGrayRemap(const uint16* palette, uint8* remap)
+void palGrayRemap(uint8* data, int32 size)
 {
     static const uint8 grad[8] = {
         1, 22, 21, 20, 19, 18, 17, 33
     };
 
+    uint8 remap[256];
+
     for (int32 i = 0; i < 256; i++)
     {
-        uint16 p = *palette++;
+        uint16 p = level.palette[i];
         uint8 r = (p & 31);
         uint8 g = ((p >> 5) & 31);
         uint8 b = ((p >> 10) & 31);
 
         int32 lum = (r * 77 + g * 150 + b * 29) >> (8 + 2);
 
-        *remap++ = grad[lum];
+        remap[i] = grad[lum];
+    }
+
+    for (int32 i = 0; i < size; i++)
+    {
+        data[i] = remap[data[i]];
     }
 }
 
@@ -1573,4 +1570,25 @@ void palSet(const uint16* palette, int32 gamma, int32 bright)
     }
 
     osSetPalette(pal);
+}
+
+void dmaFill(void* dst, uint8 value, uint32 count)
+{
+    ASSERT((count & 3) == 0);
+#ifdef __GBA__
+    vu32 v = value;
+    dma3_fill(dst, v, count);
+#else
+    memset(dst, value, count);
+#endif
+}
+
+void dmaCopy(const void* src, void* dst, uint32 size)
+{
+    ASSERT((size & 3) == 0);
+#ifdef __GBA__
+    dma3_cpy(dst, src, size);
+#else
+    memcpy(dst, src, size);
+#endif
 }

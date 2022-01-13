@@ -15,7 +15,7 @@ int32 IMA_STEP[] = { // IWRAM !
     32767
 };
 
-#ifdef USE_ASM1
+#ifdef USE_ASM
     #define sndIMA      sndIMA_asm
     #define sndPCM      sndPCM_asm
     #define sndWrite    sndWrite_asm
@@ -134,9 +134,9 @@ struct Sample
     }
 };
 
-Music  music;
-Sample channels[SND_CHANNELS];
-int32  channelsCount;
+EWRAM_DATA Music  music;
+EWRAM_DATA Sample channels[SND_CHANNELS];
+EWRAM_DATA int32  channelsCount;
 
 #ifdef __GBA__
 extern const uint8_t TRACKS_IMA[];

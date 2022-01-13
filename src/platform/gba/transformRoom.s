@@ -40,7 +40,7 @@ transformRoom_asm:
     ldr res, =gVerticesBase
     ldr res, [res]
 
-    ldr m, =matrixPtr
+    ldr m, =gMatrixPtr
     ldr m, [m]
 
     ldr vp, =viewportRel

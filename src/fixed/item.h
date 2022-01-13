@@ -823,7 +823,7 @@ vec3i ItemObj::getJoint(int32 jointIndex, const vec3i &offset) const
 
     const uint32* frameAngles = (uint32*)(frame->angles + 1);
 
-    Matrix* oldMatrixPtr = matrixPtr;
+    Matrix* oldMatrixPtr = gMatrixPtr;
 
     matrixPush();
     matrixSetIdentity();
@@ -852,7 +852,7 @@ vec3i ItemObj::getJoint(int32 jointIndex, const vec3i &offset) const
     Matrix &m = matrixGet();
     vec3i result = _vec3i(m.e03 >> FIXED_SHIFT, m.e13 >> FIXED_SHIFT, m.e23 >> FIXED_SHIFT);
 
-    matrixPtr = oldMatrixPtr;
+    gMatrixPtr = oldMatrixPtr;
 
     return result;
 }

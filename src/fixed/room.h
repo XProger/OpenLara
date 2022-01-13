@@ -6,7 +6,7 @@
 EWRAM_DATA Room* roomsList[MAX_ROOM_LIST];
 
 //#ifdef ROM_READ
-int32 dynSectorsCount;
+EWRAM_DATA int32 dynSectorsCount;
 EWRAM_DATA Sector dynSectors[MAX_DYN_SECTORS];   // EWRAM 8k
 //#endif
 

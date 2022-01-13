@@ -975,11 +975,10 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
         }
     }
 }
-
 #endif
 
 // TODO ARM version
-void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+X_NOINLINE void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     const uint8* ft_lightmap = &lightmap[L->v.g << 8];
 

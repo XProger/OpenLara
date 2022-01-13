@@ -11,7 +11,7 @@ dst .req lr
 .global matrixPush_asm
 matrixPush_asm:
     stmfd sp!, {lr}
-    ldr m, =matrixPtr
+    ldr m, =gMatrixPtr
     ldr src, [m]
     add dst, src, #(12 * 4)
     str dst, [m]

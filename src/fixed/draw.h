@@ -802,6 +802,7 @@ void drawProfiling()
 #ifdef PROFILING
     for (int32 i = 0; i < CNT_MAX; i++)
     {
+        char buf[32];
         int2str(gCounters[i], buf);
         drawText(2, 16 + 32 + i * 16, buf, TEXT_ALIGN_LEFT);
     }

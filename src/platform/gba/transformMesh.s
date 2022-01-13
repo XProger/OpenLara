@@ -48,7 +48,7 @@ transformMesh_asm:
 
     stmfd sp!, {minXY, maxXY}
 
-    ldr m, =matrixPtr
+    ldr m, =gMatrixPtr
     ldr m, [m]
 
 .loop:
