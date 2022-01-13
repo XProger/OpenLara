@@ -256,7 +256,9 @@ void gameUpdate(int32 frames)
 
         if ((inventory.page != INV_PAGE_TITLE) && (inventory.state == INV_STATE_NONE))
         {
-            lara->useItem(inventory.useSlot);
+            if (lara->useItem(inventory.useSlot)) {
+                inventory.useSlot = SLOT_MAX;
+            }
         }
     }
 

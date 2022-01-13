@@ -3780,7 +3780,7 @@ struct Lara : ItemObj
         }
     }
 
-    void useItem(InvSlot slot)
+    bool useItem(InvSlot slot)
     {
         switch (slot)
         {
@@ -3801,15 +3801,17 @@ struct Lara : ItemObj
                 if (health < LARA_MAX_HEALTH)
                 {
                     health += (slot == SLOT_MEDIKIT_BIG) ? LARA_MAX_HEALTH : (LARA_MAX_HEALTH >> 1);
-                    if (health > LARA_MAX_HEALTH)
+                    if (health > LARA_MAX_HEALTH) {
                         health = LARA_MAX_HEALTH;
+                    }
                     inventory.remove(slot, 1);
                     extraL->healthTimer = 40;
                     soundPlay(SND_HEALTH, &pos);
                 }
                 break;
-            default: ;
+            default: return false;
         }
+        return true;
     }
 
     virtual void hit(int32 damage, const vec3i &point, int32 soundId)
