@@ -1489,8 +1489,6 @@ struct ExtraInfoLara
 
     Nav nav;
 
-    vec3i tmpPos;
-
     uint16 lastInput;
     int8 healthTimer;
 

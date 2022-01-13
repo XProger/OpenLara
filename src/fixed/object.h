@@ -626,16 +626,9 @@ struct Hole : Object // parent class for KeyHole and PuzzleHole
                 flags |= ITEM_FLAG_STATUS_ACTIVE;
                 return;
             }
-
-            lara->extraL->tmpPos.x = ~lara->pos.x;
             inventory.useSlot = SLOT_MAX;
         }
-
-        if (lara->extraL->tmpPos != lara->pos)
-        {
-            lara->extraL->tmpPos = lara->pos;
-            soundPlay(SND_NO, &lara->pos);
-        }
+        soundPlay(SND_NO, &lara->pos);
     }
 };
 
