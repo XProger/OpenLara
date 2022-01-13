@@ -207,7 +207,7 @@ EWRAM_DATA int32 fpsCounter = 0;
     #define GPIO_RUMBLE_CONTROL   (*(vu16*)0x80000C8)
     #define GPIO_RUMBLE_MASK      (1 << 3)
 
-    #define CART_RUMBLE_TICKS     3
+    #define CART_RUMBLE_TICKS     6
 
     EWRAM_DATA int32 cartRumbleTick = 0;
 
@@ -228,11 +228,16 @@ EWRAM_DATA int32 fpsCounter = 0;
         }
     }
 
-    void rumbleUpdate()
+    void rumbleUpdate(int32 frames)
     {
-        if (!cartRumbleTick || --cartRumbleTick)
+        if (!cartRumbleTick)
             return;
-        rumbleSet(false);
+
+        cartRumbleTick -= frames;
+
+        if (cartRumbleTick <= 0) {
+            rumbleSet(false);
+        }
     }
 
     void osJoyVibrate(int32 index, int32 L, int32 R)
@@ -826,8 +831,6 @@ int main(void) {
 
     while (1)
     {
-        rumbleUpdate();
-
         { // input
             keys = 0;
             key_poll();
@@ -850,6 +853,8 @@ int main(void) {
         if (!delta) {
             continue;
         }
+
+        rumbleUpdate(delta);
 
         lastFrameIndex = frame;
 
