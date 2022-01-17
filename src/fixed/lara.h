@@ -3461,7 +3461,7 @@ struct Lara : ItemObj
 
             arm->animIndex = anim + level.models[params.animType].animIndex;
             arm->frameIndex = frame;
-            arm->useBasis = (anim == ANIM_PISTOLS_AIM && frame) || (anim == ANIM_PISTOLS_FIRE);
+            arm->useBasis = (anim == ANIM_PISTOLS_AIM) || (anim == ANIM_PISTOLS_FIRE);
         }
     }
 
