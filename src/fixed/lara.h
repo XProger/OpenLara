@@ -1707,6 +1707,7 @@ struct Lara : ItemObj
         //game->waterDrop(pos, 128.0f, 0.2f);
 
         animSet(ANIM_WATER_OUT, true);
+        setWeaponState(WEAPON_STATE_BUSY);
 
         waterState = WATER_STATE_ABOVE;
         goalState = STATE_STOP;
