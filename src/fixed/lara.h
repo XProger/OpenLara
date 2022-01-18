@@ -278,6 +278,12 @@ struct Lara : ItemObj
 
         ANIM_SLIDE_FORTH        = 70,
 
+        ANIM_JUMP_BACKWARDS     = 75,
+
+        ANIM_JUMP_LEFT          = 79,
+
+        ANIM_JUMP_RIGHT         = 81,
+
         ANIM_UW_GLIDE           = 87,
 
         ANIM_FALL_BACK          = 93,
@@ -3461,7 +3467,15 @@ struct Lara : ItemObj
 
             arm->animIndex = anim + level.models[params.animType].animIndex;
             arm->frameIndex = frame;
-            arm->useBasis = (anim == ANIM_PISTOLS_AIM) || (anim == ANIM_PISTOLS_FIRE);
+
+            // Are we performing animations (like flip jumps) where
+            // not freezing the arms when pistols/uzis are out will
+            // look better?
+            bool relativeArmAnimPerferred = (
+                animIndex == ANIM_JUMP_BACKWARDS ||
+                animIndex == ANIM_JUMP_LEFT ||
+                animIndex == ANIM_JUMP_RIGHT);
+            arm->useBasis = (anim == ANIM_PISTOLS_AIM && (frame > 0 || !relativeArmAnimPerferred)) || (anim == ANIM_PISTOLS_FIRE);
         }
     }
 
