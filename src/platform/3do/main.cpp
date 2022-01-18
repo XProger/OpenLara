@@ -1,4 +1,5 @@
 const void* TRACKS_IMA;
+const void* TITLE_SCR; // TODO
 
 void* RAM_LVL;
 void* RAM_TEX;
@@ -6,8 +7,6 @@ void* RAM_CEL;
 void* RAM_SND;
 
 #include "game.h"
-
-Game game;
 
 Item irqVBL;
 Item irqVRAM;
@@ -124,14 +123,34 @@ void osSetPalette(const uint16* palette)
     //
 }
 
-void osSetGamma(int32 value)
-{
-    //
-}
-
 int32 osGetSystemTimeMS()
 {
     return GetMSecTime(irqTimer);
+}
+
+bool osSaveSettings()
+{
+    return false;
+}
+
+bool osLoadSettings()
+{
+    return false;
+}
+
+bool osCheckSave()
+{
+    return false;
+}
+
+bool osSaveGame()
+{
+    return false;
+}
+
+bool osLoadGame()
+{
+    return false;
 }
 
 void osJoyVibrate(int32 index, int32 L, int32 R)
@@ -289,7 +308,7 @@ int main(int argc, char *argv[])
 
     sndInit();
 
-    game.init(gLevelInfo[gLevelID].name);
+    gameInit(gLevelInfo[gLevelID].name);
 
     AvailMem(&memInfoVRAM, MEMTYPE_DRAM);
     printf("DRAM: %d\n", memInfoVRAM.minfo_SysFree);
@@ -304,8 +323,6 @@ int main(int argc, char *argv[])
     {
         WaitVBL(irqVBL, 1);
         clearFast(screenPage);
-
-        uint32 oldKeys = keys;
 
         updateInput();
 
@@ -325,18 +342,8 @@ int main(int argc, char *argv[])
 
         frame /= 2; // 30 Hz
 
-        if ((keys & IK_SELECT) && !(oldKeys & IK_SELECT))
-        {
-            nextLevel();
-        }
-
-        if ((keys & IK_A) && (keys & IK_C)) // respawn
-        {
-            players[0]->restore();
-        }
-
 int32 updateTime = osGetSystemTimeMS();
-        game.update(frame - lastFrame);
+        gameUpdate(frame - lastFrame);
 updateTime = osGetSystemTimeMS() - updateTime;
 
         lastFrame = frame;
@@ -344,12 +351,11 @@ updateTime = osGetSystemTimeMS() - updateTime;
         screenItem = screen.sc_ScreenItems[screenPage];
 
 int32 renderTime = osGetSystemTimeMS();
-        game.render();
+        gameRender();
 renderTime = osGetSystemTimeMS() - renderTime;
 
-        drawInt(FRAME_WIDTH - 8, 4, fps);
-        drawInt(FRAME_WIDTH - 8, 4 + 8, updateTime);
-        drawInt(FRAME_WIDTH - 8, 4 + 16, renderTime);
+        drawInt(FRAME_WIDTH - 8, 4 + 16, updateTime);
+        drawInt(FRAME_WIDTH - 8, 4 + 24, renderTime);
 
         DisplayScreen(screen.sc_Screens[screenPage], NULL);
         screenPage ^= 1;

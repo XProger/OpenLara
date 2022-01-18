@@ -21,7 +21,7 @@ dz  RN lr
 matrixTranslateRel_asm
         stmfd sp!, {r4-r7, lr}
 
-        ldr m, =matrixPtr
+        ldr m, =gMatrixPtr
         ldr m, [m]
         add m, m, #(12 * 4)
 
@@ -51,13 +51,13 @@ matrixTranslateRel_asm
 matrixTranslateAbs_asm
         stmfd sp!, {r4-r7, lr}
 
-        ldr m, =cameraViewPos
+        ldr m, =gCameraViewPos
         ldmia m, {e0, e1, e2}
         sub x, x, e0
         sub y, y, e1
         sub z, z, e2
 
-        ldr m, =matrixPtr
+        ldr m, =gMatrixPtr
         ldr m, [m]
 
         ldmia m!, {e0, e1, e2}
@@ -83,7 +83,7 @@ matrixTranslateAbs_asm
 matrixTranslateSet_asm
         stmfd sp!, {r4-r7, lr}
 
-        ldr m, =matrixPtr
+        ldr m, =gMatrixPtr
         ldr m, [m]
 
         ldmia m!, {e0, e1, e2}

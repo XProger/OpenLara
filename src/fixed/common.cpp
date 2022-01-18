@@ -42,7 +42,11 @@ EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
     #define LEVEL_INFO(name, title, track, secrets) { #name, NULL, title, track, secrets }
 #endif
 
+#ifdef __3DO__ // TODO fix the title scren on 3DO
+EWRAM_DATA LevelID gLevelID = LVL_TR1_1;
+#else
 EWRAM_DATA LevelID gLevelID = LVL_TR1_TITLE;
+#endif
 
 const LevelInfo gLevelInfo[LVL_MAX] = {
 // TR1

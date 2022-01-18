@@ -26,7 +26,7 @@ divLUT  RN lr
 projectVertices_asm
         stmfd sp!, {r4-r11, lr}
 
-        ldr m, =matrixPtr
+        ldr m, =gMatrixPtr
         ldr m, [m]
         ldr vertex, =gVertices
         mov r3, vCount

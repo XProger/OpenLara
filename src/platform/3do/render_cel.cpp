@@ -722,7 +722,7 @@ int32 boxIsVisible_c(const AABBs* box)
         y = mm[dx][1] + mm[dy][1] + mm[dz][1];\
         z = mm[dx][2] + mm[dy][2] + mm[dz][2];\
         if (z >= VIEW_MIN_F && z <= VIEW_MAX_F) {\
-            z = divTable[z >> (FIXED_SHIFT + PROJ_SHIFT)];\
+            z = gDivTable[z >> (FIXED_SHIFT + PROJ_SHIFT)];\
             x = x * z;\
             y = y * z;\
             if (x < rMinX) rMinX = x;\
@@ -927,9 +927,9 @@ void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
 
     const Matrix &m = matrixGet();
 
-    vx -= cameraViewPos.x;
-    vy -= cameraViewPos.y;
-    vz -= cameraViewPos.z;
+    vx -= gCameraViewPos.x;
+    vy -= gCameraViewPos.y;
+    vz -= gCameraViewPos.z;
 
     int32 z = DP33(m.e20, m.e21, m.e22, vx, vy, vz);
 
@@ -1167,4 +1167,26 @@ void renderMesh(const Mesh* mesh)
 
     transformMesh(vertices, vCount);
     faceAddMesh(rFaces, crFaces, tFaces, ctFaces, mesh->rCount, mesh->crCount, mesh->tCount, mesh->ctCount, mesh->intensity);
+}
+
+void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 shade, int32 color1, int32 color2, int32 z)
+{
+    // TODO
+}
+
+#define BAR_HEIGHT  5
+
+void renderBar(int32 x, int32 y, int32 width, int32 value, BarType type)
+{
+    // TODO
+}
+
+void renderBackground(const void* background)
+{
+    // TODO
+}
+
+void* copyBackground()
+{
+    return NULL; // TODO
 }

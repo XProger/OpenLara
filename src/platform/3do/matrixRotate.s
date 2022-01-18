@@ -51,7 +51,7 @@ matrixRotateX_asm
 
         sincos angle, s, c
 
-        ldr m, =matrixPtr
+        ldr m, =gMatrixPtr
         ldr m, [m]
         add m, m, #(3 * 4)
 
@@ -74,7 +74,7 @@ matrixRotateY_asm
 
         sincos angle, s, c
 
-        ldr m, =matrixPtr
+        ldr m, =gMatrixPtr
         ldr m, [m]
 
         ldmia m!, {ex0, ex1, ex2}
@@ -100,7 +100,7 @@ matrixRotateZ_asm
 
         sincos angle, s, c
 
-        ldr m, =matrixPtr
+        ldr m, =gMatrixPtr
         ldr m, [m]
 
         ldmia m, {ex0, ex1, ex2, ey0, ey1, ey2}
@@ -150,7 +150,7 @@ matrixRotateYXZ_asm
 
         stmfd sp!, {r4-r11, lr}
 
-        ldr mm, =matrixPtr
+        ldr mm, =gMatrixPtr
         ldr mm, [mm]
         ldmia mm, {e00, e10, e20, e01, e11, e21, e02, e12, e22}
 
@@ -181,7 +181,7 @@ _rotZ   cmp angleZ, #0
         rotxy e11, e10, sinZ, cosZ, tmp
         rotxy e21, e20, sinZ, cosZ, tmp
 
-_done   ldr mm, =matrixPtr
+_done   ldr mm, =gMatrixPtr
         ldr mm, [mm]
         stmia mm, {e00, e10, e20, e01, e11, e21, e02, e12, e22}
         ldmfd sp!, {r4-r11, pc}
@@ -204,7 +204,7 @@ matrixRotateYQ_asm
 
         stmfd sp!, {r4-r5, lr}
 
-        ldr mx, =matrixPtr
+        ldr mx, =gMatrixPtr
         ldr mx, [mx]
         add my, mx, #(6 * 4)
 

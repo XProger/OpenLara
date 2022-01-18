@@ -4656,7 +4656,7 @@ struct LevelPC
 #define COLOR_THRESHOLD_SQ (8 * 8)
 
 const char* levelNames[] = {
-#if 0
+#if 1
     "TITLE",
     "GYM",
     "LEVEL1",
@@ -5708,9 +5708,9 @@ int main()
         sprintf(path, "levels/%s.PHD", levelNames[i]);
         levels[i] = new LevelPC(path);
 
-        if (strcmp(levelNames[i], "TITLE") == 0) {
-            convertScreen("TITLE", levels[i]->palette);
-        }
+        //if (strcmp(levelNames[i], "TITLE") == 0) {
+        //    convertScreen("TITLE", levels[i]->palette);
+        //}
 
         for (int32 j = 0; j < 256; j++)
         {

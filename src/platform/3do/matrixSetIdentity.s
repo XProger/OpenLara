@@ -12,7 +12,7 @@ e3  RN r3
 m   RN r12
 
 matrixSetIdentity_asm
-        ldr m, =matrixPtr
+        ldr m, =gMatrixPtr
         ldr m, [m]
         mov e0, #0x4000
         mov e1, #0

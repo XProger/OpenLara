@@ -89,7 +89,7 @@ divLUT  RN m0
 
 matrixLerp_asm
         stmfd sp!, {r4-r7, lr}
-        ldr m, =matrixPtr
+        ldr m, =gMatrixPtr
         ldr m, [m]
 check_2
         cmp pdiv, #2

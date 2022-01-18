@@ -30,7 +30,7 @@ rMaxY   RN y
 sphereIsVisible_asm
         stmfd sp!, {r4-r8, lr}
 
-        ldr m, =matrixPtr
+        ldr m, =gMatrixPtr
         ldr m, [m]
 
         ldmia m!, {mx, my, mz}

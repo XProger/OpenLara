@@ -1,11 +1,11 @@
-    IMPORT matrixPtr
+    IMPORT gMatrixPtr
     IMPORT viewportRel
     IMPORT gVertices
     IMPORT gFacesBase
     IMPORT gOT
     IMPORT gPalette
     IMPORT gShadowQuads
-    IMPORT cameraViewPos
+    IMPORT gCameraViewPos
     IMPORT shadeTable
     IMPORT divTable
     IMPORT gSinCosTable
