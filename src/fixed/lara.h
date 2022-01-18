@@ -2812,7 +2812,7 @@ struct Lara : ItemObj
                 if (R.aim && L.aim) {
                     H.x = T.x = aX >> 2;
                     H.y = T.y = aY >> 2;
-                } else if (R.aim ^ L.aim) {
+                } else {
                     H.x = T.x = aX >> 1;
                     H.y = T.y = aY >> 1;
                 }
@@ -3636,7 +3636,7 @@ struct Lara : ItemObj
                 extraL->armR.aim = extraL->armL.aim = true;
             } else {
                 extraL->armR.aim = extraL->armR.aim && (abs(angleAim.x) <= params.armX) && (angleAim.y >=  params.armMinY) && (angleAim.y <=  params.armMaxY);
-                extraL->armL.aim = extraL->armR.aim && (abs(angleAim.x) <= params.armX) && (angleAim.y >= -params.armMaxY) && (angleAim.y <= -params.armMinY);
+                extraL->armL.aim = extraL->armL.aim && (abs(angleAim.x) <= params.armX) && (angleAim.y >= -params.armMaxY) && (angleAim.y <= -params.armMinY);
             }
         } else {
             extraL->armR.aim = extraL->armL.aim = false;
