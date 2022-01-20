@@ -39,6 +39,7 @@ transformRoom_asm:
 
     ldr res, =gVerticesBase
     ldr res, [res]
+    add res, #VERTEX_G
 
     ldr m, =gMatrixPtr
     ldr m, [m]
@@ -137,9 +138,9 @@ transformRoom_asm:
     add y, y, #(FRAME_HEIGHT >> 1)
 
     // store the result
-    strh x, [res, #VERTEX_X]
-    strh y, [res, #VERTEX_Y]
-    strh z, [res, #VERTEX_Z]
+    strh x, [res, #-6]
+    strh y, [res, #-4]
+    strh z, [res, #-2]
 
     // preload mask, matrix and z-row
     mov mask, #(0xFF << 10)
@@ -147,9 +148,8 @@ transformRoom_asm:
     ldmdb m!, {mx, my, mz, z}
 
 .skip:
-    strh vg, [res, #VERTEX_G]
+    strh vg, [res], #8
 
-    add res, #8
     subs count, #1
     bne .loop
 

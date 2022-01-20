@@ -72,12 +72,6 @@ faceAddMeshTriangles_asm:
     tst tmp, #CLIP_MASK_VP
     orrne flags, flags, #FACE_CLIPPED
 
-    // shift and compare VERTEX_G for flat rasterization
-    mov vg0, vg0, lsl #24
-    cmp vg0, vg1, lsl #24
-    cmpeq vg0, vg2, lsl #24
-    orreq flags, flags, #FACE_FLAT
-
     // vz0 = AVG_Z3 (depth)
     ldrh vz0, [vp0, #VERTEX_Z]
     ldrh vz1, [vp1, #VERTEX_Z]
@@ -87,8 +81,6 @@ faceAddMeshTriangles_asm:
     mov depth, depth, lsr #(2 + OT_SHIFT)
 
     // faceAdd
-    ldr ot, =otFaces
-
     sub vp0, vp0, vertices
     sub vp1, vp1, vertices
     sub vp2, vp2, vertices
@@ -97,6 +89,7 @@ faceAddMeshTriangles_asm:
     orr vp1, vp0, vp1, lsl #(16 - 3)
     mov vp2, vp2, lsr #3
 
+    ldr ot, =gOT
     ldr next, [ot, depth, lsl #2]
     str face, [ot, depth, lsl #2]
     stmia face!, {next, flags, vp1, vp2}

@@ -281,7 +281,7 @@ rasterizeFTA_asm:
     add Rx, sRdx
     add Rt, sRdt
 
-    add pixel, #VRAM_STRIDE         // pixel += FRAME_WIDTH (240)
+    add pixel, #FRAME_WIDTH         // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start

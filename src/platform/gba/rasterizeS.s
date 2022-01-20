@@ -140,7 +140,7 @@ rasterizeS_asm:
 .scanline_end:
     add Lx, Ldx                     // Lx += Ldx
     add Rx, Rdx                     // Rx += Rdx
-    add pixel, #VRAM_STRIDE         // pixel += FRAME_WIDTH (240)
+    add pixel, #FRAME_WIDTH         // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start

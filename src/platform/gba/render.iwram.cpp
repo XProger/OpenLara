@@ -34,20 +34,26 @@ ViewportRel viewportRel;
     uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
 #endif
 
-#define GUARD_BAND 512
+enum FaceType {
+    FACE_TYPE_GT,
+    FACE_TYPE_GTA,
+    FACE_TYPE_FT,
+    FACE_TYPE_FTA,
+    FACE_TYPE_G,
+    FACE_TYPE_F,
+    FACE_TYPE_SHADOW,
+    FACE_TYPE_SPRITE,
+    FACE_TYPE_FILL_S,
+    FACE_TYPE_LINE_H,
+    FACE_TYPE_LINE_V,
+    FACE_TYPE_MAX
+};
 
-#define PAL_COLOR_TRANSP    0x0000
-#define PAL_COLOR_BLACK     0x0421
-
-#define FACE_SPRITE     (1 << 11)
-#define FACE_FLAT       (1 << 12)
-#define FACE_CLIPPED    (1 << 13)
-#define FACE_COLORED    (1 << 14)
 #define FACE_TRIANGLE   (1 << 15)
-#define FACE_SHADOW     (FACE_COLORED | FACE_FLAT | FACE_SPRITE)
-#define FACE_FILL_S     (1 << 16)
-#define FACE_LINE_H     (1 << 17)
-#define FACE_LINE_V     (1 << 18)
+#define FACE_CLIPPED    (1 << 16)
+#define FACE_TYPE_SHIFT 11
+#define FACE_TYPE_MASK  15
+#define FACE_FLAT_ADD   (2 << FACE_TYPE_SHIFT)
 #define FACE_TEXTURE    0x07FF
 
 #if defined(__GBA__)
@@ -73,9 +79,7 @@ Face* gFacesBase;
 EWRAM_DATA uint8 gBackgroundCopy[FRAME_WIDTH * FRAME_HEIGHT]; // EWRAM 37.5k
 EWRAM_DATA Vertex gVertices[MAX_VERTICES]; // EWRAM 16k
 EWRAM_DATA Face gFaces[MAX_FACES];         // EWRAM 5k
-EWRAM_DATA Face* otFaces[OT_SIZE];
-
-bool enableAlphaTest;
+Face* gOT[OT_SIZE];                        // IWRAM 2.5k
 
 enum ClipFlags {
     CLIP_LEFT   = 1 << 0,
@@ -88,9 +92,9 @@ enum ClipFlags {
 };
 
 extern "C" const MeshQuad gShadowQuads[] = {
-    { FACE_SHADOW, {0, 1, 2, 7} },
-    { FACE_SHADOW, {7, 2, 3, 6} },
-    { FACE_SHADOW, {6, 3, 4, 5} }
+    { (FACE_TYPE_SHADOW << FACE_TYPE_SHIFT), {0, 1, 2, 7} },
+    { (FACE_TYPE_SHADOW << FACE_TYPE_SHIFT), {7, 2, 3, 6} },
+    { (FACE_TYPE_SHADOW << FACE_TYPE_SHIFT), {6, 3, 4, 5} }
 };
 
 void setViewport(const RectMinMax &vp)
@@ -111,26 +115,13 @@ void setPaletteIndex(int32 index)
     // TODO
 }
 
-X_INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c)
-{
-    return (b->x - a->x) * (c->y - a->y) <= (c->x - a->x) * (b->y - a->y);
-}
-
-X_INLINE int32 classify(const Vertex &v, const RectMinMax &clip)
-{
-    return (v.x < clip.x0 ? CLIP_LEFT : 0) |
-           (v.x > clip.x1 ? CLIP_RIGHT : 0) |
-           (v.y < clip.y0 ? CLIP_TOP : 0) |
-           (v.y > clip.y1 ? CLIP_BOTTOM : 0);
-}
-
 X_INLINE Face* faceAdd(int32 depth)
 {
     ASSERT(depth >= 0 && depth < OT_SIZE);
 
     Face* face = gFacesBase++;
-    face->next = otFaces[depth];
-    otFaces[depth] = face;
+    face->next = gOT[depth];
+    gOT[depth] = face;
 
     return face;
 }
@@ -161,6 +152,11 @@ X_INLINE Face* faceAdd(int32 depth)
     #define faceAddRoomTriangles    faceAddRoomTriangles_c
     #define faceAddMeshQuads        faceAddMeshQuads_c
     #define faceAddMeshTriangles    faceAddMeshTriangles_c
+
+X_INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c)
+{
+    return (b->x - a->x) * (c->y - a->y) <= (c->x - a->x) * (b->y - a->y);
+}
 
 void transformRoom_c(const RoomVertex* vertices, int32 count)
 {
@@ -207,8 +203,8 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
         PERSPECTIVE(x, y, z);
 
         // use this in case of overflow
-        //x = X_CLAMP(x, -GUARD_BAND, GUARD_BAND);
-        //y = X_CLAMP(y, -GUARD_BAND, GUARD_BAND);
+        //x = X_CLAMP(x, -512, 512);
+        //y = X_CLAMP(y, -512, 512);
 
         x += (FRAME_WIDTH  >> 1);
         y += (FRAME_HEIGHT >> 1);
@@ -371,7 +367,7 @@ void faceAddRoomQuads_c(const RoomQuad* polys, int32 count)
         uint32 g3 = v3->g;
 
         if (g0 == g1 && g0 == g2 && g0 == g3) {
-            flags |= FACE_FLAT;
+            flags += FACE_FLAT_ADD;
         }
 
         if (checkBackface(v0, v1, v2))
@@ -415,7 +411,7 @@ void faceAddRoomTriangles_c(const RoomTriangle* polys, int32 count)
         uint32 g2 = v2->g;
 
         if (g0 == g1 && g0 == g2) {
-            flags |= FACE_FLAT;
+            flags += FACE_FLAT_ADD;
         }
 
         if (checkBackface(v0, v1, v2))
@@ -458,15 +454,6 @@ void faceAddMeshQuads_c(const MeshQuad* polys, int32 count)
             flags |= FACE_CLIPPED;
         }
 
-        uint32 g0 = v0->g;
-        uint32 g1 = v1->g;
-        uint32 g2 = v2->g;
-        uint32 g3 = v3->g;
-
-        if (g0 == g1 && g0 == g2 && g0 == g3) {
-            flags |= FACE_FLAT;
-        }
-
         int32 depth = (v0->z + v1->z + v2->z + v3->z) >> (2 + OT_SHIFT);
 
         Face* f = faceAdd(depth);
@@ -501,14 +488,6 @@ void faceAddMeshTriangles_c(const MeshTriangle* polys, int32 count)
 
         if ((c0 | c1 | c2) & CLIP_MASK_VP) {
             flags |= FACE_CLIPPED;
-        }
-
-        uint32 g0 = v0->g;
-        uint32 g1 = v1->g;
-        uint32 g2 = v2->g;
-
-        if (g0 == g1 && g0 == g2) {
-            flags |= FACE_FLAT;
         }
 
         int32 depth = (v0->z + v1->z + v2->z + v2->z) >> (2 + OT_SHIFT);
@@ -705,50 +684,38 @@ void renderInit()
     gFacesBase = gFaces;
 }
 
-void rasterize(uint32 flags, const VertexLink *top)
+typedef void (*RasterProc)(uint16* pixel, const VertexLink* L, const VertexLink* R);
+
+RasterProc rasterProc[FACE_TYPE_MAX] = { // IWRAM
+    rasterizeGT,
+    rasterizeGTA,
+    rasterizeFT,
+    rasterizeFTA,
+    NULL,
+    rasterizeF,
+    rasterizeS,
+    rasterizeSprite,
+    rasterizeFillS,
+    rasterizeLineH,
+    rasterizeLineV
+};
+
+void rasterize(uint32 flags, VertexLink* top)
 {
     uint16* pixel = (uint16*)fb + top->v.y * VRAM_WIDTH;
-#ifdef DEBUG_OVERDRAW
-    rasterize_overdraw(pixel, top, top);
-#else
-    if (flags & FACE_FILL_S) {
-        rasterizeFillS(pixel, top, top);
-    } else if (flags & FACE_LINE_H) {
-        rasterizeLineH(pixel, top, top);
-    } else if (flags & FACE_LINE_V) {
-        rasterizeLineV(pixel, top, top);
-    } else if (flags & FACE_COLORED) {
-        if (flags & FACE_FLAT) {
-            if (flags & FACE_SPRITE) {
-                rasterizeS(pixel, top, top);
-            } else {
-                rasterizeF(pixel, top, top, flags & FACE_TEXTURE);
-            }
-        } else {
-            ASSERT(false);
-            //rasterizeG(pixel, top, top, flags & FACE_TEXTURE); // unused
-        }
-    } else {
-        if (flags & FACE_SPRITE) {
-            rasterizeSprite(pixel, top, top + 1);
-        } else if (enableAlphaTest) {
-            if (flags & FACE_FLAT) {
-                rasterizeFTA(pixel, top, top);
-            } else {
-                rasterizeGTA(pixel, top, top);
-            }
-        } else {
-            if (flags & FACE_FLAT) {
-                rasterizeFT(pixel, top, top);
-            } else {
-                rasterizeGT(pixel, top, top);
-            }
-        }
+
+    uint32 type = (flags >> FACE_TYPE_SHIFT) & FACE_TYPE_MASK;
+
+    ASSERT(type != FACE_TYPE_G); // not used
+
+    if (type == FACE_TYPE_F) {
+        top->t.t = (flags & FACE_TEXTURE); // use tex coord as color index for untextured polys
     }
-#endif
+
+    rasterProc[type](pixel, top, top);
 }
 
-void drawTriangle(const Face* face, VertexLink *v)
+X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v)
 {
     VertexLink* v1 = v + 0;
     VertexLink* v2 = v + 1;
@@ -761,7 +728,8 @@ void drawTriangle(const Face* face, VertexLink *v)
     v2->prev = v1;
     v3->prev = v2;
 
-    const VertexLink* top = v1;
+   VertexLink* top = v1;
+
     if (v1->v.y < v2->v.y) {
         if (v1->v.y < v3->v.y) {
             top = v1;
@@ -776,10 +744,10 @@ void drawTriangle(const Face* face, VertexLink *v)
         }
     }
 
-    rasterize(face->flags, top);
+    rasterize(flags, top);
 }
 
-void drawQuad(const Face* face, VertexLink *v)
+X_NOINLINE void drawQuad(uint32 flags, VertexLink* v)
 {
     VertexLink* v1 = v + 0;
     VertexLink* v2 = v + 1;
@@ -811,14 +779,14 @@ void drawQuad(const Face* face, VertexLink *v)
         }
     }
 
-    rasterize(face->flags, top);
+    rasterize(flags, top);
 }
 
-void drawPoly(Face* face, VertexLink* v)
+X_NOINLINE void drawPoly(uint32 flags, VertexLink* v)
 {
     VertexLink tmp[16];
 
-    int32 count = (face->flags & FACE_TRIANGLE) ? 3 : 4;
+    int32 count = (flags & FACE_TRIANGLE) ? 3 : 4;
 
     v = clipPoly(v, tmp, count);
 
@@ -826,18 +794,13 @@ void drawPoly(Face* face, VertexLink* v)
 
     if (count <= 4)
     {
-        face->indices[0] = 0;
-        face->indices[1] = 1;
-        face->indices[2] = 2;
-        face->indices[3] = 3;
-
         if (count == 3) {
 
             if (v[0].v.y == v[1].v.y &&
                 v[0].v.y == v[2].v.y)
                 return;
 
-            drawTriangle(face, v);
+            drawTriangle(flags, v);
         } else {
 
             if (v[0].v.y == v[1].v.y &&
@@ -845,7 +808,7 @@ void drawPoly(Face* face, VertexLink* v)
                 v[0].v.y == v[3].v.y)
                 return;
 
-            drawQuad(face, v);
+            drawQuad(flags, v);
         }
         return;
     }
@@ -876,12 +839,7 @@ void drawPoly(Face* face, VertexLink* v)
         return; // zero height poly
     }
 
-    rasterize(face->flags, top);
-}
-
-void drawSprite(Face* face, VertexLink* v)
-{
-    rasterize(face->flags, v);
+    rasterize(flags, top);
 }
 
 void faceAddRoom(const Room* room)
@@ -914,34 +872,21 @@ void flush()
 
         for (int32 i = OT_SIZE - 1; i >= 0; i--)
         {
-            if (!otFaces[i]) continue;
+            if (!gOT[i]) continue;
 
-            Face *face = otFaces[i];
-            otFaces[i] = NULL;
+            Face *face = gOT[i];
+            gOT[i] = NULL;
 
             do {
                 uint32 flags = face->flags;
 
                 VertexLink v[16];
 
-                if (flags == FACE_SPRITE) {
-                    const Sprite &sprite = level.sprites[face->indices[1]];
+                uint32 type = (flags >> FACE_TYPE_SHIFT) & FACE_TYPE_MASK;
 
-                    v[0].v = gVertices[face->indices[0] + 0];
-                    v[0].t.uv.u = sprite.u;
-                    v[0].t.uv.v = sprite.v;
-                    v[1].v = gVertices[face->indices[0] + 1];
-                    v[1].t.uv.u = sprite.w + 1;
-                    v[1].t.uv.v = sprite.h + 1;
-
-                    ASSERT(v[0].v.x <= v[1].v.x);
-                    ASSERT(v[0].v.y <= v[1].v.y);
-
-                    tile = level.tiles + (level.sprites[face->indices[1]].tile << 16);
-
-                    drawSprite(face, v);
-                } else {
-                    if (!(flags & FACE_COLORED))
+                if (type <= FACE_TYPE_SHADOW)
+                {
+                    if (type <= FACE_TYPE_FTA)
                     {
                         const Texture &tex = level.textures[flags & FACE_TEXTURE];
                         tile = level.tiles + (tex.tile << 16);
@@ -950,33 +895,54 @@ void flush()
                         v[1].t.t = tex.uv1;
                         v[2].t.t = tex.uv2;
                         v[3].t.t = tex.uv3;
-
-                        enableAlphaTest = (tex.attribute & TEX_ATTR_AKILL);
                     }
 
                     v[0].v = gVertices[face->indices[0]];
                     v[1].v = gVertices[face->indices[1]];
+                    v[2].v = gVertices[face->indices[2]];
+                    if (!(flags & FACE_TRIANGLE)) {
+                        v[3].v = gVertices[face->indices[3]];
+                    }
 
-                    if (flags & (FACE_FILL_S | FACE_LINE_H | FACE_LINE_V)) {
-                        rasterize(face->flags, v);
+                    if (flags & FACE_CLIPPED) {
+                        drawPoly(flags, v);
                     } else {
-                        v[2].v = gVertices[face->indices[2]];
-                        if (!(flags & FACE_TRIANGLE)) {
-                            v[3].v = gVertices[face->indices[3]];
-                        }
-
-                        if (flags & FACE_CLIPPED) {
-                            drawPoly(face, v);
+                        if (flags & FACE_TRIANGLE) {
+                            drawTriangle(flags, v);
                         } else {
-                            if (flags & FACE_TRIANGLE) {
-                                drawTriangle(face, v);
-                            } else {
-                                drawQuad(face, v);
-                            }
+                            drawQuad(flags, v);
                         }
                     }
                 }
+                else
+                {
+                    if (type == FACE_TYPE_SPRITE)
+                    {
+                        const Sprite &sprite = level.sprites[face->indices[1]];
+
+                        v[0].v = gVertices[face->indices[0] + 0];
+                        v[0].t.uv.u = sprite.u;
+                        v[0].t.uv.v = sprite.v;
+                        v[1].v = gVertices[face->indices[0] + 1];
+                        v[1].t.uv.u = sprite.w + 1;
+                        v[1].t.uv.v = sprite.h + 1;
+
+                        ASSERT(v[0].v.x <= v[1].v.x);
+                        ASSERT(v[0].v.y <= v[1].v.y);
+
+                        tile = level.tiles + (level.sprites[face->indices[1]].tile << 16);
+
+                        rasterize(face->flags, v);
+                    } else { // > FACE_TYPE_FILL_S
+                        v[0].v = gVertices[face->indices[0]];
+                        v[1].v = gVertices[face->indices[1]];
+
+                        rasterize(flags, v);
+                    }
+                }
+
                 face = face->next;
+
             } while (face);
         }
     }
@@ -1126,7 +1092,7 @@ X_NOINLINE void renderFill(int32 x, int32 y, int32 width, int32 height, int32 sh
     gVerticesBase[1].y = height;
 
     Face* f = faceAdd(z);
-    f->flags = FACE_FILL_S;
+    f->flags = (FACE_TYPE_FILL_S << FACE_TYPE_SHIFT);
     f->indices[0] = gVerticesBase - gVertices;
     f->indices[1] = f->indices[0] + 1;
 
@@ -1155,7 +1121,7 @@ X_NOINLINE void renderLine(int32 x, int32 y, int32 width, int32 height, int32 in
     gVerticesBase[1].y = height;
 
     Face* f = faceAdd(z);
-    f->flags = (height == 1) ? FACE_LINE_H : FACE_LINE_V;
+    f->flags = (height == 1) ? (FACE_TYPE_LINE_H << FACE_TYPE_SHIFT) : (FACE_TYPE_LINE_V << FACE_TYPE_SHIFT);
     f->indices[0] = gVerticesBase - gVertices;
     f->indices[1] = f->indices[0] + 1;
 
@@ -1245,7 +1211,7 @@ void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index)
     int32 depth = X_MAX(0, z - 128); // depth hack
 
     Face* f = faceAdd(depth >> OT_SHIFT);
-    f->flags = FACE_SPRITE;
+    f->flags = (FACE_TYPE_SPRITE << FACE_TYPE_SHIFT);
     f->indices[0] = v1 - gVertices;
     f->indices[1] = index;
 
@@ -1291,7 +1257,7 @@ void renderGlyph(int32 vx, int32 vy, int32 index)
     //v2->g = vg;
 
     Face* f = faceAdd(0);
-    f->flags = FACE_SPRITE;
+    f->flags = (FACE_TYPE_SPRITE << FACE_TYPE_SHIFT);
     f->indices[0] = v1 - gVertices;
     f->indices[1] = index;
 

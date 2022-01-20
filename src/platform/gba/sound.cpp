@@ -15,6 +15,18 @@ int32 IMA_STEP[] = { // IWRAM !
     32767
 };
 
+#if defined(__GBA__) && defined(USE_ASM)
+    extern const uint8_t TRACKS_IMA[];
+    // the sound mixer works during VBlank, this is a great opportunity for exclusive access to VRAM without any perf penalties
+    // so we use part of offscreen VRAM as sound buffers (704 + 384 = 1088 bytes)
+    int32* mixerBuffer = (int32*)(MEM_VRAM + VRAM_PAGE_SIZE + FRAME_WIDTH * FRAME_HEIGHT);
+    uint8* soundBuffer = (uint8*)(MEM_VRAM + VRAM_PAGE_SIZE + FRAME_WIDTH * FRAME_HEIGHT + SND_SAMPLES * sizeof(int32)); // use 2k of VRAM after the first frame buffer as sound buffer
+#else
+    extern const void* TRACKS_IMA;
+    int32 mixerBuffer[SND_SAMPLES];
+    uint8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
+#endif
+
 #ifdef USE_ASM
     #define sndIMA      sndIMA_asm
     #define sndPCM      sndPCM_asm
@@ -137,12 +149,6 @@ struct Sample
 EWRAM_DATA Music  music;
 EWRAM_DATA Sample channels[SND_CHANNELS];
 EWRAM_DATA int32  channelsCount;
-
-#ifdef __GBA__
-extern const uint8_t TRACKS_IMA[];
-#else
-extern const void* TRACKS_IMA;
-#endif
 
 #define CALC_INC (((SND_SAMPLE_FREQ << SND_FIXED_SHIFT) / SND_OUTPUT_FREQ) * pitch >> SND_PITCH_SHIFT)
 
@@ -283,12 +289,10 @@ void sndFill(uint8* buffer, int32 count)
         return;
     }
 
-    int32 tmp[SND_SAMPLES];
-
     if (music.data) {
-        music.fill(tmp, count);
+        music.fill(mixerBuffer, count);
     } else {
-        dmaFill(tmp, 0, sizeof(tmp));
+        dmaFill(mixerBuffer, 0, SND_SAMPLES * sizeof(int32));
     }
 
     int32 ch = channelsCount;
@@ -296,12 +300,12 @@ void sndFill(uint8* buffer, int32 count)
     {
         Sample* sample = channels + ch;
 
-        sample->fill(tmp, count);
+        sample->fill(mixerBuffer, count);
 
         if (!sample->data) {
             channels[ch] = channels[--channelsCount];
         }
     }
 
-    sndWrite(buffer, count, tmp);
+    sndWrite(buffer, count, mixerBuffer);
 }

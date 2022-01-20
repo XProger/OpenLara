@@ -121,12 +121,19 @@ transformMesh_asm:
     add y, y, #(FRAME_HEIGHT >> 1)
 
     // store the result
-    strh x, [res, #VERTEX_X]
-    strh y, [res, #VERTEX_Y]
-    strh z, [res, #VERTEX_Z]
-    strh vg, [res, #VERTEX_G]
+#if 1
+    // 2+2+2+2 = 8 ticks
+    strh x, [res], #2
+    strh y, [res], #2
+    strh z, [res], #2
+    strh vg, [res], #2
+#else
+    // 1+1+3 = 5 ticks SLOWER! WTF?
+    orr x, x, y, lsl #16
+    orr z, z, vg, lsl #16
+    stmia res!, {x, z}
+#endif
 
-    add res, #8
     subs count, #1
     bne .loop
 

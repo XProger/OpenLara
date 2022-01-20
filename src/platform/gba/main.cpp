@@ -505,15 +505,11 @@ EWRAM_DATA int32 fpsCounter = 0;
     void osJoyVibrate(int32 index, int32 L, int32 R) {}
 #endif
 
-//#ifdef __GBA__
-//    uint8* soundBuffer = (uint8*)MEM_VRAM + FRAME_WIDTH * FRAME_HEIGHT; // use 2k of VRAM after the first frame buffer as sound buffer
-//#else
-    EWRAM_DATA ALIGN16 uint8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
-//#endif
-
 EWRAM_DATA uint32 curSoundBuffer = 0;
 
 #if defined(_WIN32)
+extern uint8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
+
 HWAVEOUT waveOut;
 WAVEFORMATEX waveFmt = { WAVE_FORMAT_PCM, 1, SND_OUTPUT_FREQ, SND_OUTPUT_FREQ, 1, 8, sizeof(waveFmt) };
 WAVEHDR waveBuf[2];
@@ -522,12 +518,12 @@ void soundInit()
 {
     sndInit();
 
-    if (waveOutOpen(&waveOut, WAVE_MAPPER, &waveFmt, (INT_PTR)hWnd, 0, CALLBACK_WINDOW) != MMSYSERR_NOERROR) {
+    if (waveOutOpen(&waveOut, WAVE_MAPPER, &waveFmt, (INT_PTR)hWnd, 0, CALLBACK_WINDOW) != MMSYSERR_NOERROR)
         return;
-    }
 
     memset(&waveBuf, 0, sizeof(waveBuf));
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 2; i++)
+    {
         WAVEHDR *waveHdr = waveBuf + i;
         waveHdr->dwBufferLength = SND_SAMPLES;
         waveHdr->lpData = (LPSTR)(soundBuffer + i * SND_SAMPLES);
@@ -546,6 +542,8 @@ void soundFill()
     curSoundBuffer ^= 1;
 }
 #elif defined(__GBA__)
+extern uint8* soundBuffer;
+
 void soundInit()
 {
     sndInit();
@@ -649,6 +647,48 @@ LRESULT CALLBACK wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 void vblank() {
     frameIndex++;
     soundFill();
+}
+
+#define MEM_CHECK_MAGIC 14021968
+
+extern bool checkROM(uint32 mask); // should be in IWRAM
+
+const uint32 WSCNT_MASK[] = {
+    WS_ROM0_N2 | WS_ROM0_S1 | WS_PREFETCH,
+    WS_ROM0_N3 | WS_ROM0_S1 | WS_PREFETCH,
+};
+
+void boostROM()
+{
+    for (int32 i = 0; i < X_COUNT(WSCNT_MASK); i++)
+    {
+        if (checkROM(WSCNT_MASK[i])) {
+            break;
+        }
+    }
+}
+
+void boostEWRAM()
+{
+    // Undocumented - Internal Memory Control (R/W)
+    vu32& fastAccessReg = *(vu32*)(REG_BASE+0x0800);
+
+    fastAccessReg = 0x0E000020; // fast EWRAM
+
+    vu32* fastAccessMem = (vu32*)gSpheres; // check EWRAM access
+    // write
+    for (int32 i = 0; i < 16; i++)
+    {
+        fastAccessMem[i] = MEM_CHECK_MAGIC + i;
+    }
+    // read
+    for (int32 i = 0; i < 16; i++)
+    {
+        if (fastAccessMem[i] != vu32(MEM_CHECK_MAGIC + i))
+        {
+            fastAccessReg = 0x0D000020; // device doesn't support this feature, revert reg value
+        }
+    }
 }
 
 #endif
@@ -787,45 +827,15 @@ int main(void) {
     irq_add(II_VBLANK, vblank);
     irq_enable(II_VBLANK);
 
-    // Undocumented - Green Swap trick for fake-AA feature (thanks to GValiente)
-    // https://mgba-emu.github.io/gbatek/#4000002h---undocumented---green-swap-rw
-    //uint16 &GreenSwap = *(uint16*)0x4000002;
-    //GreenSwap = 1;
-
-    // set low latency mode via WAITCNT register (thanks to GValiente)
-    REG_WSCNT = WS_ROM0_N2 | WS_ROM0_S1 | WS_PREFETCH; // fast ROM
-    
-    // Undocumented - Internal Memory Control (R/W)
-    #define MEM_CHECK_MAGIC 14021968
-    vu32& fastAccessReg = *(vu32*)(REG_BASE+0x0800);
-
-    fastAccessReg = 0x0E000020; // fast EWRAM
-
-    vu32* fastAccessMem = (vu32*)soundBuffer; // check EWRAM access
-    // write
-    for (int32 i = 0; i < 16; i++)
-    {
-        fastAccessMem[i] = MEM_CHECK_MAGIC + i;
-    }
-    // read
-    for (int32 i = 0; i < 16; i++)
-    {
-        if (fastAccessMem[i] != vu32(MEM_CHECK_MAGIC + i))
-        {
-            fastAccessReg = 0x0D000020; // device doesn't support this feature, revert reg value
-        }
-    }
+    boostROM();
+    boostEWRAM();
 
     rumbleInit();
     soundInit();
 
     gameInit(gLevelInfo[gLevelID].name);
 
-    uint16 mode = DCNT_BG2 | DCNT_PAGE;
-
-    mode |= DCNT_MODE4;
-    REG_BG2PA = (1 << 8);
-    REG_BG2PD = (1 << 8);
+    uint16 mode = DCNT_BG2 | DCNT_PAGE | DCNT_MODE4;
 
     int32 lastFrameIndex = -1;
 
@@ -864,7 +874,7 @@ int main(void) {
             VBlankIntrWait();
         #endif
         REG_DISPCNT = (mode ^= DCNT_PAGE);
-        fb ^= 0xA000;
+        fb ^= VRAM_PAGE_SIZE;
 
         gameRender();
 

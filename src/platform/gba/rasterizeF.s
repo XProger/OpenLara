@@ -31,9 +31,9 @@ rasterizeF_asm:
     mov LMAP, #LMAP_ADDR
 
     ldrb tmp, [L, #VERTEX_G]
+    ldrb index, [L, #VERTEX_T]
     orr tmp, index, tmp, lsl #8     // tmp = index | (L->v.g << 8)
     ldrb index, [LMAP, tmp]         // tmp = lightmap[tmp]
-    orr index, index, lsl #8
 
     mov Lh, #0                      // Lh = 0
     mov Rh, #0                      // Rh = 0
@@ -117,20 +117,19 @@ rasterizeF_asm:
       beq .scanline_block_2px
     ldrb pair, [tmp, width]
     subs width, #1              // width--
-    lsl pair, #8
-    orr pair, index, lsr #8
+    orr pair, index, pair, lsl #8
     strh pair, [tmp, width]
       beq .scanline_end         // if (width == 0)
 
 .scanline_block_2px:
-    strh index, [tmp], #2
+    strb index, [tmp], #2       // VRAM one as two bytes write hack
     subs width, #2
       bne .scanline_block_2px
 
 .scanline_end:
     add Lx, Ldx                     // Lx += Ldx
     add Rx, Rdx                     // Rx += Rdx
-    add pixel, #VRAM_STRIDE         // pixel += FRAME_WIDTH (240)
+    add pixel, #FRAME_WIDTH         // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start

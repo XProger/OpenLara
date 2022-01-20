@@ -71,7 +71,7 @@ SP_RDT = 12
     add t, dtdx
 
     orr indexA, indexB, lsl #8
-    strh indexA, [ptr], #2
+    strh indexA, [tmp], #2
 #else
     add t, dtdx, lsl #1
 
@@ -281,7 +281,7 @@ rasterizeFT_asm:
     add Rx, sRdx
     add Rt, sRdt
 
-    add pixel, #VRAM_STRIDE   // pixel += FRAME_WIDTH (240)
+    add pixel, #FRAME_WIDTH   // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start

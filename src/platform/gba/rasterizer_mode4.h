@@ -8,31 +8,34 @@ extern const uint8* tile;
 
 #ifdef USE_ASM
     extern "C" {
-        void rasterize_dummy(uint16* pixel, const VertexLink* L, const VertexLink* R);
+        //void rasterize_dummy(uint16* pixel, const VertexLink* L, const VertexLink* R);
         void rasterizeS_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
-        void rasterizeF_asm(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index);
-        void rasterizeG_asm(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index);
+        void rasterizeF_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
+        //void rasterizeG_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
         void rasterizeFT_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
         void rasterizeGT_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
         void rasterizeFTA_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
         void rasterizeGTA_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
+        void rasterizeLineH_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
+        void rasterizeLineV_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
+        void rasterizeFillS_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
     }
 
     #define rasterizeS rasterizeS_asm
     #define rasterizeF rasterizeF_asm
-    #define rasterizeG rasterizeG_asm
+    //#define rasterizeG rasterizeG_asm
     #define rasterizeFT rasterizeFT_asm
     #define rasterizeGT rasterizeGT_asm
     #define rasterizeFTA rasterizeFTA_asm
     #define rasterizeGTA rasterizeGTA_asm
     #define rasterizeSprite rasterizeSprite_c
-    #define rasterizeLineH rasterizeLineH_c
-    #define rasterizeLineV rasterizeLineV_c
-    #define rasterizeFillS rasterizeFillS_c
+    #define rasterizeLineH rasterizeLineH_asm
+    #define rasterizeLineV rasterizeLineV_asm
+    #define rasterizeFillS rasterizeFillS_asm
 #else
     #define rasterizeS rasterizeS_c
     #define rasterizeF rasterizeF_c
-    #define rasterizeG rasterizeG_c
+    //#define rasterizeG rasterizeG_c
     #define rasterizeFT rasterizeFT_c
     #define rasterizeGT rasterizeGT_c
     #define rasterizeFTA rasterizeFTA_c
@@ -148,9 +151,9 @@ void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     }
 }
 
-void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index)
+void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    uint16 color = lightmap[(L->v.g << 8) | index];
+    uint16 color = lightmap[(L->v.g << 8) | L->t.t];
     color |= (color << 8);
 
     int32 Lh = 0;
@@ -975,11 +978,100 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
         }
     }
 }
+
+X_NOINLINE void rasterizeLineH_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+{
+    R++;
+    int32 x = L->v.x;
+    int32 index = L->v.g;
+    int32 width = R->v.x;
+
+    volatile uint8* ptr = (uint8*)pixel + x;
+
+    if (intptr_t(ptr) & 1)
+    {
+        ptr--;
+        *(uint16*)ptr = *ptr | (index << 8);
+        ptr += 2;
+        width--;
+    }
+
+    if (width & 1)
+    {
+        *(uint16*)(ptr + width - 1) = index | (ptr[width] << 8);
+    }
+
+    for (int32 i = 0; i < width / 2; i++)
+    {
+        *(uint16*)ptr = index | (index << 8);
+        ptr += 2;
+    }
+}
+
+X_NOINLINE void rasterizeLineV_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+{
+    R++;
+    int32 x = L->v.x;
+    int32 index = L->v.g;
+    int32 height = R->v.y;
+
+    volatile uint8* ptr = (uint8*)pixel + x;
+
+    for (int32 i = 0; i < height; i++)
+    {
+        if (intptr_t(ptr) & 1) {
+            *(uint16*)(ptr - 1) = *(ptr - 1) | (index << 8);
+        } else {
+            *(uint16*)ptr = index | (*ptr << 8);
+        }
+        ptr += FRAME_WIDTH;
+    }
+}
+
+X_NOINLINE void rasterizeFillS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+{
+    R++;
+    int32 x = L->v.x;
+    int32 shade = L->v.g;
+    int32 width = R->v.x;
+    int32 height = R->v.y;
+
+    const uint8* lm = &lightmap[shade << 8];
+
+    for (int32 i = 0; i < height; i++)
+    {
+        volatile uint8* ptr = (uint8*)pixel + x;
+        int32 w = width;
+
+        if (intptr_t(ptr) & 1)
+        {
+            ptr--;
+            *(uint16*)ptr = ptr[0] | (lm[ptr[1]] << 8);
+            ptr += 2;
+            w--;
+        }
+
+        if (w & 1)
+        {
+            *(uint16*)(ptr + w - 1) = lm[ptr[w - 1]] | (ptr[w] << 8);
+        }
+
+        for (int32 i = 0; i < w / 2; i++)
+        {
+            uint16 p = *(uint16*)ptr;
+            *(uint16*)ptr = lm[p & 0xFF] | (lm[p >> 8] << 8);
+            ptr += 2;
+        }
+
+        pixel += FRAME_WIDTH / 2;
+    }
+}
 #endif
 
 // TODO ARM version
 X_NOINLINE void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
+    R++;
     const uint8* ft_lightmap = &lightmap[L->v.g << 8];
 
     int32 w = R->v.x - L->v.x;
@@ -1087,94 +1179,6 @@ X_NOINLINE void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const Vert
         v += dv;
 
         ptr += FRAME_WIDTH;
-    }
-}
-
-X_NOINLINE void rasterizeLineH_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
-{
-    R = L + 1;
-    int32 x = L->v.x;
-    int32 index = L->v.g;
-    int32 width = R->v.x;
-
-    volatile uint8* ptr = (uint8*)pixel + x;
-
-    if (intptr_t(ptr) & 1)
-    {
-        ptr--;
-        *(uint16*)ptr = *ptr | (index << 8);
-        ptr += 2;
-        width--;
-    }
-
-    if (width & 1)
-    {
-        *(uint16*)(ptr + width - 1) = index | (ptr[width] << 8);
-    }
-
-    for (int32 i = 0; i < width / 2; i++)
-    {
-        *(uint16*)ptr = index | (index << 8);
-        ptr += 2;
-    }
-}
-
-X_NOINLINE void rasterizeLineV_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
-{
-    R = L + 1;
-    int32 x = L->v.x;
-    int32 index = L->v.g;
-    int32 height = R->v.y;
-
-    volatile uint8* ptr = (uint8*)pixel + x;
-
-    for (int32 i = 0; i < height; i++)
-    {
-        if (intptr_t(ptr) & 1) {
-            *(uint16*)(ptr - 1) = *(ptr - 1) | (index << 8);
-        } else {
-            *(uint16*)ptr = index | (*ptr << 8);
-        }
-        ptr += FRAME_WIDTH;
-    }
-}
-
-X_NOINLINE void rasterizeFillS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
-{
-    R = L + 1;
-    int32 x = L->v.x;
-    int32 shade = L->v.g;
-    int32 width = R->v.x;
-    int32 height = R->v.y;
-
-    const uint8* lm = &lightmap[shade << 8];
-
-    for (int32 i = 0; i < height; i++)
-    {
-        volatile uint8* ptr = (uint8*)pixel + x;
-        int32 w = width;
-
-        if (intptr_t(ptr) & 1)
-        {
-            ptr--;
-            *(uint16*)ptr = ptr[0] | (lm[ptr[1]] << 8);
-            ptr += 2;
-            w--;
-        }
-
-        if (w & 1)
-        {
-            *(uint16*)(ptr + w - 1) = lm[ptr[w - 1]] | (ptr[w] << 8);
-        }
-
-        for (int32 i = 0; i < w / 2; i++)
-        {
-            uint16 p = *(uint16*)ptr;
-            *(uint16*)ptr = lm[p & 0xFF] | (lm[p >> 8] << 8);
-            ptr += 2;
-        }
-
-        pixel += FRAME_WIDTH / 2;
     }
 }
 

@@ -73,7 +73,7 @@ faceAddRoomTriangles_asm:
     mov vg0, vg0, lsl #24
     cmp vg0, vg1, lsl #24
     cmpeq vg0, vg2, lsl #24
-    orreq flags, flags, #FACE_FLAT
+    addeq flags, flags, #FACE_FLAT_ADD
 
     CCW .skip
 
@@ -88,8 +88,6 @@ faceAddRoomTriangles_asm:
     mov depth, vz0, lsr #OT_SHIFT
 
     // faceAdd
-    ldr ot, =otFaces
-
     sub vp0, vp0, vertices
     sub vp1, vp1, vertices
     sub vp2, vp2, vertices
@@ -98,6 +96,7 @@ faceAddRoomTriangles_asm:
     orr vp1, vp0, vp1, lsl #(16 - 3)
     mov vp2, vp2, lsr #3
 
+    ldr ot, =gOT
     ldr next, [ot, depth, lsl #2]
     str face, [ot, depth, lsl #2]
     stmia face!, {next, flags, vp1, vp2}

@@ -46,7 +46,7 @@ faceAddRoomQuads_asm:
     ldr face, =gFacesBase
     ldr face, [face]
 
-    ldr ot, =otFaces
+    ldr ot, =gOT
     ldr vertices, =gVertices
     stmfd sp!, {ot, vertices}
 
@@ -87,7 +87,7 @@ faceAddRoomQuads_asm:
     cmp vg0, vg1, lsl #24
     cmpeq vg0, vg2, lsl #24
     cmpeq vg0, vg3, lsl #24
-    orreq flags, flags, #FACE_FLAT
+    addeq flags, flags, #FACE_FLAT_ADD
 
     CCW .skip
 

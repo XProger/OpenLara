@@ -46,7 +46,7 @@ faceAddMeshQuads_asm:
     ldr face, =gFacesBase
     ldr face, [face]
 
-    ldr ot, =otFaces
+    ldr ot, =gOT
     ldr vertices, =gVertices
     stmfd sp!, {ot, vertices}
 
@@ -83,13 +83,6 @@ faceAddMeshQuads_asm:
     orr tmp, tmp, vg3
     tst tmp, #CLIP_MASK_VP
     orrne flags, flags, #FACE_CLIPPED
-
-    // shift and compare VERTEX_G for flat rasterization
-    mov vg0, vg0, lsl #24
-    cmp vg0, vg1, lsl #24
-    cmpeq vg0, vg2, lsl #24
-    cmpeq vg0, vg3, lsl #24
-    orreq flags, flags, #FACE_FLAT
 
     // vz0 = AVG_Z4 (depth)
     ldrh vz0, [vp0, #VERTEX_Z]

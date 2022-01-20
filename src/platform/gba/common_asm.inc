@@ -1,6 +1,8 @@
 .section .iwram
 .arm
 
+#define TEX_2PX     // lazy texturing, comment out for per-pixel
+
 .equ VERTEX_X,      0
 .equ VERTEX_Y,      2
 .equ VERTEX_Z,      4
@@ -9,56 +11,53 @@
 .equ VERTEX_T,      8
 .equ VERTEX_PREV,   12
 .equ VERTEX_NEXT,   16
+.equ VERTEX_SIZEOF, 20
+
 .equ EWRAM_START,   0x2000000
 .equ IWRAM_START,   0x3000000
+.equ VRAM_START,    0x6000000
+.equ VRAM_PAGE,     0x000A000
+
+.equ FRAME_WIDTH,   240
+.equ FRAME_HEIGHT,  160
 
 .equ DIVLUT_ADDR,   EWRAM_START
 .equ LMAP_ADDR,     IWRAM_START
 
-#ifdef __TNS__
-    .equ VRAM_STRIDE,   320
-#else
-    .equ VRAM_STRIDE,   240
-#endif
+.equ CLIP_LEFT,     ((1 << 0) << 8)
+.equ CLIP_RIGHT,    ((1 << 1) << 8)
+.equ CLIP_TOP,      ((1 << 2) << 8)
+.equ CLIP_BOTTOM,   ((1 << 3) << 8)
+.equ CLIP_FAR,      ((1 << 4) << 8)
+.equ CLIP_NEAR,     ((1 << 5) << 8)
+.equ CLIP_MASK_VP,  (CLIP_LEFT + CLIP_RIGHT + CLIP_TOP + CLIP_BOTTOM)
+.equ CLIP_MASK,     (CLIP_MASK_VP + CLIP_FAR + CLIP_NEAR)
 
-#define TEX_2PX
+.equ FACE_TYPE_SHIFT, 11
+.equ FACE_FLAT_ADD,   (2 << FACE_TYPE_SHIFT)
+.equ FACE_CLIPPED,    (1 << 16)
 
-CLIP_LEFT       = ((1 << 0) << 8)
-CLIP_RIGHT      = ((1 << 1) << 8)
-CLIP_TOP        = ((1 << 2) << 8)
-CLIP_BOTTOM     = ((1 << 3) << 8)
-CLIP_FAR        = ((1 << 4) << 8)
-CLIP_NEAR       = ((1 << 5) << 8)
-CLIP_MASK_VP    = (CLIP_LEFT + CLIP_RIGHT + CLIP_TOP + CLIP_BOTTOM)
-CLIP_MASK       = (CLIP_MASK_VP + CLIP_FAR + CLIP_NEAR)
+.equ FIXED_SHIFT,   14
+.equ PROJ_SHIFT,    4
+.equ OT_SHIFT,      4
 
-FACE_FLAT       = (1 << 12)
-FACE_CLIPPED    = (1 << 13)
+.equ VIEW_DIST,     (1024 * 10)   // max = DIV_TABLE_END << PROJ_SHIFT
+.equ FOG_SHIFT,     1
+.equ FOG_MAX,       VIEW_DIST
+.equ FOG_MIN,       (FOG_MAX - (8192 >> FOG_SHIFT))
+.equ VIEW_MIN,      (64)
+.equ VIEW_MAX,      (VIEW_DIST)
+.equ VIEW_OFF,      4096
 
-FRAME_WIDTH     = 240
-FRAME_HEIGHT    = 160
+.equ VIEW_MIN_F,    (VIEW_MIN << FIXED_SHIFT)
+.equ VIEW_MAX_F,    (VIEW_MAX << FIXED_SHIFT)
+.equ VIEW_OFF_F,    (VIEW_OFF << FIXED_SHIFT)
 
-FIXED_SHIFT     = 14
-PROJ_SHIFT      = 4
-OT_SHIFT        = 4
+.equ MAX_CAUSTICS,   32
+.equ MAX_RAND_TABLE, 32
 
-VIEW_DIST       = (1024 * 10)   // max = DIV_TABLE_END << PROJ_SHIFT
-FOG_SHIFT       = 1
-FOG_MAX         = VIEW_DIST
-FOG_MIN         = (FOG_MAX - (8192 >> FOG_SHIFT))
-VIEW_MIN        = (64)
-VIEW_MAX        = (VIEW_DIST)
-VIEW_OFF        = 4096
-
-VIEW_MIN_F      = (VIEW_MIN << FIXED_SHIFT)
-VIEW_MAX_F      = (VIEW_MAX << FIXED_SHIFT)
-VIEW_OFF_F      = (VIEW_OFF << FIXED_SHIFT)
-
-MAX_CAUSTICS    = 32
-MAX_RAND_TABLE  = 32
-
-MIN_INT32       = 0x80000000
-MAX_INT32       = 0x7FFFFFFF
+.equ MIN_INT32,     0x80000000
+.equ MAX_INT32,     0x7FFFFFFF
 
 .macro CCW skip
     ldrsh vx0, [vp0, #VERTEX_X]

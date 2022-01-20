@@ -788,13 +788,22 @@ void drawHUD(Lara* lara)
 
 void drawFPS()
 {
+#ifdef __GBA__
+    if (gLevelID == LVL_TR1_TITLE)
+    {
+        if (REG_WSCNT != (WS_ROM0_N2 | WS_ROM0_S1 | WS_PREFETCH))
+        {
+            drawText(0, 15, "! slow cartridge !", TEXT_ALIGN_CENTER);
+        }
+    }
+#endif
+
     if (!gSettings.video_fps)
         return;
 
     char buf[32];
     int2str(fps, buf);
     drawText(2, 16, buf, TEXT_ALIGN_LEFT);
-    //drawText(0, FRAME_HEIGHT - 8, "! early alpha version !", TEXT_ALIGN_CENTER);
 }
 
 void drawProfiling()

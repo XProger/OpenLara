@@ -684,7 +684,21 @@ void fixTexCoord(uint32 uv0, uint32 &uv1)
 #define FACE_CCW        (1 << 31)
 
 // GBA
-#define FACE_COLORED    (1 << 14)
+enum FaceType {
+    FACE_TYPE_GT,
+    FACE_TYPE_GTA,
+    FACE_TYPE_FT,
+    FACE_TYPE_FTA,
+    FACE_TYPE_G,
+    FACE_TYPE_F,
+    FACE_TYPE_SHADOW,
+    FACE_TYPE_SPRITE,
+    FACE_TYPE_FILL_S,
+    FACE_TYPE_LINE_H,
+    FACE_TYPE_LINE_V
+};
+
+#define FACE_TYPE_SHIFT 11
 #define FACE_TRIANGLE   (1 << 15)
 
 #define CLIP(x,lo,hi) \
@@ -2755,6 +2769,14 @@ struct LevelPC
                     q.indices[3] = addRoomVertex(info.yTop, room->vertices[q.indices[3]]);
 
                     RoomQuadGBA comp(q);
+
+                    comp.flags = q.flags & FACE_TEXTURE;
+                    if (objectTextures[comp.flags].attribute & TEX_ATTR_AKILL) {
+                        comp.flags |= (FACE_TYPE_GTA << FACE_TYPE_SHIFT);
+                    } else {
+                        comp.flags |= (FACE_TYPE_GT << FACE_TYPE_SHIFT);
+                    }
+
                     comp.write(f);
                 }
 
@@ -2767,6 +2789,15 @@ struct LevelPC
                     t.indices[2] = addRoomVertex(info.yTop, room->vertices[t.indices[2]]);
                     
                     RoomTriangleGBA comp(t);
+
+                    comp.flags = t.flags & FACE_TEXTURE;
+                    if (objectTextures[comp.flags].attribute & TEX_ATTR_AKILL) {
+                        comp.flags |= (FACE_TYPE_GTA << FACE_TYPE_SHIFT);
+                    } else {
+                        comp.flags |= (FACE_TYPE_GT << FACE_TYPE_SHIFT);
+                    }
+                    comp.flags |= FACE_TRIANGLE;
+
                     comp.write(f);
                 }
 
@@ -2934,27 +2965,59 @@ struct LevelPC
 
             for (int32 j = 0; j < rCount; j++)
             {
-                MeshQuadGBA comp(rFaces[j]);
+                Quad q = rFaces[j];
+
+                MeshQuadGBA comp(q);
+
+                comp.flags = q.flags & FACE_TEXTURE;
+                if (objectTextures[comp.flags].attribute & TEX_ATTR_AKILL) {
+                    comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);
+                } else {
+                    comp.flags |= (FACE_TYPE_FT << FACE_TYPE_SHIFT);
+                }
+
                 comp.write(f);
             }
 
             for (int32 j = 0; j < crCount; j++)
             {
-                MeshQuadGBA comp(crFaces[j]);
-                comp.flags |= FACE_COLORED;
+                Quad q = crFaces[j];
+
+                MeshQuadGBA comp(q);
+
+                comp.flags = q.flags & FACE_TEXTURE;
+                comp.flags |= (FACE_TYPE_F << FACE_TYPE_SHIFT);
+
                 comp.write(f);
             }
 
             for (int32 j = 0; j < tCount; j++)
             {
-                MeshTriangleGBA comp(tFaces[j]);
+                Triangle t = tFaces[j];
+
+                MeshTriangleGBA comp(t);
+
+                comp.flags = t.flags & FACE_TEXTURE;
+                if (objectTextures[comp.flags].attribute & TEX_ATTR_AKILL) {
+                    comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);
+                } else {
+                    comp.flags |= (FACE_TYPE_FT << FACE_TYPE_SHIFT);
+                }
+                comp.flags |= FACE_TRIANGLE;
+
                 comp.write(f);
             }
 
             for (int32 j = 0; j < ctCount; j++)
             {
-                MeshTriangleGBA comp(ctFaces[j]);
-                comp.flags |= FACE_COLORED;
+                Triangle t = ctFaces[j];
+
+                MeshTriangleGBA comp(t);
+
+                comp.flags = t.flags & FACE_TEXTURE;
+                comp.flags |= (FACE_TYPE_F << FACE_TYPE_SHIFT);
+                comp.flags |= FACE_TRIANGLE;
+
                 comp.write(f);
             }
 
@@ -5726,7 +5789,7 @@ int main()
         sprintf(path, "../data/%s.PKD", levelNames[i]);
         levels[i]->convertGBA(path);
 
-        levels[i]->convert3DO(levelNames[i]);
+        //levels[i]->convert3DO(levelNames[i]);
     }
 
 //    saveBitmap("pal.bmp", (uint8*)palDump, 256, 32, 32);

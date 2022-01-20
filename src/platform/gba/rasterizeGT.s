@@ -163,7 +163,7 @@ rasterizeGT_asm:
 
         .skip_left_dx:
         lsl Lx, #16                 // Lx <<= 16
-        lsl Lg, #8                  // Lg <= 8
+        lsl Lg, #8                  // Lg <<= 8
         add Lg, #LMAP_ADDR          // Lg += lightmap
 
         b .calc_left_start
@@ -213,7 +213,7 @@ rasterizeGT_asm:
 
         .skip_right_dx:
         lsl Rx, #16                 // Rx <<= 16
-        lsl Rg, #8                  // Rg <= 8
+        lsl Rg, #8                  // Rg <<= 8
         add Rg, #LMAP_ADDR          // Rg += lightmap
 
         b .calc_right_start
@@ -346,7 +346,7 @@ rasterizeGT_asm:
     ldr tmp, [sp, #(SP_RDT + 16)]
     add Rt, tmp                     // Rt += Rdt from stack
 
-    add pixel, #VRAM_STRIDE         // pixel += FRAME_WIDTH (240)
+    add pixel, #FRAME_WIDTH         // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start
