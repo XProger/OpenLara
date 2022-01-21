@@ -60,13 +60,14 @@ SP_RDX = 8
 SP_RDT = 12
 
 .macro PUT_PIXELS
+#ifndef TEX_2PX
     tex indexA, t
     add t, dtdx
 
     tex indexB, t
     add t, dtdx
 
-  // cheap non-accurate alpha test, skip pixels pair if one or both are transparent
+    // cheap non-accurate alpha test, skip pixels pair if one or both are transparent
     ands indexA, #255
     andnes indexB, #255
     orrne indexB, indexA, indexB, lsl #8   // indexB = indexA | (indexB << 8)
@@ -75,6 +76,14 @@ SP_RDT = 12
     orrne indexA, indexB, lsl #8
     strneh indexA, [tmp]
     add tmp, #2
+#else
+    tex indexA, t
+    add t, dtdx, lsl #1
+    cmp indexA, #0
+    ldrneb indexA, [LMAP, indexA]
+    strneb indexA, [tmp]
+    add tmp, #2
+#endif
 .endm
 
 .global rasterizeFTA_asm
@@ -215,12 +224,11 @@ rasterizeFTA_asm:
     ldrb indexA, [TILE, indexA]
 
     cmp indexA, #0
-    ldrneb indexB, [tmp, #-1]        // read pal index from VRAM (byte)
+    ldrneb indexB, [tmp, #-1]!      // read pal index from VRAM (byte)
     ldrneb indexA, [LMAP, indexA]
     orrne indexB, indexA, lsl #8
-    strneh indexB, [tmp]
-
-    add tmp, #1
+    strneh indexB, [tmp], #2
+    addeq tmp, #1
     add t, dtdx
 
     subs width, #1              // width--
@@ -240,7 +248,8 @@ rasterizeFTA_asm:
     ldrneb indexA, [LMAP, indexA]
     ldrneb indexB, [tmp, width]
     orrne indexB, indexA, indexB, lsl #8
-    strneh indexB, [tmp, width]
+    addne indexA, tmp, width
+    strneh indexB, [indexA, #-1]
 
     subs width, #1              // width--
       beq .scanline_end         // if (width == 0)

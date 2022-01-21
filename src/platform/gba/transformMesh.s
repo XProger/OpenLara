@@ -121,18 +121,10 @@ transformMesh_asm:
     add y, y, #(FRAME_HEIGHT >> 1)
 
     // store the result
-#if 1
-    // 2+2+2+2 = 8 ticks
     strh x, [res], #2
     strh y, [res], #2
     strh z, [res], #2
     strh vg, [res], #2
-#else
-    // 1+1+3 = 5 ticks SLOWER! WTF?
-    orr x, x, y, lsl #16
-    orr z, z, vg, lsl #16
-    stmia res!, {x, z}
-#endif
 
     subs count, #1
     bne .loop

@@ -88,13 +88,14 @@ SP_RDT = 20
     bic LMAP, g, #255
     add g, dgdx
 
+#ifndef TEX_2PX
     tex indexA, t
     add t, dtdx
 
     tex indexB, t
     add t, dtdx
 
-  // cheap non-accurate alpha test, skip pixels pair if one or both are transparent
+    // cheap non-accurate alpha test, skip pixels pair if one or both are transparent
     ands indexA, #255
     andnes indexB, #255
     orrne indexB, indexA, indexB, lsl #8   // indexB = indexA | (indexB << 8)
@@ -102,6 +103,14 @@ SP_RDT = 20
     ldrneb indexB, [LMAP, indexB, lsr #8]
     orrne indexA, indexB, lsl #8
     strneh indexA, [ptr]
+#else
+    tex indexA, t
+    add t, dtdx, lsl #1
+    cmp indexA, #0
+    ldrneb indexA, [LMAP, indexA]
+    strneb indexA, [ptr]
+#endif
+
     add ptr, #2
 .endm
 
@@ -270,9 +279,9 @@ rasterizeGTA_asm:
     bic LMAP, g, #255
     ldrb indexA, [LMAP, indexA]
 
-    ldrb indexB, [ptr, #-1]      // read pal index from VRAM (byte)
+    ldrb indexB, [ptr, #-1]!     // read pal index from VRAM (byte)
     orr indexB, indexA, lsl #8
-    strh indexB, [ptr]
+    strh indexB, [ptr], #1
 
 .skip_left:
     add ptr, #1
