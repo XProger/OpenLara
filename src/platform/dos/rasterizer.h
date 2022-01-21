@@ -14,6 +14,9 @@ extern const uint8* tile;
 #define rasterizeFTA rasterizeFTA_c
 #define rasterizeGTA rasterizeGTA_c
 #define rasterizeSprite rasterizeSprite_c
+#define rasterizeLineH rasterizeLineH_c
+#define rasterizeLineV rasterizeLineV_c
+#define rasterizeFillS rasterizeFillS_c
 
 void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
@@ -123,9 +126,9 @@ void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     }
 }
 
-void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index)
+void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    uint16 color = lightmap[(L->v.g << 8) | index];
+    uint16 color = lightmap[(L->v.g << 8) | L->t.t];
     color |= (color << 8);
 
     int32 Lh = 0;
@@ -228,13 +231,13 @@ void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32
     }
 }
 
-void rasterizeG_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32 index)
+void rasterizeG_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     int32 Lh = 0, Rh = 0;
     int32 Lx, Rx, Ldx = 0, Rdx = 0;
     int32 Lg, Rg, Ldg = 0, Rdg = 0;
 
-    const uint8* ft_lightmap = lightmap + index;
+    const uint8* ft_lightmap = lightmap + L->t.t;
 
     while (1)
     {
@@ -790,6 +793,21 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 }
 
 void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+{
+    // TODO
+}
+
+void rasterizeLineH_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+{
+    // TODO
+}
+
+void rasterizeLineV_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+{
+    // TODO
+}
+
+void rasterizeFillS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     // TODO
 }

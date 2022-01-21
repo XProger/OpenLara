@@ -38,8 +38,7 @@
     <ClInclude Include="..\..\fixed\nav.h" />
     <ClInclude Include="..\..\fixed\object.h" />
     <ClInclude Include="..\..\fixed\room.h" />
-    <ClInclude Include="rasterizer_mode13.h" />
-    <ClInclude Include="rasterizer_mode4.h" />
+    <ClInclude Include="rasterizer.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

@@ -1,15 +1,16 @@
-#include <sys/time.h>
+#if defined(_WIN32) || defined(__DOS__)
+    const void* TRACKS_IMA;
+    const void* TITLE_SCR;
+    const void* levelData;
+#endif
 
-#include <game.h>
+#include "game.h"
 
-// multi-threading (no sound - no problem)
-void* osMutexInit() { return NULL; }
-void osMutexFree(void *obj) {}
-void osMutexLock(void *obj) {}
-void osMutexUnlock(void *obj) {}
+int32 fps;
+int32 frameIndex = 0;
+int32 fpsCounter = 0;
+uint32 curSoundBuffer = 0;
 
-
-// timing
 unsigned int osTime;
 volatile unsigned int *timerBUS;
 volatile unsigned int *timerCLK;
@@ -22,76 +23,126 @@ void timerInit()
     timerCLK = (unsigned int*)0x900C0004;
     timerCTR = (unsigned int*)0x900C0008;
     timerDIV = (unsigned int*)0x900C0080;
-    
+
     *timerBUS &= ~(1 << 11);
     *timerDIV = 0x0A;
     *timerCTR = 0x82;
-    
+
     osTime = *timerCLK;
 }
 
-int osGetTimeMS()
+int32 GetTickCount()
 {
     return (osTime - *timerCLK) / 33;
 }
 
+int32 osGetSystemTimeMS()
+{
+    return *timerCLK / 33;
+}
 
-// input
+bool osSaveSettings()
+{
+    return false;
+}
+
+bool osLoadSettings()
+{
+    return false;
+}
+
+bool osCheckSave()
+{
+    return false;
+}
+
+bool osSaveGame()
+{
+    return false;
+}
+
+bool osLoadGame()
+{
+    return false;
+}
+
+void osJoyVibrate(int32 index, int32 L, int32 R) {}
+
+void osSetPalette(const uint16* palette)
+{
+    memcpy((uint16*)0xC0000200, palette, 256 * 2);
+}
+
 touchpad_info_t*  touchInfo;
 touchpad_report_t touchReport;
+uint8 inputData[0x20];
 
-void touchInit()
+bool keyDown(const t_key &key)
+{
+    return (*(short*)(inputData + key.tpad_row)) & key.tpad_col;
+}
+
+void inputInit()
 {
     touchInfo = is_touchpad ? touchpad_getinfo() : NULL;
 }
 
-bool osJoyReady(int index)
+void inputUpdate()
 {
-    return (index == 0);
-}
+    keys = 0;
 
-void osJoyVibrate(int index, float L, float R) {}
-
-bool inputUpdate()
-{
-    Input::setJoyPos(0, jkL, vec2(0.0f, 0.0f));
-    Input::setJoyPos(0, jkR, vec2(0.0f, 0.0f));
-    Input::setJoyPos(0, jkLT, vec2(0.0f, 0.0f));
-    Input::setJoyPos(0, jkRT, vec2(0.0f, 0.0f));
-    
     if (touchInfo)
     {
         touchpad_scan(&touchReport);
-        if (touchReport.contact)
-        {
-            float tx = float(touchReport.x) / float(touchInfo->width)  * 2.0f - 1.0f;
-            float ty = float(touchReport.y) / float(touchInfo->height) * 2.0f - 1.0f;
-            Input::setJoyPos(0, jkL, vec2(tx, -ty));
-        }
     }
-    
-    uint8 inputData[0x20];
+
     memcpy(inputData, (void*)0x900E0000, 0x20);
 
-    #define IS_KEY_DOWN(key) ((*(short*)(inputData + key.tpad_row)) & key.tpad_col)
+    if (touchInfo && touchReport.contact)
+    {
+        float tx = float(touchReport.x) / float(touchInfo->width)  * 2.0f - 1.0f;
+        float ty = float(touchReport.y) / float(touchInfo->height) * 2.0f - 1.0f;
 
-    Input::setJoyDown(0, jkA,      IS_KEY_DOWN(KEY_NSPIRE_2));
-    Input::setJoyDown(0, jkB,      IS_KEY_DOWN(KEY_NSPIRE_3));
-    Input::setJoyDown(0, jkX,      IS_KEY_DOWN(KEY_NSPIRE_5));
-    Input::setJoyDown(0, jkY,      IS_KEY_DOWN(KEY_NSPIRE_6));
-    Input::setJoyDown(0, jkLB,     IS_KEY_DOWN(KEY_NSPIRE_7));
-    Input::setJoyDown(0, jkRB,     IS_KEY_DOWN(KEY_NSPIRE_9));
-    Input::setJoyDown(0, jkL,      false);
-    Input::setJoyDown(0, jkR,      false);
-    Input::setJoyDown(0, jkStart,  IS_KEY_DOWN(KEY_NSPIRE_ENTER));
-    Input::setJoyDown(0, jkSelect, IS_KEY_DOWN(KEY_NSPIRE_MENU));
+        if (tx < -0.5f) keys |= IK_LEFT;
+        if (tx >  0.5f) keys |= IK_RIGHT;
+        if (ty >  0.5f) keys |= IK_UP;
+        if (ty < -0.5f) keys |= IK_DOWN];
+    }
 
-    return !IS_KEY_DOWN(KEY_NSPIRE_ESC);
+    if (keyDown(KEY_NSPIRE_2)) keys |= IK_A;
+    if (keyDown(KEY_NSPIRE_3)) keys |= IK_B;
+    if (keyDown(KEY_NSPIRE_7)) keys |= IK_L;
+    if (keyDown(KEY_NSPIRE_9)) keys |= IK_R;
+    if (keyDown(KEY_NSPIRE_ENTER)) keys |= IK_START;
+    if (keyDown(KEY_NSPIRE_SPACE)) keys |= IK_SELECT;
 }
 
-unsigned short* osPalette()
+void* osLoadLevel(const char* name)
 {
-    return (unsigned short*)0xC0000200;
+// level1
+    char buf[32];
+
+    delete[] levelData;
+
+    sprintf(buf, "/documents/OpenLara/%s.PKD.tns", name);
+
+    FILE *f = fopen(buf, "rb");
+
+    if (!f)
+        return NULL;
+
+    {
+        fseek(f, 0, SEEK_END);
+        int32 size = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        uint8* data = new uint8[size];
+        fread(data, 1, size, f);
+        fclose(f);
+
+        levelData = data;
+    }
+
+    return (void*)levelData;
 }
 
 int main(void)
@@ -99,47 +150,43 @@ int main(void)
     if (!has_colors)
         return 0;
 
-    lcd_init(SCR_320x240_565);
+    lcd_init(SCR_320x240_8);
 
     timerInit();
-    touchInit();
+    inputInit();
 
-    contentDir[0] = saveDir[0] = cacheDir[0] = 0;
+    gameInit(gLevelInfo[gLevelID].name);
 
-    strcpy(contentDir, "/documents/Games/OpenLara/");
-    strcpy(saveDir, contentDir);
-    strcpy(cacheDir, contentDir);
+    int startTime = GetTickCount();
+    int lastTime = -16;
+    int fpsTime = startTime;
 
-    Stream::addPack("content.tns");
-
-    Core::width  = SCREEN_WIDTH;
-    Core::height = SCREEN_HEIGHT;
-    
-    GAPI::swColor = new GAPI::ColorSW[Core::width * Core::height];
-    GAPI::resize();
-    
-    Sound::channelsCount = 0;
-    
-    Game::init("DATA/LEVEL1.PHD");
-
-    while (!Core::isQuit)
+    while (1)
     {
-        if (!inputUpdate())
+        inputUpdate();
+
+        if (keyDown(KEY_NSPIRE_ESC))
         {
-            Core::quit();
+            break;
         }
 
-        if (Game::update())
+        int time = GetTickCount() - startTime;
+        gameUpdate((time - lastTime) / 16);
+        lastTime = time;
+
+        gameRender();
+
+        lcd_blit(fb, SCR_320x240_8);
+        //msleep(16);
+
+        fpsCounter++;
+        if (lastTime - fpsTime >= 1000)
         {
-            Game::render();
-            
-            lcd_blit(GAPI::swColor, SCR_320x240_565);
+            fps = fpsCounter;
+            fpsCounter = 0;
+            fpsTime = lastTime - ((lastTime - fpsTime) - 1000);
         }
     }
 
-    delete[] GAPI::swColor;
-
-    //Game::deinit();
-    
     return 0;
 }

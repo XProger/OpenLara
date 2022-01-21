@@ -24,7 +24,7 @@ rasterizeLineH_asm:
     strh tmp, [pixel], #2
     subs width, #1
       beq .scanline_end
-
+    mov pc, lr
 .align_right:
     tst width, #1
       beq .scanline_block_2px

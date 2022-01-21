@@ -149,7 +149,7 @@
     #define ALIGN16     __declspec(align(16))
 #elif defined(__WATCOMC__) || defined(__3DO__)
     #define X_INLINE    inline
-    #define X_NOINLINE  __declspec(noinline)
+    #define X_NOINLINE
     #define ALIGN4
     #define ALIGN16
 #else
@@ -2050,7 +2050,7 @@ struct IMA_STATE
     int32 idx;
 };
 
-#if defined(MODEHW)
+#if defined(MODEHW) || defined(MODE13)
     #define PROJ_SHIFT 4
 
     #define PERSPECTIVE_DZ(z) (z >> PROJ_SHIFT)
@@ -2061,14 +2061,6 @@ struct IMA_STATE
         int32 d = FixedInvU(dz);\
         x = (x * d) >> (16 - PROJ_SHIFT);\
         y = (y * d) >> (16 - PROJ_SHIFT);\
-    }
-#elif defined(MODE13)
-    #define PERSPECTIVE(x, y, z) {\
-        int32 dz = (z >> (FIXED_SHIFT + FOV_SHIFT - 1)) / 3;\
-        if (dz >= DIV_TABLE_SIZE) dz = DIV_TABLE_SIZE - 1;\
-        int32 d = FixedInvU(dz);\
-        x = d * (x >> 14) >> 12;\
-        y = d * (y >> 14) >> 12;\
     }
 #elif defined(MODE4)
     #define PERSPECTIVE_DZ(z) ((z >> 4) + (z >> 6))

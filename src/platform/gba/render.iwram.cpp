@@ -60,13 +60,7 @@ enum FaceType {
     #define ALIGNED_LIGHTMAP
 #endif
 
-#if defined(MODE4)
-    #include "rasterizer_mode4.h"
-#elif defined(MODE13)
-    #include "rasterizer_mode13.h"
-#else
-    #error no supported video mode set
-#endif
+#include "rasterizer.h"
 
 extern uint8 lightmap[256 * 32];
 extern Level level;
@@ -507,16 +501,15 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
     if ((m.e23 < VIEW_MIN_F) || (m.e23 >= VIEW_MAX_F))
         return false;
 
-    const vec3i v[8] = {
-        _vec3i( box->minX, box->minY, box->minZ ),
-        _vec3i( box->maxX, box->minY, box->minZ ),
-        _vec3i( box->minX, box->maxY, box->minZ ),
-        _vec3i( box->maxX, box->maxY, box->minZ ),
-        _vec3i( box->minX, box->minY, box->maxZ ),
-        _vec3i( box->maxX, box->minY, box->maxZ ),
-        _vec3i( box->minX, box->maxY, box->maxZ ),
-        _vec3i( box->maxX, box->maxY, box->maxZ )
-    };
+    vec3i v[8];
+    v[0] = _vec3i( box->minX, box->minY, box->minZ ),
+    v[1] = _vec3i( box->maxX, box->minY, box->minZ ),
+    v[2] = _vec3i( box->minX, box->maxY, box->minZ ),
+    v[3] = _vec3i( box->maxX, box->maxY, box->minZ ),
+    v[4] = _vec3i( box->minX, box->minY, box->maxZ ),
+    v[5] = _vec3i( box->maxX, box->minY, box->maxZ ),
+    v[6] = _vec3i( box->minX, box->maxY, box->maxZ ),
+    v[7] = _vec3i( box->maxX, box->maxY, box->maxZ );
 
     *rect = RectMinMax( INT_MAX, INT_MAX, INT_MIN, INT_MIN );
 
@@ -1112,6 +1105,8 @@ X_NOINLINE void renderLine(int32 x, int32 y, int32 width, int32 height, int32 in
     }
 
     ASSERT(width == 1 || height == 1);
+    ASSERT(width > 0);
+    ASSERT(height > 0);
 
     gVerticesBase[0].x = x;
     gVerticesBase[0].y = y;
@@ -1120,10 +1115,12 @@ X_NOINLINE void renderLine(int32 x, int32 y, int32 width, int32 height, int32 in
     gVerticesBase[1].x = width;
     gVerticesBase[1].y = height;
 
+    int32 idx = gVerticesBase - gVertices;
+
     Face* f = faceAdd(z);
     f->flags = (height == 1) ? (FACE_TYPE_LINE_H << FACE_TYPE_SHIFT) : (FACE_TYPE_LINE_V << FACE_TYPE_SHIFT);
-    f->indices[0] = gVerticesBase - gVertices;
-    f->indices[1] = f->indices[0] + 1;
+    f->indices[0] = idx;
+    f->indices[1] = idx + 1;
 
     gVerticesBase += 2;
 }
@@ -1294,9 +1291,12 @@ void renderBar(int32 x, int32 y, int32 width, int32 value, BarType type)
     int32 iy = y + 2;
     int32 w = value * width >> 8;
 
-    for (int32 i = 0; i < 5; i++)
+    if (w > 0)
     {
-        renderLine(ix, iy++, w, 1, BAR_COLORS[type][i], 0);
+        for (int32 i = 0; i < 5; i++)
+        {
+            renderLine(ix, iy++, w, 1, BAR_COLORS[type][i], 0);
+        }
     }
 
     renderBorder(x, y, width + 4, BAR_HEIGHT + 4, 27, 19, 17, 0);

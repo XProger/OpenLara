@@ -6,7 +6,7 @@ GXX = nspire-g++
 LD  = nspire-ld
 GENZEHN = genzehn
 
-GCCFLAGS = -marm -march=armv5te -mtune=arm926ej-s -std=c++11 -flto -fomit-frame-pointer -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -D__NDLESS__ -I../../
+GCCFLAGS = -marm -march=armv5te -mtune=arm926ej-s -std=c++11 -flto -ffast-math -fomit-frame-pointer -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -D__TNS__ -I../../
 LDFLAGS = -Wl,--gc-sections -Wl,--as-needed -flto -Wno-alloc-size-larger-than
 ZEHNFLAGS = --name "OpenLara"
 
@@ -18,7 +18,7 @@ endif
 
 OBJS = $(patsubst %.c, %.o, $(shell find . -name \*.c))
 OBJS += $(patsubst %.cpp, %.o, $(shell find . -name \*.cpp))
-OBJS += $(patsubst %.S, %.o, $(shell find . -name \*.S))
+OBJS += $(patsubst %.s, %.o, $(shell find . -name \*.s))
 EXE = OpenLara
 DISTDIR = .
 vpath %.tns $(DISTDIR)
@@ -32,10 +32,11 @@ all: $(EXE).prg.tns
 %.o: %.cpp
 	$(GXX) $(GCCFLAGS) -c $<
 	
-%.o: %.S
+%.o: %.s
 	$(AS) -c $<
 
 $(EXE).elf: $(OBJS)
+	copy ../gba/render.iwram.cpp render.cpp /Y
 	mkdir -p $(DISTDIR)
 	$(LD) $^ -o $(DISTDIR)/$@ $(LDFLAGS)
 

@@ -22,7 +22,7 @@ include $(DEVKITARM)/gba_rules
 #---------------------------------------------------------------------------------
 TARGET		:= OpenLara
 BUILD		:= build
-SOURCES		:= ../../fixed .
+SOURCES		:= ../../fixed . asm
 INCLUDES	:= include . ../../fixed
 DATA		:= data
 MUSIC		:=
@@ -120,6 +120,7 @@ export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+	gbafix $(TARGET).gba -tOpenLara -cOPLA
 
 #---------------------------------------------------------------------------------
 clean:
