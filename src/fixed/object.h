@@ -956,9 +956,6 @@ struct Block : Object
 
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
     {
-        if (lara->extraL->weaponState != WEAPON_STATE_FREE)
-            return;
-
         if (!(lara->input & IN_ACTION))
             return;
 
@@ -1007,6 +1004,9 @@ struct Block : Object
 
         if (lara->state == Lara::STATE_STOP)
         {
+            if (lara->extraL->weaponState != WEAPON_STATE_FREE)
+                return;
+
             if (lara->input & (IN_UP | IN_DOWN))
                 return;
 
@@ -1019,6 +1019,9 @@ struct Block : Object
             lara->angle.y = angle.y;
             lara->alignWall(LARA_RADIUS);
             lara->animProcess();
+            if (lara->state == Lara::STATE_BLOCK_READY) {
+                lara->setWeaponState(WEAPON_STATE_BUSY);
+            }
         }
     }
 
