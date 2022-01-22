@@ -1668,7 +1668,7 @@ struct SaveGame
     uint8 tracks[64];
 };
 
-#define SETTINGS_VER    1
+#define SETTINGS_VER    2
 #define SETTINGS_SIZE   128
 
 struct Settings
@@ -1679,6 +1679,7 @@ struct Settings
     uint8 audio_music:1;
     uint8 video_gamma:5;
     uint8 video_fps:1;
+    uint8 video_vsync:1;
 };
 
 #define FD_SET_END(x,end)   ((x) |= ((end) << 15))

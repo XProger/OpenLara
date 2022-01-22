@@ -596,7 +596,12 @@ int main(void)
 
         #ifdef PROFILING
             VBlankIntrWait();
+        #else
+            if (gSettings.video_vsync) {
+                VBlankIntrWait();
+            }
         #endif
+
         REG_DISPCNT = (mode ^= DCNT_PAGE);
         fb ^= VRAM_PAGE_SIZE;
 

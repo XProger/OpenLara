@@ -90,6 +90,7 @@ void gameInit(const char* name)
     gSettings.audio_music = 1;
     gSettings.video_gamma = 0;
     gSettings.video_fps = 1;
+    gSettings.video_vsync = 0;
     osLoadSettings();
 
     inventory.init();

@@ -90,6 +90,7 @@ enum OptionID
 // video
     OPT_ID_GAMMA = 0,
     OPT_ID_FPS = 1,
+    OPT_ID_VSYNC = 2,
 // passport
     OPT_ID_OK = 5
 };
@@ -911,6 +912,15 @@ struct Inventory
                 osSaveSettings();
             }
         }
+
+        if (optionIndex == OPT_ID_VSYNC)
+        {
+            if (gSettings.video_vsync != opt.value)
+            {
+                gSettings.video_vsync = opt.value;
+                osSaveSettings();
+            }
+        }
     }
 
     void onSound()
@@ -1231,6 +1241,7 @@ struct Inventory
             {
                 OPTION_BAR(STR_OPT_DETAIL_GAMMA, gSettings.video_gamma << 4);
                 OPTION_SWITCH(STR_OPT_DETAIL_FPS, gSettings.video_fps);
+                OPTION_SWITCH(STR_OPT_DETAIL_VSYNC, gSettings.video_vsync);
                 break;
             }
             case SLOT_SOUND:
