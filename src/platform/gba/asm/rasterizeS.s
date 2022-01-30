@@ -118,11 +118,12 @@ rasterizeS_asm:
 .align_right:
     tst width, #1
       beq .scanline
-    ldrb pair, [tmp, width]
     subs width, #1              // width--
+    ldrh pair, [tmp, width]
     and indexA, pair, #0xFF
     ldrb indexA, [LMAP, indexA]
-    orr pair, indexA, pair, lsl #8
+    and pair, #0xFF00
+    orr pair, indexA
     strh pair, [tmp, width]
       beq .scanline_end         // width == 0
 
