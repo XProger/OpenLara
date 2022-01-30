@@ -86,6 +86,7 @@ void gameInit(const char* name)
 
     gSettings.version = SETTINGS_VER;
     gSettings.controls_vibration = 1;
+    gSettings.controls_swap = 0;
     gSettings.audio_sfx = 1;
     gSettings.audio_music = 1;
     gSettings.video_gamma = 0;

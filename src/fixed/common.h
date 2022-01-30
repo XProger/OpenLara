@@ -22,6 +22,13 @@
     #define USE_ASM
 
     #include <tonc.h>
+#elif defined(__NDS__)
+    #define MODEHW
+    #define USE_DIV_TABLE
+
+    #include <nds.h>
+    #include <fat.h>
+    #include <filesystem.h>
 #elif defined(__TNS__)
     #define MODE13
     #define USE_DIV_TABLE
@@ -76,9 +83,12 @@
 #include <new>
 
 #if defined(MODEHW)
-    #ifdef __3DO__
+    #if defined(__3DO__)
         #define FRAME_WIDTH  320
         #define FRAME_HEIGHT 240
+    #elif defined(__NDS__)
+        #define FRAME_WIDTH  256
+        #define FRAME_HEIGHT 192
     #endif
 #elif defined(MODE4)
     #define VRAM_WIDTH   120 // in shorts (240 bytes)
@@ -165,10 +175,14 @@ typedef uint32             divTableInt;
 #else
 typedef signed char        int8;
 typedef signed short       int16;
+#if !defined(__NDS__)
 typedef signed int         int32;
+#endif
 typedef unsigned char      uint8;
 typedef unsigned short     uint16;
+#if !defined(__NDS__)
 typedef unsigned int       uint32;
+#endif
 typedef uint16             divTableInt;
 #endif
 
@@ -178,7 +192,7 @@ X_INLINE int32 abs(int32 x) {
 }
 #endif
 
-#if defined(__GBA__)
+#if defined(__GBA__) || defined(__NDS__)
     #define int2str(x,str) itoa(x, str, 10)
 #elif defined(__3DO__)
     #define int2str(x,str) sprintf(str, "%d", x)
@@ -498,10 +512,12 @@ enum InputKey {
     IK_A        = (1 << 4),
     IK_B        = (1 << 5),
     IK_C        = (1 << 6),
-    IK_L        = (1 << 7),
-    IK_R        = (1 << 8),
-    IK_START    = (1 << 9),
-    IK_SELECT   = (1 << 10)
+    IK_X        = (1 << 7),
+    IK_Y        = (1 << 8),
+    IK_L        = (1 << 9),
+    IK_R        = (1 << 10),
+    IK_START    = (1 << 11),
+    IK_SELECT   = (1 << 12)
 };
 
 // action keys (ItemObj::input)
@@ -991,10 +1007,7 @@ struct Texture
 #else
     uint16 attribute;
     uint16 tile;
-    uint32 uv0;
-    uint32 uv1;
-    uint32 uv2;
-    uint32 uv3;
+    uint32 uv[4];
 #endif
 };
 
@@ -1668,13 +1681,14 @@ struct SaveGame
     uint8 tracks[64];
 };
 
-#define SETTINGS_VER    2
+#define SETTINGS_VER    3
 #define SETTINGS_SIZE   128
 
 struct Settings
 {
     uint8 version;
     uint8 controls_vibration:1;
+    uint8 controls_swap:1;
     uint8 audio_sfx:1;
     uint8 audio_music:1;
     uint8 video_gamma:5;
@@ -2200,6 +2214,7 @@ enum StringID {
     , STR_OPT_CONTROLS_VIBRATION
     , STR_OPT_CONTROLS_RETARGET
     , STR_OPT_CONTROLS_MULTIAIM
+    , STR_OPT_CONTROLS_SWAP
     // controls
     , STR_CTRL_RUN
     , STR_CTRL_BACK

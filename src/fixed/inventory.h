@@ -84,6 +84,7 @@ enum OptionID
 {
 // controls
     OPT_ID_RUMBLE = 0,
+    OPT_ID_SWAP = 1,
 // audio
     OPT_ID_SFX = 0,
     OPT_ID_MUSIC = 1,
@@ -783,7 +784,7 @@ struct Inventory
 
             case OPT_SWITCH:
             {
-                if (lara->isKeyHit(IN_ACTION) || lara->isKeyHit(IN_LEFT) || lara->isKeyHit(IN_RIGHT))
+                if (lara->isKeyHit(IN_LEFT) || lara->isKeyHit(IN_RIGHT))
                 {
                     opt.value = !opt.value;
                 }
@@ -948,6 +949,12 @@ struct Inventory
         {
             gSettings.controls_vibration = opt.value;
             osJoyVibrate(0, 0xFF, 0xFF);
+            osSaveSettings();
+        }
+
+        if ((optionIndex == OPT_ID_SWAP) && (gSettings.controls_swap != opt.value))
+        {
+            gSettings.controls_swap = opt.value;
             osSaveSettings();
         }
     }
@@ -1253,6 +1260,7 @@ struct Inventory
             case SLOT_CONTROLS:
             {
                 OPTION_SWITCH(STR_OPT_CONTROLS_VIBRATION, gSettings.controls_vibration);
+                OPTION_SWITCH(STR_OPT_CONTROLS_SWAP, gSettings.controls_swap);
             /*
                 OPTION_SPACE();
                 OPTION_CTRL(STR_CTRL_RUN, 0);

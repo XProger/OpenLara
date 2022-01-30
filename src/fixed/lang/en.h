@@ -99,6 +99,7 @@ const char* const STR_EN[STR_MAX] = { ""
     , "Rumble"
     , "Retargeting"
     , "Multi-aiming"
+    , "Swap A B"
     // controls
     , "Run"
     , "Back"

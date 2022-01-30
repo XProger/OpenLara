@@ -151,7 +151,13 @@ void drawText(int32 x, int32 y, const char* text, TextAlign align)
             index = charRemap(c);
         }
 
-        renderGlyph(x, y, level.models[ITEM_GLYPHS].start + index);
+        int32 iy = y;
+
+        if (c == 'p') { // TODO investigate!
+            iy--;
+        }
+
+        renderGlyph(x, iy, level.models[ITEM_GLYPHS].start + index);
         x += char_width[index] + 1;
     }
 }

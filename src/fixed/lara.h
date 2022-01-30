@@ -377,7 +377,9 @@ struct Lara : ItemObj
 
     void updateCollision()
     {
-        updateObjectsCollision();
+        #ifndef __NDS__ // TODO
+            updateObjectsCollision();
+        #endif
 
         (this->*cHandlers[state])();
 
@@ -2724,7 +2726,7 @@ struct Lara : ItemObj
 
         input = 0;
 
-    #ifdef __3DO__
+    #if defined(__3DO__)
         if (keys & IK_A) input |= IN_JUMP;
         if (keys & IK_B) input |= IN_ACTION;
         if (keys & IK_C) input |= IN_WEAPON;
@@ -2735,8 +2737,18 @@ struct Lara : ItemObj
             if (keys & IK_L) input |= IN_LOOK;
             if (keys & IK_R) input |= IN_WALK;
         }
-    #else
-        if (keys & IK_A)
+    #elif defined(__GBA__) || defined(_WIN32)
+        int32 ikA, ikB;
+
+        if (gSettings.controls_swap) {
+            ikA = IK_A;
+            ikB = IK_B;
+        } else {
+            ikA = IK_B;
+            ikB = IK_A;
+        }
+
+        if (keys & ikA)
         {
             if (keys & IK_L) {
                 if (extraL->weaponState != WEAPON_STATE_BUSY) {
@@ -2749,7 +2761,7 @@ struct Lara : ItemObj
             }
         }
 
-        if (keys & IK_B)
+        if (keys & ikB)
         {
             if (keys & IK_L) {
                 input |= IN_UP | IN_DOWN;
@@ -2766,6 +2778,13 @@ struct Lara : ItemObj
                 input |= IN_WALK;
             }
         }
+    #elif defined(__NDS__)
+        if (keys & IK_A) input |= IN_UP | IN_DOWN;
+        if (keys & IK_B) input |= IN_ACTION;
+        if (keys & IK_X) input |= IN_WEAPON;
+        if (keys & IK_Y) input |= IN_JUMP;
+        if (keys & IK_L) input |= IN_LOOK;
+        if (keys & IK_R) input |= IN_WALK;
     #endif
 
         if (keys & IK_LEFT)    input |= IN_LEFT;
