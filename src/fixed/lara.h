@@ -2741,11 +2741,11 @@ struct Lara : ItemObj
         int32 ikA, ikB;
 
         if (gSettings.controls_swap) {
-            ikA = IK_A;
-            ikB = IK_B;
-        } else {
             ikA = IK_B;
             ikB = IK_A;
+        } else {
+            ikA = IK_A;
+            ikB = IK_B;
         }
 
         if (keys & ikA)
