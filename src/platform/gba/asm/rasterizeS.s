@@ -15,9 +15,9 @@ tmp     .req r11
 DIVLUT  .req r12
 width   .req lr
 h       .req N
-Ry1     .req tmp
+Rxy     .req tmp
 Ry2     .req Rh
-Ly1     .req tmp
+Lxy     .req tmp
 Ly2     .req Lh
 pair    .req DIVLUT
 indexA  .req Lh
@@ -42,48 +42,40 @@ rasterizeS_asm:
         cmp Lh, #0
           bne .calc_left_end        // if (Lh != 0) end with left
         ldr N, [L, #VERTEX_PREV]    // N = L->prev
-        ldrsh Ly1, [L, #VERTEX_Y]   // Ly1 = L->v.y
+        ldr Lxy, [L, #VERTEX_X]     // Lxy = (L->v.y << 16) | (L->v.x)
         ldrsh Ly2, [N, #VERTEX_Y]   // Ly2 = N->v.y
-        subs Lh, Ly2, Ly1           // Lh = Ly2 - Ly1
+        subs Lh, Ly2, Lxy, asr #16  // Lh = N->v.y - L->v.y
           blt .exit                 // if (Lh < 0) return
-        ldrsh Lx, [L, #VERTEX_X]    // Lx = L->v.x
+        lsl Lx, Lxy, #16            // Lx = L->v.x << 16
+        mov L, N                    // L = N
         cmp Lh, #1                  // if (Lh <= 1) skip Ldx calc
-          ble .skip_left_dx
+          ble .calc_left_start
         lsl tmp, Lh, #1
         ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Lh)
 
-        ldrsh Ldx, [N, #VERTEX_X]
-        sub Ldx, Lx
+        ldrsh Ldx, [L, #VERTEX_X]
+        sub Ldx, Lx, asr #16
         mul Ldx, tmp                // Ldx = tmp * (N->v.x - Lx)
-
-        .skip_left_dx:
-        lsl Lx, #16                 // Lx <<= 16
-        mov L, N                    // L = N
-        b .calc_left_start
     .calc_left_end:
 
     .calc_right_start:
         cmp Rh, #0
           bne .calc_right_end       // if (Rh != 0) end with right
         ldr N, [R, #VERTEX_NEXT]    // N = R->next
-        ldrsh Ry1, [R, #VERTEX_Y]   // Ry1 = R->v.y
+        ldr Rxy, [R, #VERTEX_X]     // Rxy = (R->v.y << 16) | (R->v.x)
         ldrsh Ry2, [N, #VERTEX_Y]   // Ry2 = N->v.y
-        subs Rh, Ry2, Ry1           // Rh = Ry2 - Ry1
+        subs Rh, Ry2, Rxy, asr #16  // Rh = N->v.y - R->v.y
           blt .exit                 // if (Rh < 0) return
-        ldrsh Rx, [R, #VERTEX_X]    // Rx = R->v.x
+        lsl Rx, Rxy, #16            // Rx = R->v.x << 16
+        mov R, N                    // R = N
         cmp Rh, #1                  // if (Rh <= 1) skip Rdx calc
-          ble .skip_right_dx
+          ble .calc_right_start
         lsl tmp, Rh, #1
         ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Rh)
 
-        ldrsh Rdx, [N, #VERTEX_X]
-        sub Rdx, Rx
+        ldrsh Rdx, [R, #VERTEX_X]
+        sub Rdx, Rx, asr #16
         mul Rdx, tmp                // Rdx = tmp * (N->v.x - Rx)
-
-        .skip_right_dx:
-        lsl Rx, #16                 // Rx <<= 16
-        mov R, N                    // R = N
-        b .calc_right_start
     .calc_right_end:
 
     cmp Rh, Lh              // if (Rh < Lh)

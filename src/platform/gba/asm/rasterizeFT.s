@@ -25,9 +25,9 @@ Rdt     .req h
 
 indexA  .req Lh
 indexB  .req Rh
-Ry1     .req tmp
+Rxy     .req tmp
 Ry2     .req Rh
-Ly1     .req tmp
+Lxy     .req tmp
 Ly2     .req Lh
 
 inv     .req Lh
@@ -101,22 +101,22 @@ rasterizeFT_asm:
         cmp Lh, #0
           bne .calc_left_end        // if (Lh != 0) end with left
         ldr N, [L, #VERTEX_PREV]    // N = L->prev
-        ldrsh Ly1, [L, #VERTEX_Y]   // Ly1 = L->v.y
+        ldr Lxy, [L, #VERTEX_X]     // Lxy = (L->v.y << 16) | (L->v.x)
         ldrsh Ly2, [N, #VERTEX_Y]   // Ly2 = N->v.y
-        subs Lh, Ly2, Ly1           // Lh = Ly2 - Ly1
+        subs Lh, Ly2, Lxy, asr #16  // Lh = N->v.y - L->v.y
           blt .exit                 // if (Lh < 0) return
-        ldrsh Lx, [L, #VERTEX_X]    // Lx = L->v.x
+        lsl Lx, Lxy, #16            // Lx = L->v.x << 16
         ldr Lt, [L, #VERTEX_T]      // Lt = L->t
         mov L, N                    // L = N
         cmp Lh, #1                  // if (Lh <= 1) skip Ldx calc
-          ble .skip_left_dx
+          ble .calc_left_start
 
         lsl tmp, Lh, #1
         mov DIVLUT, #DIVLUT_ADDR
         ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Lh)
 
         ldrsh Ldx, [L, #VERTEX_X]
-        sub Ldx, Lx
+        sub Ldx, Lx, asr #16
         mul Ldx, tmp                // Ldx = tmp * (N->v.x - Lx)
         str Ldx, [sp, #SP_LDX]      // store Ldx to stack
 
@@ -131,32 +131,28 @@ rasterizeFT_asm:
         lsl Ldu, #16
         orr Ldt, Ldu, Ldv, lsr #16  // Ldt = (Rdu & 0xFFFF0000) | (Rdv >> 16)
         str Ldt, [sp, #SP_LDT]      // store Ldt to stack
-
-        .skip_left_dx:
-        lsl Lx, #16                 // Lx <<= 16
-        b .calc_left_start
     .calc_left_end:
 
     .calc_right_start:
         cmp Rh, #0
           bne .calc_right_end       // if (Rh != 0) end with right
         ldr N, [R, #VERTEX_NEXT]    // N = R->next
-        ldrsh Ry1, [R, #VERTEX_Y]   // Ry1 = R->v.y
+        ldr Rxy, [R, #VERTEX_X]     // Rxy = (R->v.y << 16) | (R->v.x)
         ldrsh Ry2, [N, #VERTEX_Y]   // Ry2 = N->v.y
-        subs Rh, Ry2, Ry1           // Rh = Ry2 - Ry1
+        subs Rh, Ry2, Rxy, asr #16  // Rh = Ry2 - Rxy
           blt .exit                 // if (Rh < 0) return
-        ldrsh Rx, [R, #VERTEX_X]    // Rx = R->v.x
+        lsl Rx, Rxy, #16            // Rx = R->v.x << 16
         ldr Rt, [R, #VERTEX_T]      // Rt = R->t
         mov R, N                    // R = N
         cmp Rh, #1                  // if (Rh <= 1) skip Rdx calc
-          ble .skip_right_dx
+          ble .calc_right_start
 
         lsl tmp, Rh, #1
         mov DIVLUT, #DIVLUT_ADDR
         ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Rh)
 
         ldrsh Rdx, [R, #VERTEX_X]
-        sub Rdx, Rx
+        sub Rdx, Rx, asr #16
         mul Rdx, tmp                // Rdx = tmp * (N->v.x - Rx)
         str Rdx, [sp, #SP_RDX]      // store Rdx to stack
 
@@ -171,10 +167,6 @@ rasterizeFT_asm:
         lsl Rdu, #16
         orr Rdt, Rdu, Rdv, lsr #16  // Rdt = (Rdu & 0xFFFF0000) | (Rdv >> 16)
         str Rdt, [sp, #SP_RDT]      // store Rdt to stack
-
-        .skip_right_dx:
-        lsl Rx, #16                 // Rx <<= 16
-        b .calc_right_start
     .calc_right_end:
 
     cmp Rh, Lh              // if (Rh < Lh)
