@@ -89,7 +89,7 @@ rasterizeFT_asm:
     ldrb tmp, [L, #VERTEX_G]
     add LMAP, tmp, lsl #8           // tmp = (L->v.g << 8)
 
-    ldr TILE, =tile
+    ldr TILE, =gTile
     ldr TILE, [TILE]
 
     mov Lh, #0                      // Lh = 0

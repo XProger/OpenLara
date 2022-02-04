@@ -28,7 +28,7 @@ vz2         .req vg2
 depth       .req vg0
 
 ot          .req vg1
-next        .req vg2
+next        .req vp0
 
 .global faceAddRoomTriangles_asm
 faceAddRoomTriangles_asm:
@@ -73,7 +73,7 @@ faceAddRoomTriangles_asm:
     mov vg0, vg0, lsl #24
     cmp vg0, vg1, lsl #24
     cmpeq vg0, vg2, lsl #24
-    addeq flags, flags, #FACE_FLAT_ADD
+    addne flags, flags, #FACE_GOURAUD
 
     CCW .skip
 
@@ -99,7 +99,7 @@ faceAddRoomTriangles_asm:
     ldr ot, =gOT
     ldr next, [ot, depth, lsl #2]
     str face, [ot, depth, lsl #2]
-    stmia face!, {next, flags, vp1, vp2}
+    stmia face!, {flags, next, vp1, vp2}
 .skip:
     subs count, count, #1
     bne .loop

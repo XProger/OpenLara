@@ -937,6 +937,11 @@ int32 ItemObj::getSpheres(Sphere* spheres, bool flag) const
 #include "enemy.h"
 #include "object.h"
 
+#ifdef __GBA__
+// ItemObj ctor is called on existing and pre-filled memory
+#pragma GCC diagnostic ignored "-Wuninitialized"
+#endif
+
 ItemObj::ItemObj(Room* room) 
 {
     angle.x     = 0;
@@ -945,7 +950,7 @@ ItemObj::ItemObj(Room* room)
     hSpeed      = 0;
     nextItem    = NULL;
     nextActive  = NULL;
-    animIndex   = level.models[type].animIndex; // ignore this warning, it's initialized
+    animIndex   = level.models[type].animIndex;
     frameIndex  = level.anims[animIndex].frameBegin;
     state       = uint8(level.anims[animIndex].state);
     nextState   = state;
@@ -955,8 +960,17 @@ ItemObj::ItemObj(Room* room)
     hitMask     = 0;
     visibleMask = 0xFFFFFFFF;
 
-    flags &= (ITEM_FLAG_ONCE | ITEM_FLAG_MASK); // and this...
-    flags |= ITEM_FLAG_COLLISION;
+    flags &= (ITEM_FLAG_ONCE | ITEM_FLAG_MASK);
+
+    if ((type == ITEM_BRIDGE_FLAT)   || 
+        (type == ITEM_BRIDGE_TILT_1) || 
+        (type == ITEM_BRIDGE_TILT_2) ||
+        (type == ITEM_TRAP_FLOOR))
+    {
+        // no collision
+    } else {
+        flags |= ITEM_FLAG_COLLISION;
+    }
 
     if (flags & ITEM_FLAG_ONCE) // once -> invisible
     {
@@ -977,6 +991,10 @@ ItemObj::ItemObj(Room* room)
 
     room->add(this);
 }
+
+#ifdef __GBA__
+#pragma GCC diagnostic warning "-Wuninitialized"
+#endif
 
 void ItemObj::update()
 {

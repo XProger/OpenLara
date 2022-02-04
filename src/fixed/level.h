@@ -7,13 +7,14 @@
 Level level;
 
 #ifndef MODEHW
-IWRAM_DATA uint8 lightmap[256 * 32]; // IWRAM 8k
+IWRAM_DATA uint8 gLightmap[256 * 32]; // IWRAM 8k
 #endif
 
 EWRAM_DATA ItemObj items[MAX_ITEMS];
 
 #ifdef ROM_READ
 EWRAM_DATA Texture textures[MAX_TEXTURES]; // animated textures require memory swap
+EWRAM_DATA Sprite sprites[MAX_SPRITES];
 EWRAM_DATA FixedCamera cameras[MAX_CAMERAS];
 EWRAM_DATA Box boxes[MAX_BOXES];
 #endif
@@ -62,7 +63,7 @@ void readLevel_GBA(const uint8* data)
     // initialize global pointers
     gBrightness = -128;
     palSet(level.palette, gSettings.video_gamma << 4, gBrightness);
-    memcpy(lightmap, level.lightmap, sizeof(lightmap));
+    memcpy(gLightmap, level.lightmap, sizeof(gLightmap));
 #endif
 
     // prepare models // TODO prerocess
@@ -111,6 +112,10 @@ void readLevel_GBA(const uint8* data)
     memcpy(textures, level.textures, level.texturesCount * sizeof(Texture));
     level.textures = textures;
 
+    // prepare sprites (TODO preprocess tile address in packer)
+    memcpy(sprites, level.sprites, level.spritesCount * sizeof(Sprite));
+    level.sprites = sprites;
+
     // prepare boxes
     memcpy(boxes, level.boxes, level.boxesCount * sizeof(Box));
     level.boxes = boxes;
@@ -125,6 +130,17 @@ void readLevel_GBA(const uint8* data)
     {
         Texture* tex = level.textures + i;
         tex->data += intptr_t(RAM_TEX);
+    }
+#else
+    // TODO preprocess in packer
+    for (int32 i = 0; i < level.texturesCount; i++)
+    {
+        level.textures[i].tile += (uint32)level.tiles;
+    }
+
+    for (int32 i = 0; i < level.spritesCount; i++)
+    {
+        level.sprites[i].tile += (uint32)level.tiles;
     }
 #endif
 }

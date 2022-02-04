@@ -730,6 +730,8 @@ void drawRoom(const Room* room)
 
 void drawRooms(Camera* camera)
 {
+    RectMinMax vp = viewport;
+
     camera->view.room->clip = viewport;
 
     Room** visRoom = camera->view.room->getVisibleRooms();
@@ -765,12 +767,8 @@ void drawRooms(Camera* camera)
         }
     }
 
-#ifndef MODEHW
-    flush();
-#endif
-
     setPaletteIndex(0);
-    setViewport(camera->view.room->clip);
+    setViewport(vp);
 }
 
 void drawHUD(Lara* lara)

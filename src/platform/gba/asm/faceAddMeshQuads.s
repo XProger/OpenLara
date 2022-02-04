@@ -30,7 +30,7 @@ depth       .req vg0
 
 ot          .req vg1
 vertices    .req vg2
-next        .req vg3
+next        .req vp0
 
 SP_OT       = 0
 SP_VERTICES = 4
@@ -109,7 +109,7 @@ faceAddMeshQuads_asm:
 
     ldr next, [ot, depth, lsl #2]
     str face, [ot, depth, lsl #2]
-    stmia face!, {next, flags, vp1, vp3}
+    stmia face!, {flags, next, vp1, vp3}
 .skip:
     subs count, count, #1
     bne .loop

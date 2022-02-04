@@ -216,7 +216,7 @@ rasterizeGT_asm:
     sub Lh, h               // Lh -= h
     sub Rh, h               // Rh -= h
 
-    ldr TILE, =tile
+    ldr TILE, =gTile
     ldr TILE, [TILE]
 
     stmfd sp!, {L,R,Lh,Rh}  // sp-16

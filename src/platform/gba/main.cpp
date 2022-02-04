@@ -561,7 +561,7 @@ void* osLoadLevel(const char* name)
 int main(void)
 {
     if (intptr_t(divTable) != MEM_EWRAM) return 0;
-    if (intptr_t(lightmap) != MEM_IWRAM) return 0;
+    if (intptr_t(gLightmap) != MEM_IWRAM) return 0;
 
     irq_init(NULL);
     irq_add(II_VBLANK, vblank);

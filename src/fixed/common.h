@@ -20,6 +20,7 @@
     #define USE_DIV_TABLE
     #define ROM_READ
     #define USE_ASM
+    #define ALIGNED_LIGHTMAP
 
     #include <tonc.h>
 #elif defined(__NDS__)
@@ -410,8 +411,10 @@ extern int32 fps;
     #define SND_MAX          127
 #endif
 
-#ifdef __3DO__
+#if defined(__3DO__)
     #define MAX_VERTICES (1024 + 32) // for mesh (max = LEVEL10A room:58)
+#elif defined(__GBA__)
+    #define MAX_VERTICES (5*1024) // for frame (max is 8191 - check the assumption in flush.s)
 #else
     #define MAX_VERTICES (5*1024) // for frame
 #endif
@@ -428,6 +431,7 @@ extern int32 fps;
 #define MAX_CAMERAS         16
 #define MAX_BOXES           1024
 #define MAX_TEXTURES        1536
+#define MAX_SPRITES         180
 #define MAX_FACES           1920
 #define MAX_ROOM_LIST       16
 #define MAX_PORTALS         16
@@ -710,8 +714,8 @@ struct Face
 #else
 struct Face
 {
-    Face* next;
     uint32 flags;
+    Face* next;
     uint16 indices[4];
 };
 #endif
@@ -1005,9 +1009,9 @@ struct Texture
     uint8* data;
     uint32 shift;
 #else
-    uint16 attribute;
-    uint16 tile;
-    uint32 uv[4];
+    uint32 tile;
+    uint32 uv01;
+    uint32 uv23;
 #endif
 };
 
@@ -1017,9 +1021,8 @@ struct Sprite
     uint32 texture;
     int32 l, t, r, b;
 #else
-    uint16 tile;
-    uint8 u, v;
-    uint8 w, h;
+    uint32 tile;
+    uint32 uwvh;
     int16 l, t, r, b;
 #endif
 };
@@ -1998,11 +2001,11 @@ struct Level
     uint16 soundSourcesCount;
     uint16 boxesCount;
     uint16 texturesCount;
+    uint16 spritesCount;
     uint16 itemsCount;
     uint16 camerasCount;
     uint16 cameraFramesCount;
     uint16 soundOffsetsCount;
-    uint16 _reserved;
 
     const uint16* palette;
     const uint8* lightmap;
@@ -2020,7 +2023,7 @@ struct Level
     const Model* models;
     const StaticMesh* staticMeshes;
     Texture* textures;
-    const Sprite* sprites;
+    Sprite* sprites;
     const SpriteSeq* spriteSequences;
     FixedCamera* cameras;
     uint32 soundSources;
@@ -2578,6 +2581,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
         void boxRotateYQ_asm(AABBi &box, int32 quadrant);
         int32 boxIsVisible_asm(const AABBs* box);
         int32 sphereIsVisible_asm(int32 x, int32 y, int32 z, int32 r);
+        void flush_asm();
     }
 
     #define matrixPush              matrixPush_asm
@@ -2596,6 +2600,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define boxRotateYQ             boxRotateYQ_asm
     #define boxIsVisible            boxIsVisible_asm
     #define sphereIsVisible         sphereIsVisible_asm
+    #define flush                   flush_asm
 #else
     #define matrixPush              matrixPush_c
     #define matrixSetIdentity       matrixSetIdentity_c
@@ -2613,6 +2618,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define boxRotateYQ             boxRotateYQ_c
     #define boxIsVisible            boxIsVisible_c
     #define sphereIsVisible         sphereIsVisible_c
+    #define flush                   flush_c
 
     void matrixPush_c();
     void matrixSetIdentity_c();
@@ -2631,6 +2637,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     void boxRotateYQ_c(AABBi &box, int32 quadrant);
     int32 boxIsVisible_c(const AABBs* box);
     int32 sphereIsVisible_c(int32 x, int32 y, int32 z, int32 r);
+    void flush_c();
 #endif
 
 #define matrixPop()     gMatrixPtr--
@@ -2655,7 +2662,6 @@ void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index);
 void renderGlyph(int32 vx, int32 vy, int32 index);
 void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 shade, int32 color1, int32 color2, int32 z);
 void renderBar(int32 x, int32 y, int32 width, int32 value, BarType type);
-void flush();
 void renderBackground(const void* background);
 void* copyBackground();
 

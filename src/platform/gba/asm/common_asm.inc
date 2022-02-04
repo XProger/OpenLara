@@ -3,6 +3,9 @@
 
 #define TEX_2PX     // lazy texturing, comment out for per-pixel
 
+#define FRAME_WIDTH   240
+#define FRAME_HEIGHT  160
+
 .equ VERTEX_X,      0
 .equ VERTEX_Y,      2
 .equ VERTEX_Z,      4
@@ -13,13 +16,20 @@
 .equ VERTEX_NEXT,   16
 .equ VERTEX_SIZEOF, 20
 
+.equ LEVEL_TILES,       40
+.equ LEVEL_TEXTURES,    92
+.equ LEVEL_SPRITES,     96
+
+.equ SPRITE_SIZE,   16
+
+.equ TEXTURE_TILE,  2
+.equ TEXTURE_UV01,  4
+.equ TEXTURE_UV23,  8
+
 .equ EWRAM_START,   0x2000000
 .equ IWRAM_START,   0x3000000
 .equ VRAM_START,    0x6000000
 .equ VRAM_PAGE,     0x000A000
-
-.equ FRAME_WIDTH,   240
-.equ FRAME_HEIGHT,  160
 
 .equ DIVLUT_ADDR,   EWRAM_START
 .equ LMAP_ADDR,     IWRAM_START
@@ -33,9 +43,30 @@
 .equ CLIP_MASK_VP,  (CLIP_LEFT + CLIP_RIGHT + CLIP_TOP + CLIP_BOTTOM)
 .equ CLIP_MASK,     (CLIP_MASK_VP + CLIP_FAR + CLIP_NEAR)
 
-.equ FACE_TYPE_SHIFT, 11
-.equ FACE_FLAT_ADD,   (2 << FACE_TYPE_SHIFT)
-.equ FACE_CLIPPED,    (1 << 16)
+.equ FACE_TEXTURE_BITS, 13
+.equ FACE_TRIANGLE,     (1 << FACE_TEXTURE_BITS)
+.equ FACE_TEXTURE,      ((1 << FACE_TEXTURE_BITS) - 1)
+
+.equ FACE_FLAGS,      0
+.equ FACE_NEXT,       4
+.equ FACE_INDICES,    8
+
+.equ FACE_TYPE_SHIFT, 14
+.equ FACE_TYPE_MASK,  (15 << FACE_TYPE_SHIFT)
+
+.equ FACE_TYPE_SHADOW,  (0 << FACE_TYPE_SHIFT)
+.equ FACE_TYPE_F,       (1 << FACE_TYPE_SHIFT)
+.equ FACE_TYPE_FT,      (2 << FACE_TYPE_SHIFT)
+.equ FACE_TYPE_FTA,     (3 << FACE_TYPE_SHIFT)
+.equ FACE_TYPE_GT,      (4 << FACE_TYPE_SHIFT)
+.equ FACE_TYPE_GTA,     (5 << FACE_TYPE_SHIFT)
+.equ FACE_TYPE_SPRITE,  (6 << FACE_TYPE_SHIFT)
+.equ FACE_TYPE_FILL_S,  (7 << FACE_TYPE_SHIFT)
+.equ FACE_TYPE_LINE_H,  (8 << FACE_TYPE_SHIFT)
+.equ FACE_TYPE_LINE_V,  (9 << FACE_TYPE_SHIFT)
+
+.equ FACE_GOURAUD,    (2 << FACE_TYPE_SHIFT)
+.equ FACE_CLIPPED,    (1 << 18)
 
 .equ FIXED_SHIFT,   14
 .equ PROJ_SHIFT,    4
@@ -48,6 +79,8 @@
 .equ VIEW_MIN,      (64)
 .equ VIEW_MAX,      (VIEW_DIST)
 .equ VIEW_OFF,      4096
+
+.equ OT_SIZE,       641
 
 .equ VIEW_MIN_F,    (VIEW_MIN << FIXED_SHIFT)
 .equ VIEW_MAX_F,    (VIEW_MAX << FIXED_SHIFT)

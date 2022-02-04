@@ -30,8 +30,9 @@ rasterizeF_asm:
 
     mov LMAP, #LMAP_ADDR
 
+    // TODO use ldrh, swap g and clip
     ldrb tmp, [L, #VERTEX_G]
-    ldrb index, [L, #VERTEX_T]
+    ldrb index, [L, #VERTEX_CLIP]
     orr tmp, index, tmp, lsl #8     // tmp = index | (L->v.g << 8)
     ldrb index, [LMAP, tmp]         // tmp = lightmap[tmp]
 

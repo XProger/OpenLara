@@ -3,12 +3,12 @@
 
 #include "common.h"
 
-extern uint8 lightmap[256 * 32];
-extern const uint8* tile;
+extern uint8 gLightmap[256 * 32];
+extern const uint8* gTile;
 
 #ifdef USE_ASM
     extern "C" {
-        //void rasterize_dummy(uint16* pixel, const VertexLink* L, const VertexLink* R);
+        void rasterize_dummy(uint16* pixel, const VertexLink* L, const VertexLink* R);
         void rasterizeS_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
         void rasterizeF_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
         //void rasterizeG_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
@@ -47,7 +47,7 @@ extern const uint8* tile;
 
 void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    const uint8* ft_lightmap = &lightmap[0x1A00];
+    const uint8* ft_lightmap = &gLightmap[0x1A00];
 
     int32 Lh = 0;
     int32 Rh = 0;
@@ -153,7 +153,7 @@ void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
 void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    uint16 color = lightmap[(L->v.g << 8) | L->t.t];
+    uint16 color = gLightmap[(L->v.g << 8) | L->v.clip];
     color |= (color << 8);
 
     int32 Lh = 0;
@@ -264,7 +264,7 @@ void rasterizeG_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32
     int32 Lx, Rx, Ldx = 0, Rdx = 0;
     int32 Lg, Rg, Ldg = 0, Rdg = 0;
 
-    const uint8* ft_lightmap = lightmap + index;
+    const uint8* ft_lightmap = gLightmap + index;
 
     while (1)
     {
@@ -384,7 +384,7 @@ void rasterizeG_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32
 
 void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    const uint8* ft_lightmap = &lightmap[L->v.g << 8];
+    const uint8* ft_lightmap = &gLightmap[L->v.g << 8];
 
     int32 Lh = 0, Rh = 0;
     int32 Lx, Rx, Ldx = 0, Rdx = 0;
@@ -471,7 +471,7 @@ void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 if (intptr_t(ptr) & 1)
                 {
                     ptr--;
-                    *(uint16*)ptr = *ptr | (ft_lightmap[tile[(t & 0xFF00) | (t >> 24)]] << 8);
+                    *(uint16*)ptr = *ptr | (ft_lightmap[gTile[(t & 0xFF00) | (t >> 24)]] << 8);
                     ptr += 2;
                     t += dtdx;
                     width--;
@@ -480,7 +480,7 @@ void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 if (width & 1)
                 {
                     uint32 tmp = Rt - dtdx;
-                    *(uint16*)(ptr + width - 1) = (ptr[width] << 8) | ft_lightmap[tile[(tmp & 0xFF00) | (tmp >> 24)]];
+                    *(uint16*)(ptr + width - 1) = (ptr[width] << 8) | ft_lightmap[gTile[(tmp & 0xFF00) | (tmp >> 24)]];
                 }
 
                 width >>= 1;
@@ -488,9 +488,9 @@ void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 {
                     uint16 p;
 
-                    p = ft_lightmap[tile[(t & 0xFF00) | (t >> 24)]];
+                    p = ft_lightmap[gTile[(t & 0xFF00) | (t >> 24)]];
                     t += dtdx;
-                    p |= ft_lightmap[tile[(t & 0xFF00) | (t >> 24)]] << 8;
+                    p |= ft_lightmap[gTile[(t & 0xFF00) | (t >> 24)]] << 8;
                     t += dtdx;
                     
                     *(uint16*)ptr = p;
@@ -612,7 +612,7 @@ void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 if (intptr_t(ptr) & 1)
                 {
                     ptr--;
-                    *(uint16*)ptr = *ptr | (lightmap[(g >> 8 << 8) | tile[(t & 0xFF00) | (t >> 24)]] << 8);
+                    *(uint16*)ptr = *ptr | (gLightmap[(g >> 8 << 8) | gTile[(t & 0xFF00) | (t >> 24)]] << 8);
                     ptr += 2;
                     t += dtdx;
                     g += dgdx >> 1;
@@ -622,7 +622,7 @@ void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 if (width & 1)
                 {
                     uint32 tmp = Rt - dtdx;
-                    *(uint16*)(ptr + width - 1) = (ptr[width] << 8) | lightmap[(Rg >> 8 << 8) | tile[(tmp & 0xFF00) | (tmp >> 24)]];
+                    *(uint16*)(ptr + width - 1) = (ptr[width] << 8) | gLightmap[(Rg >> 8 << 8) | gTile[(tmp & 0xFF00) | (tmp >> 24)]];
                 }
 
             #ifdef ALIGNED_LIGHTMAP
@@ -636,15 +636,15 @@ void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 #ifdef ALIGNED_LIGHTMAP
                     const uint8* LMAP = (uint8*)(g >> 8 << 8); 
 
-                    uint16 p = LMAP[tile[(t & 0xFF00) | (t >> 24)]];
+                    uint16 p = LMAP[gTile[(t & 0xFF00) | (t >> 24)]];
                     t += dtdx;
-                    p |= LMAP[tile[(t & 0xFF00) | (t >> 24)]] << 8;
+                    p |= LMAP[gTile[(t & 0xFF00) | (t >> 24)]] << 8;
                     t += dtdx;
                     g += dgdx;
                 #else
-                    uint16 p = lightmap[(g >> 8 << 8) | tile[(t & 0xFF00) | (t >> 24)]];
+                    uint16 p = gLightmap[(g >> 8 << 8) | gTile[(t & 0xFF00) | (t >> 24)]];
                     t += dtdx;
-                    p |= lightmap[(g >> 8 << 8) | tile[(t & 0xFF00) | (t >> 24)]] << 8;
+                    p |= gLightmap[(g >> 8 << 8) | gTile[(t & 0xFF00) | (t >> 24)]] << 8;
                     t += dtdx;
                     g += dgdx;
                 #endif
@@ -668,7 +668,7 @@ void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
 void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    const uint8* ft_lightmap = &lightmap[L->v.g << 8];
+    const uint8* ft_lightmap = &gLightmap[L->v.g << 8];
 
     int32 Lh = 0, Rh = 0;
     int32 Lx, Rx, Ldx = 0, Rdx = 0;
@@ -754,7 +754,7 @@ void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
                 if (intptr_t(ptr) & 1)
                 {
-                    uint8 p = tile[(t & 0xFF00) | (t >> 24)];
+                    uint8 p = gTile[(t & 0xFF00) | (t >> 24)];
                     ptr--;
                     if (p) {
                         *(uint16*)ptr = *ptr | (ft_lightmap[p] << 8);
@@ -767,7 +767,7 @@ void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 if (width & 1)
                 {
                     uint32 tmp = Rt - dtdx;
-                    uint8 p = tile[(tmp & 0xFF00) | (tmp >> 24)];
+                    uint8 p = gTile[(tmp & 0xFF00) | (tmp >> 24)];
                     if (p) {
                         *(uint16*)(ptr + width - 1) = (ptr[width] << 8) | ft_lightmap[p];
                     }
@@ -776,9 +776,9 @@ void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 width >>= 1;
                 while (width--)
                 {
-                    uint8 indexA = tile[(t & 0xFF00) | (t >> 24)];
+                    uint8 indexA = gTile[(t & 0xFF00) | (t >> 24)];
                     t += dtdx;
-                    uint8 indexB = tile[(t & 0xFF00) | (t >> 24)];
+                    uint8 indexB = gTile[(t & 0xFF00) | (t >> 24)];
                     t += dtdx;
 
                     if (indexA && indexB) {
@@ -908,10 +908,10 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 {
                     ptr--;
 
-                    uint8 indexB = tile[(t & 0xFF00) | (t >> 24)];
+                    uint8 indexB = gTile[(t & 0xFF00) | (t >> 24)];
 
                     if (indexB) {
-                        *(uint16*)ptr = *ptr | (lightmap[(g >> 8 << 8) | indexB] << 8);
+                        *(uint16*)ptr = *ptr | (gLightmap[(g >> 8 << 8) | indexB] << 8);
                     }
 
                     ptr += 2;
@@ -924,10 +924,10 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 {
                     uint32 tmp = Rt - dtdx;
 
-                    uint8 indexA = tile[(tmp & 0xFF00) | (tmp >> 24)];
+                    uint8 indexA = gTile[(tmp & 0xFF00) | (tmp >> 24)];
 
                     if (indexA) {
-                        *(uint16*)(ptr + width - 1) = (ptr[width] << 8) | lightmap[(Rg >> 8 << 8) | indexA];
+                        *(uint16*)(ptr + width - 1) = (ptr[width] << 8) | gLightmap[(Rg >> 8 << 8) | indexA];
                     }
                 }
 
@@ -940,9 +940,9 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 while (width--)
                 {
                 #ifdef ALIGNED_LIGHTMAP
-                    uint8 indexA = tile[(t & 0xFF00) | (t >> 24)];
+                    uint8 indexA = gTile[(t & 0xFF00) | (t >> 24)];
                     t += dtdx;
-                    uint8 indexB = tile[(t & 0xFF00) | (t >> 24)];
+                    uint8 indexB = gTile[(t & 0xFF00) | (t >> 24)];
                     t += dtdx;
                     g += dgdx;
 
@@ -952,14 +952,14 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                         *(uint16*)ptr = LMAP[indexA] | (LMAP[indexB] << 8);
                     }
                 #else
-                    uint8 indexA = tile[(t & 0xFF00) | (t >> 24)];
+                    uint8 indexA = gTile[(t & 0xFF00) | (t >> 24)];
                     t += dtdx;
-                    uint8 indexB = tile[(t & 0xFF00) | (t >> 24)];
+                    uint8 indexB = gTile[(t & 0xFF00) | (t >> 24)];
                     t += dtdx;
                     g += dgdx;
 
                     if (indexA && indexB) {
-                        *(uint16*)ptr = lightmap[(g >> 8 << 8) | indexA] | (lightmap[(g >> 8 << 8) | indexB] << 8);
+                        *(uint16*)ptr = gLightmap[(g >> 8 << 8) | indexA] | (gLightmap[(g >> 8 << 8) | indexB] << 8);
                     }
                 #endif
 
@@ -1036,7 +1036,7 @@ X_NOINLINE void rasterizeFillS_c(uint16* pixel, const VertexLink* L, const Verte
     int32 width = R->v.x;
     int32 height = R->v.y;
 
-    const uint8* lm = &lightmap[shade << 8];
+    const uint8* lm = &gLightmap[shade << 8];
 
     for (int32 i = 0; i < height; i++)
     {
@@ -1069,10 +1069,10 @@ X_NOINLINE void rasterizeFillS_c(uint16* pixel, const VertexLink* L, const Verte
 #endif
 
 // TODO ARM version
-X_NOINLINE void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
+extern "C" X_NOINLINE void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     R++;
-    const uint8* ft_lightmap = &lightmap[L->v.g << 8];
+    const uint8* ft_lightmap = &gLightmap[L->v.g << 8];
 
     int32 w = R->v.x - L->v.x;
     if (w <= 0 || w >= DIV_TABLE_SIZE) return;
@@ -1080,8 +1080,8 @@ X_NOINLINE void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const Vert
     int32 h = R->v.y - L->v.y;
     if (h <= 0 || h >= DIV_TABLE_SIZE) return;
 
-    int32 u = L->t.uv.u << 8;
-    int32 v = L->t.uv.v << 8;
+    int32 u = L->t.uv.u;
+    int32 v = L->t.uv.v;
 
     int32 iw = FixedInvU(w);
     int32 ih = FixedInvU(h);
@@ -1134,7 +1134,7 @@ X_NOINLINE void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const Vert
 
     for (int32 y = 0; y < h; y++)
     {
-        const uint8* xtile = tile + (v & 0xFF00);
+        const uint8* xtile = gTile + (v & 0xFF00);
 
         volatile uint8* xptr = ptr;
 

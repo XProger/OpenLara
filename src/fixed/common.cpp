@@ -29,7 +29,7 @@ EWRAM_DATA const char* const* STR = STR_EN;
 
 EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
 
-#ifdef __GBA__
+#if defined(__GBA__)
     #include "TRACKS_IMA.h"
     #include "TITLE_SCR.h"
     #include "TITLE_PKD.h"
@@ -1230,7 +1230,7 @@ void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv)
     }
 }
 
-#define MATRIX_TRANSLATE(x,y,z)\
+#define MATRIX_TRANS(x,y,z)\
     Matrix &m = matrixGet();\
     int32 tx = DP33(m.e00, m.e01, m.e02, x, y, z);\
     int32 ty = DP33(m.e10, m.e11, m.e12, x, y, z);\
@@ -1238,7 +1238,7 @@ void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv)
 
 void matrixTranslateRel_c(int32 x, int32 y, int32 z)
 {
-    MATRIX_TRANSLATE(x, y, z);
+    MATRIX_TRANS(x, y, z);
     m.e03 += tx;
     m.e13 += ty;
     m.e23 += tz;
@@ -1249,7 +1249,7 @@ void matrixTranslateAbs_c(int32 x, int32 y, int32 z)
     x -= gCameraViewPos.x;
     y -= gCameraViewPos.y;
     z -= gCameraViewPos.z;
-    MATRIX_TRANSLATE(x, y, z);
+    MATRIX_TRANS(x, y, z);
     m.e03 = tx;
     m.e13 = ty;
     m.e23 = tz;
@@ -1257,7 +1257,7 @@ void matrixTranslateAbs_c(int32 x, int32 y, int32 z)
 
 void matrixTranslateSet_c(int32 x, int32 y, int32 z)
 {
-    MATRIX_TRANSLATE(x, y, z);
+    MATRIX_TRANS(x, y, z);
     m.e03 = tx;
     m.e13 = ty;
     m.e23 = tz;
@@ -1587,6 +1587,7 @@ void dmaFill(void* dst, uint8 value, uint32 count)
 #endif
 }
 
+#ifndef __NDS__
 void dmaCopy(const void* src, void* dst, uint32 size)
 {
     ASSERT((size & 3) == 0);
@@ -1596,3 +1597,4 @@ void dmaCopy(const void* src, void* dst, uint32 size)
     memcpy(dst, src, size);
 #endif
 }
+#endif

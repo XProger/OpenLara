@@ -23,14 +23,12 @@ pair    .req DIVLUT
 indexA  .req Lh
 indexB  .req DIVLUT
 
-.shadow_lightmap:
-  .word lightmap + 0x1A00
-
 .global rasterizeS_asm
 rasterizeS_asm:
     stmfd sp!, {r4-r11, lr}
 
-    ldr LMAP, .shadow_lightmap
+    mov LMAP, #LMAP_ADDR
+    add LMAP, #0x1A00
 
     mov Lh, #0                      // Lh = 0
     mov Rh, #0                      // Rh = 0
