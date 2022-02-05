@@ -97,20 +97,24 @@ rasterizeFT_asm:
 
 .loop:
 
+    cmp Lh, #0
+      bgt .calc_left_end        // if (Lh != 0) end with left
+
     .calc_left_start:
-        cmp Lh, #0
-          bne .calc_left_end        // if (Lh != 0) end with left
         ldrsb N, [L, #VERTEX_PREV]  // N = L + L->prev
         add N, L, N, lsl #VERTEX_SIZEOF_SHIFT
         ldr Lxy, [L, #VERTEX_X]     // Lxy = (L->v.y << 16) | (L->v.x)
         ldrsh Ly2, [N, #VERTEX_Y]   // Ly2 = N->v.y
+
         subs Lh, Ly2, Lxy, asr #16  // Lh = N->v.y - L->v.y
           blt .exit                 // if (Lh < 0) return
+          ldrne Lt, [L, #VERTEX_T]  // Lt = L->t
+          mov L, N                  // L = N
+          beq .calc_left_start
+
         lsl Lx, Lxy, #16            // Lx = L->v.x << 16
-        ldr Lt, [L, #VERTEX_T]      // Lt = L->t
-        mov L, N                    // L = N
         cmp Lh, #1                  // if (Lh <= 1) skip Ldx calc
-          ble .calc_left_start
+          beq .calc_left_end
 
         lsl tmp, Lh, #1
         mov DIVLUT, #DIVLUT_ADDR
@@ -134,20 +138,24 @@ rasterizeFT_asm:
         str Ldt, [sp, #SP_LDT]      // store Ldt to stack
     .calc_left_end:
 
+    cmp Rh, #0
+      bgt .calc_right_end       // if (Rh != 0) end with right
+
     .calc_right_start:
-        cmp Rh, #0
-          bne .calc_right_end       // if (Rh != 0) end with right
         ldrsb N, [R, #VERTEX_NEXT]  // N = R + R->next
         add N, R, N, lsl #VERTEX_SIZEOF_SHIFT
         ldr Rxy, [R, #VERTEX_X]     // Rxy = (R->v.y << 16) | (R->v.x)
         ldrsh Ry2, [N, #VERTEX_Y]   // Ry2 = N->v.y
+
         subs Rh, Ry2, Rxy, asr #16  // Rh = Ry2 - Rxy
           blt .exit                 // if (Rh < 0) return
+          ldrne Rt, [R, #VERTEX_T]  // Rt = R->t
+          mov R, N                  // R = N
+          beq .calc_right_start
+
         lsl Rx, Rxy, #16            // Rx = R->v.x << 16
-        ldr Rt, [R, #VERTEX_T]      // Rt = R->t
-        mov R, N                    // R = N
         cmp Rh, #1                  // if (Rh <= 1) skip Rdx calc
-          ble .calc_right_start
+          beq .calc_right_end
 
         lsl tmp, Rh, #1
         mov DIVLUT, #DIVLUT_ADDR
