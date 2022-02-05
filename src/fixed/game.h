@@ -30,6 +30,9 @@ bool gameSave()
     gSaveGame.randSeedLogic = gRandSeedLogic;
     gSaveGame.randSeedDraw = gRandSeedDraw;
 
+    memset(gSaveGame.invSlots, 0, sizeof(gSaveGame.invSlots));
+    memcpy(gSaveGame.invSlots, inventory.counts, sizeof(inventory.counts));
+
     uint8* ptr = gSaveData;
     ItemObj* item = items;
     for (int32 i = 0; i < level.itemsCount; i++, item++)
@@ -53,6 +56,8 @@ bool gameLoad()
     gLevelID = (LevelID)gSaveGame.level;
     startLevel(gLevelInfo[gLevelID].name);
     gSaveGame = tmp;
+
+    inventory.setSlots(gSaveGame.invSlots);
 
     ItemObj::sFirstActive = NULL;
     ItemObj::sFirstFree = items + level.itemsCount;

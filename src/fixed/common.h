@@ -1661,7 +1661,7 @@ struct ItemObj
 #define TRACK_FLAG_ONCE     32
 #define TRACK_FLAG_MASK     31
 
-#define SAVEGAME_VER    1
+#define SAVEGAME_VER    2
 #define SAVEGAME_SIZE   (8 * 1024)  // 8k EWRAM
 
 struct SaveGame
@@ -1681,7 +1681,8 @@ struct SaveGame
     uint16 ammoUsed;
     uint16 kills;
     uint16 flipped;
-    uint8 tracks[64];
+    uint8  tracks[64];
+    uint16 invSlots[64];
 };
 
 #define SETTINGS_VER    3

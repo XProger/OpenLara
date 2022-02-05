@@ -337,6 +337,18 @@ struct Inventory
         }
     }
 
+    void setSlots(uint16* invSlots)
+    {
+        numKeys = 0;
+
+        memcpy(counts, invSlots, sizeof(counts));
+
+        for (int32 i = 0; i < SLOT_COMPASS; i++)
+        {
+            numKeys += counts[i];
+        }
+    }
+
     bool applyItem(ItemObj* hole)
     {
         #define CHECK_CASE(A, B) case A: { if (useSlot != B) return false; break; }
