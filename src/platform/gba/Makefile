@@ -165,6 +165,10 @@ soundbank.bin soundbank.h : $(AUDIOFILES)
 	@echo $(notdir $<)
 	@$(bin2o)
 
+%.WAD.o	%_WAD.h :	%.WAD
+	@echo $(notdir $<)
+	@$(bin2o)
+
 -include $(DEPSDIR)/*.d
 
 #---------------------------------------------------------------------------------------

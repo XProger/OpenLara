@@ -11,6 +11,11 @@
     <ClCompile Include="libimagequant\nearest.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="stb\stb_image_resize.h" />
+    <ClInclude Include="TR1_PC.h" />
+    <ClInclude Include="TR1_PSX.h" />
+    <ClInclude Include="common.h" />
+    <ClInclude Include="out_3DO.h" />
+    <ClInclude Include="out_GBA.h" />
+    <ClInclude Include="IMA.h" />
   </ItemGroup>
 </Project>
