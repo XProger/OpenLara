@@ -1057,12 +1057,7 @@ uint32 phd_sqrt(uint32 x)
 void anglesFromVector(int32 x, int32 y, int32 z, int16 &angleX, int16 &angleY)
 {
     angleY = phd_atan(z, x);
-    angleX = phd_atan(phd_sqrt(x * x + z * z), y);
-
-    if ((y > 0 && angleX > 0) || (y < 0 && angleX < 0))
-    {
-        angleX = -angleX;
-    }
+    angleX = phd_atan(phd_sqrt(x * x + z * z), -y);
 }
 
 bool boxIntersect(const AABBi &a, const AABBi &b)

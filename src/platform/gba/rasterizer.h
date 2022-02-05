@@ -60,7 +60,7 @@ void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -79,7 +79,7 @@ void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             if (N->v.y < R->v.y) return;
 
@@ -167,7 +167,7 @@ void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             ASSERT(L->v.y >= 0);
 
@@ -188,7 +188,7 @@ void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             ASSERT(R->v.y >= 0);
 
@@ -270,7 +270,7 @@ void rasterizeG_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -292,7 +292,7 @@ void rasterizeG_c(uint16* pixel, const VertexLink* L, const VertexLink* R, int32
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             if (N->v.y < R->v.y) return;
 
@@ -396,7 +396,7 @@ void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -421,7 +421,7 @@ void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             if (N->v.y < R->v.y) return;
 
@@ -528,7 +528,7 @@ void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -556,7 +556,7 @@ void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             if (N->v.y < R->v.y) return;
 
@@ -680,7 +680,7 @@ void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -705,7 +705,7 @@ void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             if (N->v.y < R->v.y) return;
 
@@ -823,7 +823,7 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -851,7 +851,7 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             if (N->v.y < R->v.y) return;
 

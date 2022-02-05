@@ -13,8 +13,10 @@
 .equ VERTEX_CLIP,   7
 .equ VERTEX_T,      8
 .equ VERTEX_PREV,   12
-.equ VERTEX_NEXT,   16
-.equ VERTEX_SIZEOF, 20
+.equ VERTEX_NEXT,   13
+
+.equ VERTEX_SIZEOF_SHIFT,   4
+.equ VERTEX_SIZEOF,         (1 << VERTEX_SIZEOF_SHIFT)
 
 .equ LEVEL_TILES,       40
 .equ LEVEL_TEXTURES,    92

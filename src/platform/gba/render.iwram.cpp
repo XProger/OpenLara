@@ -13,8 +13,9 @@ struct VertexLink
 {
     Vertex v;
     TexCoord t;
-    VertexLink* prev;
-    VertexLink* next;
+    int8 prev;
+    int8 next;
+    uint16 padding;
 };
 
 struct ViewportRel {
@@ -637,16 +638,6 @@ X_NOINLINE void rasterize_c(uint32 flags, VertexLink* top)
         top->v.clip = flags; // use tex coord as color index for untextured polys
     }
 
-#if defined(_WIN32)
-    if (type <= FACE_TYPE_GTA) {
-        VertexLink* t = top;
-        do {
-            ASSERT(t->v.x >= 0 && t->v.x <= FRAME_WIDTH && t->v.y >= 0 && t->v.y <= FRAME_HEIGHT);
-            t = t->next;
-        } while (t != top);
-    }
-#endif
-
     gRasterProc[type]((uint16*)pixel, top, top);
 }
 
@@ -805,30 +796,30 @@ void renderInit()
 
 extern "C" X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v)
 {
-    VertexLink* v1 = v + 0;
-    VertexLink* v2 = v + 1;
-    VertexLink* v3 = v + 2;
+    VertexLink* v0 = v + 0;
+    VertexLink* v1 = v + 1;
+    VertexLink* v2 = v + 2;
 
-    v1->next = v2;
-    v2->next = v3;
-    v3->next = v1;
-    v1->prev = v3;
-    v2->prev = v1;
-    v3->prev = v2;
+    v0->next = v1 - v0;
+    v1->next = v2 - v1;
+    v2->next = v0 - v2;
+    v0->prev = v2 - v0;
+    v1->prev = v0 - v1;
+    v2->prev = v1 - v2;
 
-   VertexLink* top = v1;
+   VertexLink* top;
 
-    if (v1->v.y < v2->v.y) {
-        if (v1->v.y < v3->v.y) {
-            top = v1;
+    if (v0->v.y < v1->v.y) {
+        if (v0->v.y < v2->v.y) {
+            top = v0;
         } else {
-            top = v3;
+            top = v2;
         }
     } else {
-        if (v2->v.y < v3->v.y) {
-            top = v2;
+        if (v1->v.y < v2->v.y) {
+            top = v1;
         } else {
-            top = v3;
+            top = v2;
         }
     }
 
@@ -837,33 +828,33 @@ extern "C" X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v)
 
 extern "C" X_NOINLINE void drawQuad(uint32 flags, VertexLink* v)
 {
-    VertexLink* v1 = v + 0;
-    VertexLink* v2 = v + 1;
-    VertexLink* v3 = v + 2;
-    VertexLink* v4 = v + 3;
+    VertexLink* v0 = v + 0;
+    VertexLink* v1 = v + 1;
+    VertexLink* v2 = v + 2;
+    VertexLink* v3 = v + 3;
 
-    v1->next = v2;
-    v2->next = v3;
-    v3->next = v4;
-    v4->next = v1;
-    v1->prev = v4;
-    v2->prev = v1;
-    v3->prev = v2;
-    v4->prev = v3;
+    v0->next = v1 - v0;
+    v1->next = v2 - v1;
+    v2->next = v3 - v2;
+    v3->next = v0 - v3;
+    v0->prev = v3 - v0;
+    v1->prev = v0 - v1;
+    v2->prev = v1 - v2;
+    v3->prev = v2 - v3;
 
     VertexLink* top;
 
-    if (v1->v.y < v2->v.y) {
-        if (v1->v.y < v3->v.y) {
-            top = (v1->v.y < v4->v.y) ? v1 : v4;
+    if (v0->v.y < v1->v.y) {
+        if (v0->v.y < v2->v.y) {
+            top = (v0->v.y < v3->v.y) ? v0 : v3;
         } else {
-            top = (v3->v.y < v4->v.y) ? v3 : v4;
+            top = (v2->v.y < v3->v.y) ? v2 : v3;
         }
     } else {
-        if (v2->v.y < v3->v.y) {
-            top = (v2->v.y < v4->v.y) ? v2 : v4;
+        if (v1->v.y < v2->v.y) {
+            top = (v1->v.y < v3->v.y) ? v1 : v3;
         } else {
-            top = (v3->v.y < v4->v.y) ? v3 : v4;
+            top = (v2->v.y < v3->v.y) ? v2 : v3;
         }
     }
 
@@ -902,17 +893,30 @@ extern "C" X_NOINLINE void drawPoly(uint32 flags, VertexLink* v)
     }
 
     VertexLink* top = v;
-    top->next = v + 1;
-    top->prev = v + count - 1;
+    top->next = (v + 1) - top;
+    top->prev = (v + count - 1) - top;
 
     bool skip = true;
 
     for (int32 i = 1; i < count; i++)
     {
-        VertexLink *p = v + i;
+        int8 next = i + 1;
+        int8 prev = i - 1;
 
-        p->next = v + (i + 1) % count;
-        p->prev = v + (i - 1 + count) % count;
+        if (next >= count) {
+            next -= count;
+        }
+
+        if (prev < 0) {
+            prev += count;
+        }
+
+        next -= i;
+        prev -= i;
+
+        VertexLink *p = v + i;
+        p->next = next;
+        p->prev = prev;
 
         if (p->v.y != top->v.y)
         {

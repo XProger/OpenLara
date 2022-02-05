@@ -100,7 +100,8 @@ rasterizeFT_asm:
     .calc_left_start:
         cmp Lh, #0
           bne .calc_left_end        // if (Lh != 0) end with left
-        ldr N, [L, #VERTEX_PREV]    // N = L->prev
+        ldrsb N, [L, #VERTEX_PREV]  // N = L + L->prev
+        add N, L, N, lsl #VERTEX_SIZEOF_SHIFT
         ldr Lxy, [L, #VERTEX_X]     // Lxy = (L->v.y << 16) | (L->v.x)
         ldrsh Ly2, [N, #VERTEX_Y]   // Ly2 = N->v.y
         subs Lh, Ly2, Lxy, asr #16  // Lh = N->v.y - L->v.y
@@ -136,7 +137,8 @@ rasterizeFT_asm:
     .calc_right_start:
         cmp Rh, #0
           bne .calc_right_end       // if (Rh != 0) end with right
-        ldr N, [R, #VERTEX_NEXT]    // N = R->next
+        ldrsb N, [R, #VERTEX_NEXT]  // N = R + R->next
+        add N, R, N, lsl #VERTEX_SIZEOF_SHIFT
         ldr Rxy, [R, #VERTEX_X]     // Rxy = (R->v.y << 16) | (R->v.x)
         ldrsh Ry2, [N, #VERTEX_Y]   // Ry2 = N->v.y
         subs Rh, Ry2, Rxy, asr #16  // Rh = Ry2 - Rxy
