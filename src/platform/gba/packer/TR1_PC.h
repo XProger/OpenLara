@@ -880,7 +880,7 @@ struct TR1_PC
             uint16* mesh = addElements(meshData, meshDataSize, sizeof(meshPlane) / sizeof(uint16));
             memcpy(mesh, &meshPlane, sizeof(meshPlane));
 
-            *meshOffset = (mesh - meshData) * sizeof(uint16);
+            *meshOffset = uint32((mesh - meshData) * sizeof(uint16));
 
             uint16* frame = addElements(frameData, frameDataSize, sizeof(meshPlaneFrame) / sizeof(uint16));
             memcpy(frame, &meshPlaneFrame, sizeof(meshPlaneFrame));
@@ -888,7 +888,7 @@ struct TR1_PC
             Animation* anim = addElements(anims, animsCount, 1);
             memset(anim, 0, sizeof(anim[0]));
             anim->frameRate = 1;
-            anim->frameOffset = (frame - frameData) << 1;
+            anim->frameOffset = uint32((frame - frameData) << 1);
 
             Node* node = (Node*)addElements(nodesData, nodesDataSize, sizeof(Node) / sizeof(uint32));
             node->flags = 0;
@@ -899,7 +899,7 @@ struct TR1_PC
             model->count = 1;
             model->start = meshOffsetsCount - 1;
             model->animIndex = animsCount - 1;
-            model->nodeIndex = (uint32*)node - nodesData;
+            model->nodeIndex = uint32((uint32*)node - nodesData);
         }
     }
 

@@ -36,14 +36,16 @@ int main(int argc, char** argv)
 
     if (strcmp(argv[1], "gba") == 0)
     {
-        out_GBA out;
-        out.process(argv[2], pc, NULL);
+        out_GBA* out = new out_GBA();
+        out->process(argv[2], pc, NULL);
+        delete out;
     }
 
     if (strcmp(argv[1], "3do") == 0)
     {
-        out_3DO out;
-        out.process(argv[2], pc, NULL);
+        out_3DO* out = new out_3DO();
+        out->process(argv[2], pc, NULL);
+        delete out;
     }
 
     for (int32 i = 0; i < LVL_MAX; i++)

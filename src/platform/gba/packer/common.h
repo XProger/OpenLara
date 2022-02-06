@@ -178,7 +178,7 @@ struct FileStream
         if (!elements || !count)
             return;
 
-        for (int32 i = 0; i < count; i++)
+        for (int32 i = 0; i < int32(count); i++)
         {
             write(elements[i]);
         }
@@ -665,7 +665,7 @@ uint8* loadBitmap(const char* fileName, int32* width, int32* height, int32* bpp)
     uint8* data = new uint8[ihdr.biWidth * ihdr.biHeight * ihdr.biBitCount / 8];
     data += ihdr.biWidth * ihdr.biHeight * ihdr.biBitCount / 8;
 
-    for (int32 i = 0; i < ihdr.biHeight; i++)
+    for (uint32 i = 0; i < ihdr.biHeight; i++)
     {
         data -= ihdr.biWidth * ihdr.biBitCount / 8;
         fread(data, ihdr.biWidth * ihdr.biBitCount / 8, 1, f);
