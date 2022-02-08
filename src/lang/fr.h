@@ -87,7 +87,7 @@ const char *STR_FR[] = { ""
     , "Vibration"
     , "Reciblage"
     , "Multi-vis)ee"
-    , "Instajump"
+    , "Saut instantan)e"
     // controls
     , "Gauche", "Droite", "Courir", "Arri$ere", "Sauter", "Marcher", "Action", "D)egainer", "Regarder", "Duck", "Dash", "Roulade", "Inventaire", "Start"
     , STR_KEYS
