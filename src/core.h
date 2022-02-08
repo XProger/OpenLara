@@ -436,6 +436,7 @@ namespace Core {
             uint8  vibration;
             uint8  retarget;
             uint8  multiaim;
+            uint8  instajump;
             KeySet keys[cMAX];
         } controls[2];
 
@@ -973,6 +974,7 @@ namespace Core {
             ctrl.vibration = true;
             ctrl.retarget  = true;
             ctrl.multiaim  = true;
+            ctrl.instajump = false;
 
             ctrl.keys[ cLeft      ] = KeySet( ikLeft,   jkLeft   );
             ctrl.keys[ cRight     ] = KeySet( ikRight,  jkRight  );
@@ -997,6 +999,7 @@ namespace Core {
             ctrl.vibration = true;
             ctrl.retarget  = true;
             ctrl.multiaim  = true;
+            ctrl.instajump = false;
 
             ctrl.keys[ cLeft      ] = KeySet( ikNone,   jkLeft   );
             ctrl.keys[ cRight     ] = KeySet( ikNone,   jkRight  );

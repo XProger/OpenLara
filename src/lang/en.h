@@ -87,6 +87,7 @@ const char *STR_EN[] = { ""
     , "Vibration"
     , "Retargeting"
     , "Multi-aiming"
+    , "Instajump"
     // controls
     , "Left", "Right", "Run", "Back", "Jump", "Walk", "Action", "Draw Weapon", "Look", "Duck", "Dash", "Roll", "Inventory", "Start"
     , STR_KEYS

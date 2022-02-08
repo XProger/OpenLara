@@ -208,7 +208,6 @@ struct Character : Controller {
         input = getInput();
         stand = getStand();
         updateState();
-        Controller::update();
 
         if (flags.active) {
             updateVelocity();
@@ -220,6 +219,8 @@ struct Character : Controller {
                     pos = p;
             }
         }
+
+        Controller::update();
     }
 
     virtual void cmdJump(const vec3 &vel) {

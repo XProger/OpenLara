@@ -87,6 +87,7 @@ const char *STR_HU[] = { ""
     , "Vibr)aci)o"
     , ")Uj c)elpont"
     , "Multi-c)elz)as"
+    , "Instajump"
     // controls
     , "Bal", "Jobb", "Fut)as", "Vissza", "Ugr)as", "S)eta", "Akci)o", "Fegyver el\"ov)etel", "N)ez", "Gugol", "L~ok", "Gurul", "T)argylista", "Kezd)es"
     , STR_KEYS

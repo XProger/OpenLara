@@ -87,6 +87,7 @@ const char *STR_CZ[] = { ""
     , "Vibrace"
     , "Auto-zm{ena c)ile"
     , "Multi-m)i{ren)i"
+    , "Instajump"
     // controls
     , "Vlevo", "Vpravo", "Vp{red", "Vzad", "Skok", "Ch^uze", "Akce", "Tasit zbra{n", "Rozhl)ednout", "D{rep", "Sprint", "Kotoul", "Invent)a{r", "Start"
     , STR_KEYS

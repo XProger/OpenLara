@@ -3359,6 +3359,20 @@ struct Lara : Character {
 
     virtual void updateAnimation(bool commands) {
         Controller::updateAnimation(commands);
+
+        const bool bInstajump = Core::settings.controls[camera->cameraIndex].instajump;
+        if (bInstajump && animation.jump != 0.0f) { // Jump must take priority.
+	        animation.isEnded = true;
+            cmdJump(animation.jump);
+        }
+
+        if (animation.isEnded) { // if animation is end - switch to next
+            if (animation.offset != 0.0f) cmdOffset(animation.offset);
+            if (!bInstajump && animation.jump != 0.0f) cmdJump(animation.jump);
+            animation.playNext();
+        } else
+            animation.framePrev = animation.frameIndex;
+
         updateWeapon();
 
         if (stand == STAND_UNDERWATER)

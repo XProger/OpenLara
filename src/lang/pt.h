@@ -87,6 +87,7 @@ const char *STR_PT[] = { ""
     , "Vibra|c+ao"
     , "Mudar Alvo"
     , "Alvo Duplo"
+    , "Instajump"
     // controls
     , "Esquerda", "Direita", "Correr", "Atr)as", "Pular", "Andar", "A|c+ao", "Sacar as Armas", "Olhar", "Abaixar", "Corrida R)apida", "Rolar", "Invent)ario", "Start"
     , STR_KEYS

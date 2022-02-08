@@ -87,6 +87,7 @@ const char *STR_DE[] = { ""
     , "Vibration"
     , "Retargeting"
     , "Multi-aiming"
+    , "Instajump"
     // controls
     , "Links", "Rechts", "Vorw~arts", "R~uckw~arts", "Springen", "Gehen", "Handlung", "Waffe ziehen", "Umsehen", "Ducken", "Sprinten", "Rolle", "Inventar", "Start"
     , STR_KEYS

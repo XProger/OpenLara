@@ -87,6 +87,7 @@ const char *STR_FI[] = { "Suomi"
     , "V~arin~a"
     , "Uudelleent~aht~ays"
     , "Multi-T~aht~ays"
+    , "Instajump"
     // controls
     , "Vasen", "Oikea", "Juoksu", "Taaksep~ain", "Hypp~a~a", "K~avely", "Toiminto", "Aseet Esiin", "Katso", "Konttaa", "Rynt~ays", "Kier~ahd~a", "Tavaraluettelo", "Aloita"
     , STR_KEYS

@@ -1192,13 +1192,6 @@ struct Controller {
 
         if (animation.frameIndex != animation.framePrev)
             doCustomCommand(animation.frameIndex, animation.framePrev);
-
-        if (animation.isEnded) { // if animation is end - switch to next
-            if (animation.offset != 0.0f) cmdOffset(animation.offset);
-            if (animation.jump   != 0.0f) cmdJump(animation.jump);
-            animation.playNext();
-        } else
-            animation.framePrev = animation.frameIndex;
     }
 
     bool checkNear(const vec3 &p, float dist) {
