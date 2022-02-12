@@ -12,7 +12,7 @@ Ldx     .req r8
 Rdx     .req r9
 N       .req r10
 tmp     .req r11
-DIVLUT  .req r12
+pair    .req r12
 width   .req lr
 
 R       .req color
@@ -22,7 +22,7 @@ Ry2     .req Rh
 Lxy     .req tmp
 Ly2     .req Lh
 LMAP    .req Lx
-pair    .req DIVLUT
+ptr     .req tmp
 
 .global rasterizeF_asm
 rasterizeF_asm:
@@ -38,8 +38,6 @@ rasterizeF_asm:
     mov Rh, #0                      // Rh = 0
 
 .loop:
-    mov DIVLUT, #DIVLUT_ADDR
-
     cmp Lh, #0
       bne .calc_left_end        // if (Lh != 0) end with left
 
@@ -57,8 +55,8 @@ rasterizeF_asm:
         cmp Lh, #1                  // if (Lh == 1) skip Ldx calc
           beq .calc_left_end
 
-        lsl tmp, Lh, #1
-        ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Lh)
+        add tmp, Lh, #DIVLUT_ADDR
+        ldrh tmp, [tmp, Lh]         // tmp = FixedInvU(Lh)
 
         ldrsh Ldx, [L, #VERTEX_X]
         sub Ldx, Lx, asr #16
@@ -82,8 +80,8 @@ rasterizeF_asm:
         cmp Rh, #1                  // if (Rh == 1) skip Rdx calc
           beq .calc_right_end
 
-        lsl tmp, Rh, #1
-        ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Rh)
+        add tmp, Rh, #DIVLUT_ADDR
+        ldrh tmp, [tmp, Rh]      // tmp = FixedInvU(Rh)
 
         ldrsh Rdx, [R, #VERTEX_X]
         sub Rdx, Rx, asr #16
@@ -101,29 +99,29 @@ rasterizeF_asm:
     rsbs width, tmp, Rx, asr #16    // width = (Rx >> 16) - x1
       ble .scanline_end             // if (width <= 0) go next scanline
 
-    add tmp, pixel, tmp             // tmp = pixel + x1
+    add ptr, pixel, tmp             // ptr = pixel + x1
 
     // 2 bytes alignment (VRAM write requirement)
 .align_left:
-    tst tmp, #1                 // if (tmp & 1)
+    tst ptr, #1                 // if (ptr & 1)
       beq .align_right
-    ldrb pair, [tmp, #-1]!      //   *tmp++ = (*tmp & 0x00FF) | (index << 8)
+    ldrb pair, [ptr, #-1]!      //   *ptr++ = (*ptr & 0x00FF) | (index << 8)
     orr pair, index, lsl #8
-    strh pair, [tmp], #2
+    strh pair, [ptr], #2
     subs width, #1              // width--
       beq .scanline_end         // if (width == 0)
 
 .align_right:
     tst width, #1
       beq .scanline_block_2px
-    ldrb pair, [tmp, width]
+    ldrb pair, [ptr, width]
     subs width, #1              // width--
     orr pair, index, pair, lsl #8
-    strh pair, [tmp, width]
+    strh pair, [ptr, width]
       beq .scanline_end         // if (width == 0)
 
 .scanline_block_2px:
-    strb index, [tmp], #2       // VRAM one as two bytes write hack
+    strb index, [ptr], #2       // VRAM one as two bytes write hack
     subs width, #2
       bne .scanline_block_2px
 

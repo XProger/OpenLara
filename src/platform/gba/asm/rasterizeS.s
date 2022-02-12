@@ -12,16 +12,15 @@ Ldx     .req r8
 Rdx     .req r9
 N       .req r10
 tmp     .req r11
-DIVLUT  .req r12
+pair    .req r12
 width   .req lr
 h       .req N
 Rxy     .req tmp
 Ry2     .req Rh
 Lxy     .req tmp
 Ly2     .req Lh
-pair    .req DIVLUT
 indexA  .req Lh
-indexB  .req DIVLUT
+indexB  .req pair
 
 .global rasterizeS_asm
 rasterizeS_asm:
@@ -34,7 +33,6 @@ rasterizeS_asm:
     mov Rh, #0                      // Rh = 0
 
 .loop:
-    mov DIVLUT, #DIVLUT_ADDR
 
     cmp Lh, #0
       bne .calc_left_end        // if (Lh != 0) end with left
@@ -53,8 +51,8 @@ rasterizeS_asm:
         cmp Lh, #1                  // if (Lh == 1) skip Ldx calc
           beq .calc_left_end
 
-        lsl tmp, Lh, #1
-        ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Lh)
+        add tmp, Lh, #DIVLUT_ADDR
+        ldrh tmp, [tmp, Lh]         // tmp = FixedInvU(Lh)
 
         ldrsh Ldx, [L, #VERTEX_X]
         sub Ldx, Lx, asr #16
@@ -78,8 +76,8 @@ rasterizeS_asm:
         cmp Rh, #1                  // if (Rh == 1) skip Rdx calc
           beq .calc_right_end
 
-        lsl tmp, Rh, #1
-        ldrh tmp, [DIVLUT, tmp]     // tmp = FixedInvU(Rh)
+        add tmp, Rh, #DIVLUT_ADDR
+        ldrh tmp, [tmp, Rh]         // tmp = FixedInvU(Rh)
 
         ldrsh Rdx, [R, #VERTEX_X]
         sub Rdx, Rx, asr #16
@@ -112,7 +110,7 @@ rasterizeS_asm:
     orr pair, indexA, lsl #8
     strh pair, [tmp], #2
 
-    subs width, #1                  // width--
+    subs width, #1              // width--
       beq .scanline_end
 
 .align_right:

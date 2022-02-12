@@ -11,7 +11,7 @@ vx      .req r7
 vy      .req r8
 vz      .req r12
 m       .req lr
-divLUT  .req m
+tmp     .req m
 vp      .req m
 vMinXY  .req z
 vMaxXY  .req r
@@ -49,9 +49,8 @@ sphereIsVisible_asm:
 
     mov z, vz, lsr #(FIXED_SHIFT + 6)
     add z, z, vz, lsr #(FIXED_SHIFT + 4)
-    mov z, z, lsl #1
-    mov divLUT, #DIVLUT_ADDR
-    ldrh z, [divLUT, z]
+    add tmp, z, #DIVLUT_ADDR
+    ldrh z, [tmp, z]
     mul x, z, x
     mul y, z, y
     mul r, z, r

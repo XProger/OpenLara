@@ -20,7 +20,7 @@ ambient     .req vx
 vp          .req vx
 minXY       .req vx
 maxXY       .req vy
-DIVLUT      .req vy
+tmp         .req vy
 dz          .req vx
 
 SP_MINXY    = 0
@@ -93,9 +93,8 @@ transformMesh_asm:
     // project
     mov dz, z, lsr #4
     add dz, dz, z, lsr #6
-    mov dz, dz, lsl #1
-    mov DIVLUT, #DIVLUT_ADDR
-    ldrh dz, [DIVLUT, dz]
+    add tmp, dz, #DIVLUT_ADDR
+    ldrh dz, [tmp, dz]
     mul x, dz, x
     mul y, dz, y
     mov x, x, asr #(16 - PROJ_SHIFT)

@@ -28,7 +28,6 @@ vp          .req vx
 minXY       .req vx
 maxXY       .req vy
 
-DIVLUT      .req my
 dz          .req mz
 fog         .req mz
 
@@ -137,9 +136,8 @@ transformRoomUW_asm:
     // project
     mov dz, z, lsr #6
     add dz, dz, z, lsr #4
-    mov dz, dz, lsl #1
-    mov DIVLUT, #DIVLUT_ADDR
-    ldrh dz, [DIVLUT, dz]
+    add tmp, dz, #DIVLUT_ADDR
+    ldrh dz, [tmp, dz]
     mul x, dz, x
     mul y, dz, y
     mov x, x, asr #(16 - PROJ_SHIFT)

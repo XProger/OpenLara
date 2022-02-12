@@ -11,7 +11,6 @@ n1      .req r7
 n2      .req r12
 m       .req lr
 tmp     .req m0
-divLUT  .req m0
 
 .macro load
     ldmia m, {m0, m1, m2}
@@ -107,9 +106,8 @@ matrixLerp_asm:
     lerp _1_2
     b .done
 .mX_dY:
-    mov divLUT, #DIVLUT_ADDR
-    mov pdiv, pdiv, lsl #1
-    ldrh tmp, [divLUT, pdiv]
+    add tmp, pdiv, #DIVLUT_ADDR
+    ldrh tmp, [tmp, pdiv]
     mul tmp, pmul, tmp
     mov pmul, tmp, asr #8
     lerp _X_Y

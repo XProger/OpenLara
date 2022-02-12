@@ -16,9 +16,9 @@ rMaxX   .req r12
 rMaxY   .req lr
 
 boxArg  .req mx
-divLUT  .req mz
+tmp     .req mz
 
-bz      .req divLUT
+bz      .req mz
 offset  .req m
 dz      .req offset
 xx      .req rMinX
@@ -69,8 +69,8 @@ SIZE    = (6 * 3 * 4)
 
     mov dz, z, lsr #(FIXED_SHIFT + 6)
     add dz, dz, z, lsr #(FIXED_SHIFT + 4)
-    mov dz, dz, lsl #1
-    ldrh dz, [divLUT, dz]
+    add tmp, dz, #DIVLUT_ADDR
+    ldrh dz, [tmp, dz]
     mul x, dz, x
     mul y, dz, y
 
@@ -165,7 +165,6 @@ boxIsVisible_asm:
     mov maxY, maxY, asr #FIXED_SHIFT
     stmdb sp!, {maxX, maxY, maxZ, minX, minY, minZ}
 
-    mov divLUT, #DIVLUT_ADDR
     mov rMinX, #MAX_INT32
     mov rMinY, #MAX_INT32
     mov rMaxX, #MIN_INT32
