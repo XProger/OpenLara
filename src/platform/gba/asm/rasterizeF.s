@@ -2,7 +2,7 @@
 
 pixel   .req r0
 L       .req r1
-R       .req r2
+color   .req r2
 index   .req r3
 Lh      .req r4
 Rh      .req r5
@@ -15,6 +15,7 @@ tmp     .req r11
 DIVLUT  .req r12
 width   .req lr
 
+R       .req color
 h       .req N
 Rxy     .req tmp
 Ry2     .req Rh
@@ -22,19 +23,16 @@ Lxy     .req tmp
 Ly2     .req Lh
 LMAP    .req Lx
 pair    .req DIVLUT
-blocks  .req DIVLUT
 
 .global rasterizeF_asm
 rasterizeF_asm:
     stmfd sp!, {r4-r11, lr}
 
-    mov LMAP, #LMAP_ADDR
-
-    // TODO use ldrh, swap g and clip
+    add LMAP, color, #LMAP_ADDR
     ldrb tmp, [L, #VERTEX_G]
-    ldrb index, [L, #VERTEX_CLIP]
-    orr tmp, index, tmp, lsl #8     // tmp = index | (L->v.g << 8)
-    ldrb index, [LMAP, tmp]         // tmp = lightmap[tmp]
+    ldrb index, [LMAP, tmp, lsl #8] // index = lightmap[color + L->v.g * 256]
+
+    mov R, L
 
     mov Lh, #0                      // Lh = 0
     mov Rh, #0                      // Rh = 0

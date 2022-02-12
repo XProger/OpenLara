@@ -89,6 +89,8 @@ faceAddMeshTriangles_asm:
     orr vp1, vp0, vp1, lsl #(16 - 3)
     mov vp2, vp2, lsr #3
 
+    orr flags, #FACE_TRIANGLE
+
     ldr ot, =gOT
     ldr next, [ot, depth, lsl #2]
     str face, [ot, depth, lsl #2]

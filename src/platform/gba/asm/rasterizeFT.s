@@ -17,6 +17,8 @@ Lt      .req r11
 Rt      .req r12
 h       .req lr
 
+ptr     .req tmp
+
 Ldx     .req h
 Rdx     .req h
 
@@ -41,13 +43,13 @@ duv     .req R
 du      .req L
 dv      .req R
 
-Lduv    .req h
 Ldu     .req N
 Ldv     .req h
 
-Rduv    .req h
 Rdu     .req N
 Rdv     .req h
+
+Rti     .req indexB
 
 sLdx    .req tmp
 sLdt    .req N
@@ -58,32 +60,25 @@ SP_LDX = 0
 SP_LDT = 4
 SP_RDX = 8
 SP_RDT = 12
+SP_L   = 16
+SP_R   = 20
+SP_LH  = 24
+SP_RH  = 28
+SP_SIZE = 32
 
 .macro PUT_PIXELS
     tex indexA, t
     lit indexA
 
-#ifndef TEX_2PX
-    add t, dtdx
-
-    tex indexB, t
-    lit indexB
-    add t, dtdx
-
-    orr indexA, indexB, lsl #8
-    strh indexA, [tmp], #2
-#else
     add t, dtdx, lsl #1
-
     //orr indexA, indexA, lsl #8
-    strb indexA, [tmp], #2  // writing a byte to GBA VRAM will write a half word for free
-#endif
+    strb indexA, [ptr], #2  // writing a byte to GBA VRAM will write a half word for free
 .endm
 
 .global rasterizeFT_asm
 rasterizeFT_asm:
     stmfd sp!, {r4-r11, lr}
-    sub sp, #16 // reserve stack space for [Ldx, Ldt, Rdx, Rdt]
+    sub sp, #SP_SIZE                // reserve stack space for [Ldx, Ldt, Rdx, Rdt]
 
     mov LMAP, #LMAP_ADDR
     ldrb tmp, [L, #VERTEX_G]
@@ -125,16 +120,9 @@ rasterizeFT_asm:
         mul Ldx, tmp                // Ldx = tmp * (N->v.x - Lx)
         str Ldx, [sp, #SP_LDX]      // store Ldx to stack
 
-        ldr Lduv, [L, #VERTEX_T]
-        sub Lduv, Lt                // Lduv = N->v.t - Lt
-        asr Ldu, Lduv, #16
-        mul Ldu, tmp                // Rdu = tmp * int16(Lduv >> 16)
-        lsl Ldv, Lduv, #16
-        asr Ldv, #16
-        mul Ldv, tmp                // Rdv = tmp * int16(Lduv)
-        lsr Ldu, #16
-        lsl Ldu, #16
-        orr Ldt, Ldu, Ldv, lsr #16  // Ldt = (Rdu & 0xFFFF0000) | (Rdv >> 16)
+        ldr Ldt, [L, #VERTEX_T]
+        sub Ldt, Lt                 // Ldt = N->v.t - Lt
+        scaleUV Ldt, Ldu, Ldv, tmp
         str Ldt, [sp, #SP_LDT]      // store Ldt to stack
     .calc_left_end:
 
@@ -166,16 +154,9 @@ rasterizeFT_asm:
         mul Rdx, tmp                // Rdx = tmp * (N->v.x - Rx)
         str Rdx, [sp, #SP_RDX]      // store Rdx to stack
 
-        ldr Rduv, [R, #VERTEX_T]
-        sub Rduv, Rt                // Rduv = N->v.t - Rt
-        asr Rdu, Rduv, #16
-        mul Rdu, tmp                // Rdu = tmp * int16(Rduv >> 16)
-        lsl Rdv, Rduv, #16
-        asr Rdv, #16
-        mul Rdv, tmp                // Rdv = tmp * int16(Rduv)
-        lsr Rdu, #16
-        lsl Rdu, #16
-        orr Rdt, Rdu, Rdv, lsr #16  // Rdt = (Rdu & 0xFFFF0000) | (Rdv >> 16)
+        ldr Rdt, [R, #VERTEX_T]
+        sub Rdt, Rt                 // Rdt = N->v.t - Rt
+        scaleUV Rdt, Rdu, Rdv, tmp
         str Rdt, [sp, #SP_RDT]      // store Rdt to stack
     .calc_right_end:
 
@@ -185,44 +166,36 @@ rasterizeFT_asm:
     sub Lh, h               // Lh -= h
     sub Rh, h               // Rh -= h
 
-    stmfd sp!, {L,R,Lh,Rh}  // sp-16
+    add tmp, sp, #SP_L
+    stmia tmp, {L, R, Lh, Rh}
 
 .scanline_start:
     asr tmp, Lx, #16                // x1 = (Lx >> 16)
     rsbs width, tmp, Rx, asr #16    // width = (Rx >> 16) - x1
       ble .scanline_end             // if (width <= 0) go next scanline
 
-    add tmp, pixel, tmp             // tmp = pixel + x1
+    add ptr, pixel, tmp             // ptr = pixel + x1
 
     mov DIVLUTi, #DIVLUT_ADDR
     lsl inv, width, #1
     ldrh inv, [DIVLUTi, inv]        // inv = FixedInvU(width)
 
-    sub duv, Rt, Lt                 // duv = Rt - Lt
-    asr du, duv, #16
-    mul du, inv                     // du = inv * int16(duv >> 16)
-    lsl dv, duv, #16
-    asr dv, #16
-    mul dv, inv                     // dv = inv * int16(duv)
-    lsr du, #16
-    lsl du, #16
-    orr dtdx, du, dv, lsr #16       // dtdx = (du & 0xFFFF0000) | (dv >> 16)
+    sub dtdx, Rt, Lt                // duv = Rt - Lt
+    scaleUV dtdx, du, dv, inv
 
     mov t, Lt                       // t = Lt
 
     // 2 bytes alignment (VRAM write requirement)
 .align_left:
-    tst tmp, #1                   // if (tmp & 1)
+    tst ptr, #1                   // if (ptr & 1)
       beq .align_right
-    ldrb indexB, [tmp, #-1]!      // read pal index from VRAM (byte)
 
-    and indexA, t, #0xFF00
-    orr indexA, t, lsr #24        // res = (t & 0xFF00) | (t >> 24)
-    ldrb indexA, [TILE, indexA]
-    ldrb indexA, [LMAP, indexA]
+    tex indexA, t
+    lit indexA
 
+    ldrb indexB, [ptr, #-1]!      // read pal index from VRAM (byte)
     orr indexB, indexA, lsl #8
-    strh indexB, [tmp], #2
+    strh indexB, [ptr], #2
     add t, dtdx
 
     subs width, #1              // width--
@@ -231,19 +204,15 @@ rasterizeFT_asm:
 .align_right:
     tst width, #1
       beq .align_block_4px
-    ldrb indexB, [tmp, width]
 
+    sub Rti, Rt, dtdx
+    tex indexA, Rti
+    lit indexA
+
+    ldrb indexB, [ptr, width]
     subs width, #1              // width--
-
-    sub Rt, dtdx
-    and indexA, Rt, #0xFF00
-    orr indexA, Rt, lsr #24     // res = (t & 0xFF00) | (t >> 24)
-    add Rt, dtdx
-    ldrb indexA, [TILE, indexA]
-    ldrb indexA, [LMAP, indexA]
-
     orr indexB, indexA, indexB, lsl #8
-    strh indexB, [tmp, width]
+    strh indexB, [ptr, width]
 
       beq .scanline_end         // if (width == 0)
 
@@ -276,8 +245,7 @@ rasterizeFT_asm:
       bne .scanline_block_8px
 
 .scanline_end:
-    add tmp, sp, #16
-    ldmia tmp, {sLdx, sLdt, sRdx, sRdt}
+    ldmia sp, {sLdx, sLdt, sRdx, sRdt}
     add Lx, sLdx
     add Lt, sLdt
     add Rx, sRdx
@@ -288,9 +256,10 @@ rasterizeFT_asm:
     subs h, #1
       bne .scanline_start
 
-    ldmfd sp!, {L,R,Lh,Rh}    // sp+16
+    add tmp, sp, #SP_L
+    ldmia tmp, {L, R, Lh, Rh}
     b .loop
 
 .exit:
-    add sp, #16                 // revert reserved space for [Ldx, Ldt, Rdx, Rdt]
+    add sp, #SP_SIZE          // revert reserved space for [Ldx, Ldt, Rdx, Rdt]
     ldmfd sp!, {r4-r11, pc}

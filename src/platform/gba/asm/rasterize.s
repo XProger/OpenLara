@@ -1,11 +1,11 @@
 #include "common_asm.inc"
 
 flags  .req r0
-top    .req r1
-y      .req r2
-width  .req r3
-pixel  .req flags
+L      .req r1
+R      .req r2
+y      .req r3
 type   .req r12
+pixel  .req flags
 
 .extern rasterizeS_asm
 .extern rasterizeF_asm
@@ -22,22 +22,19 @@ type   .req r12
 .global rasterize_asm
 rasterize_asm:
     and type, flags, #FACE_TYPE_MASK
+
     cmp type, #FACE_TYPE_F
-    streqb flags, [top, #VERTEX_CLIP]
+    andeq R, flags, #0xFF   // R = face color for FACE_TYPE_F
+    movne R, L              // R = L otherwise
 
     ldr pixel, =fb
     ldr pixel, [pixel]
-    ldrsh y, [top, #VERTEX_Y]
+    ldrsh y, [L, #VERTEX_Y]
 
-#if (FRAME_WIDTH == 240)    // pixel += (y * 16 - y) * 16
+    // pixel += y * 240 -> (y * 16 - y) * 16
     rsb y, y, y, lsl #4
     add pixel, pixel, y, lsl #4
-#else
-    mov width, #FRAME_WIDTH
-    mla pixel, y, width, pixel
-#endif
 
-    mov r2, top
     add pc, type, lsr #(FACE_TYPE_SHIFT - 2)
     nop
     b rasterizeS_asm

@@ -35,7 +35,7 @@ Ldt     .req h
 Rdt     .req h
 
 indexA  .req Lh
-indexB  .req Rh
+indexB  .req tmp
 
 Rxy     .req tmp
 Ry2     .req Rh
@@ -47,23 +47,19 @@ DIVLUT  .req N
 DIVLUTi .req tmp
 
 ptr     .req Lx
-width   .req Rx
+width   .req Rh
 
 g       .req Lg
-dgdx    .req Rg
+dgdx    .req L
 
 t       .req Lt
-dtdx    .req Rt
-
-duv     .req R
+dtdx    .req R
 du      .req L
 dv      .req R
 
-Lduv    .req N
 Ldu     .req TILE
 Ldv     .req N
 
-Rduv    .req N
 Rdu     .req TILE
 Rdv     .req N
 
@@ -75,7 +71,7 @@ sLdg    .req R
 sLdt    .req Lh
 sRdx    .req Rh
 sRdg    .req tmp
-sRdt    .req N    // not used in ldm due h collision
+sRdt    .req tmp  // not enough regs for one ldmia
 
 SP_LDX = 0
 SP_LDG = 4
@@ -83,6 +79,12 @@ SP_LDT = 8
 SP_RDX = 12
 SP_RDG = 16
 SP_RDT = 20
+SP_L   = 24
+SP_R   = 28
+SP_LH  = 32
+SP_RH  = 36
+SP_SIZE = 40
+SP_TILE = SP_SIZE
 
 .macro PUT_PIXELS
     bic LMAP, g, #255
@@ -91,28 +93,18 @@ SP_RDT = 20
     tex indexA, t
     lit indexA
 
-#ifndef TEX_2PX
-    add t, dtdx
-
-    tex indexB, t
-    lit indexB
-
-    add t, dtdx
-
-    orr indexA, indexB, lsl #8
-    strh indexA, [ptr], #2
-#else
     add t, dtdx, lsl #1
-
     //orr indexA, indexA, lsl #8
     strb indexA, [ptr], #2  // writing a byte to GBA VRAM will write a half word for free
-#endif
 .endm
 
 .global rasterizeGT_asm
 rasterizeGT_asm:
-    stmfd sp!, {r4-r11, lr}
-    sub sp, #24 // reserve stack space for [Ldx, Ldg, Ldt, Rdx, Rdg, Rdt]
+    ldr r3, =gTile
+    ldr r3, [r3]
+
+    stmfd sp!, {r3-r11, lr}
+    sub sp, #SP_SIZE                // reserve stack space for [Ldx, Ldg, Ldt, Rdx, Rdg, Rdt]
 
     mov Lh, #0                      // Lh = 0
     mov Rh, #0                      // Rh = 0
@@ -155,16 +147,9 @@ rasterizeGT_asm:
         asr Ldg, #8                 // 8-bit for fractional part
         str Ldg, [sp, #SP_LDG]      // store Ldg to stack
 
-        ldr Lduv, [L, #VERTEX_T]
-        sub Lduv, Lt                // Lduv = N->v.t - Lt
-        asr Ldu, Lduv, #16
-        mul Ldu, tmp                // Rdu = tmp * int16(Lduv >> 16)
-        lsl Ldv, Lduv, #16
-        asr Ldv, #16
-        mul Ldv, tmp                // Rdv = tmp * int16(Lduv)
-        lsr Ldu, #16
-        lsl Ldu, #16
-        orr Ldt, Ldu, Ldv, lsr #16  // Ldt = (Rdu & 0xFFFF0000) | (Rdv >> 16)
+        ldr Ldt, [L, #VERTEX_T]
+        sub Ldt, Lt                 // Ldt = N->v.t - Lt
+        scaleUV Ldt, Ldu, Ldv, tmp
         str Ldt, [sp, #SP_LDT]      // store Ldt to stack
     .calc_left_end:
 
@@ -204,16 +189,9 @@ rasterizeGT_asm:
         asr Rdg, #8                 // 8-bit for fractional part
         str Rdg, [sp, #SP_RDG]      // store Ldg to stack
 
-        ldr Rduv, [R, #VERTEX_T]
-        sub Rduv, Rt                // Rduv = N->v.t - Rt
-        asr Rdu, Rduv, #16
-        mul Rdu, tmp                // Rdu = tmp * int16(Rduv >> 16)
-        lsl Rdv, Rduv, #16
-        asr Rdv, #16
-        mul Rdv, tmp                // Rdv = tmp * int16(Rduv)
-        lsr Rdu, #16
-        lsl Rdu, #16
-        orr Rdt, Rdu, Rdv, lsr #16  // Rdt = (Rdu & 0xFFFF0000) | (Rdv >> 16)
+        ldr Rdt, [R, #VERTEX_T]
+        sub Rdt, Rt                 // Rdt = N->v.t - Rt
+        scaleUV Rdt, Rdu, Rdv, tmp
         str Rdt, [sp, #SP_RDT]      // store Rdt to stack
     .calc_right_end:
 
@@ -226,54 +204,44 @@ rasterizeGT_asm:
     sub Lh, h               // Lh -= h
     sub Rh, h               // Rh -= h
 
-    ldr TILE, =gTile
-    ldr TILE, [TILE]
+    ldr TILE, [sp, #SP_TILE]
 
-    stmfd sp!, {L,R,Lh,Rh}  // sp-16
+    add tmp, sp, #SP_L
+    stmia tmp, {L, R, Lh, Rh}
 
 .scanline_start:
-    stmfd sp!, {Lx,Rx,Lg,Rg,Lt,Rt}  // sp-24
+    stmfd sp!, {Lx, Lg, Lt}
 
-    asr tmp, Lx, #16                // x1 = (Lx >> 16)
-    rsbs width, tmp, Rx, asr #16    // width = (Rx >> 16) - x1
+    asr Lx, Lx, #16                 // x1 = (Lx >> 16)
+    rsbs width, Lx, Rx, asr #16     // width = (Rx >> 16) - x1
       ble .scanline_end             // if (width <= 0) go next scanline
 
-    add ptr, pixel, tmp             // ptr = pixel + x1
+    add ptr, pixel, Lx              // ptr = pixel + x1
 
     mov DIVLUTi, #DIVLUT_ADDR
     lsl inv, width, #1
     ldrh inv, [DIVLUTi, inv]        // inv = FixedInvU(width)
+
+    sub dtdx, Rt, Lt                // dtdx = Rt - Lt
+    scaleUV dtdx, du, dv, inv
+    // t == Lt (alias)
 
     sub dgdx, Rg, Lg                // dgdx = Rg - Lg
     mul dgdx, inv                   // dgdx *= FixedInvU(width)
     asr dgdx, #15                   // dgdx >>= 15
     // g == Lg (alias)
 
-    sub duv, Rt, Lt                 // duv = Rt - Lt
-    asr du, duv, #16
-    mul du, inv                     // du = inv * int16(duv >> 16)
-    lsl dv, duv, #16
-    asr dv, #16
-    mul dv, inv                     // dv = inv * int16(duv)
-    lsr du, #16
-    lsl du, #16
-    orr dtdx, du, dv, lsr #16       // dtdx = (du & 0xFFFF0000) | (dv >> 16)
-    // t == Lt (alias)
-
     // 2 bytes alignment (VRAM write requirement)
 .align_left:
     tst ptr, #1                   // if (ptr & 1)
       beq .align_right
-    ldrb indexB, [ptr, #-1]!      // read pal index from VRAM (byte)
 
     bic LMAP, g, #255
     add g, dgdx, asr #1
+    tex indexA, t
+    lit indexA
 
-    and indexA, t, #0xFF00
-    orr indexA, t, lsr #24        // res = (t & 0xFF00) | (t >> 24)
-    ldrb indexA, [TILE, indexA]
-    ldrb indexA, [LMAP, indexA]
-
+    ldrb indexB, [ptr, #-1]!      // read pal index from VRAM (byte)
     orr indexB, indexA, lsl #8
     strh indexB, [ptr], #2
     add t, dtdx
@@ -284,21 +252,16 @@ rasterizeGT_asm:
 .align_right:
     tst width, #1
       beq .align_block_4px
-    ldrb indexB, [ptr, width]
 
-    subs width, #1              // width--
+    sub Rti, Rt, dtdx
+    tex indexA, Rti
 
-    mla Rti, width, dtdx, t     // Rti = width * dtdx + t
-    and indexA, Rti, #0xFF00
-    orr indexA, Rti, lsr #24    // res = (t & 0xFF00) | (t >> 24)
-    ldrb indexA, [TILE, indexA]
-
-    asr Rgi, dgdx, #1
-    mla Rgi, width, Rgi, g      // Rgi = width * (dgdx / 2) + g
+    sub Rgi, Rg, dgdx, asr #1
     bic LMAP, Rgi, #255
+    lit indexA
 
-    ldrb indexA, [LMAP, indexA]
-
+    ldrb indexB, [ptr, width]
+    subs width, #1              // width--
     orr indexB, indexA, indexB, lsl #8
     strh indexB, [ptr, width]
 
@@ -333,10 +296,9 @@ rasterizeGT_asm:
       bne .scanline_block_8px
 
 .scanline_end:
-    ldmfd sp!, {Lx,Rx,Lg,Rg,Lt,Rt}  // sp+24
+    ldmfd sp!, {Lx, Lg, Lt}
 
-    add tmp, sp, #16
-    ldmia tmp, {sLdx, sLdg, sLdt, sRdx, sRdg}
+    ldmia sp, {sLdx, sLdg, sLdt, sRdx, sRdg}
 
     add Lx, sLdx
     add Lg, sLdg
@@ -344,17 +306,18 @@ rasterizeGT_asm:
     add Rx, sRdx
     add Rg, sRdg
 
-    ldr tmp, [sp, #(SP_RDT + 16)]
-    add Rt, tmp                     // Rt += Rdt from stack
+    ldr sRdt, [sp, #SP_RDT]
+    add Rt, sRdt
 
     add pixel, #FRAME_WIDTH         // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start
 
-    ldmfd sp!, {L,R,Lh,Rh}          // sp+16
+    add tmp, sp, #SP_L
+    ldmia tmp, {L, R, Lh, Rh}
     b .loop
 
 .exit:
-    add sp, #24                 // revert reserved space for [Ldx, Ldg, Ldt, Rdx, Rdg, Rdt]
+    add sp, #(SP_SIZE + 4)          // revert reserved space for [Ldx, Ldg, Ldt, Rdx, Rdg, Rdt, TILE]
     ldmfd sp!, {r4-r11, pc}

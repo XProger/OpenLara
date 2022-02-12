@@ -49,12 +49,12 @@ enum FaceType {
     FACE_TYPE_MAX
 };
 
-#define FACE_TRIANGLE   (1 << 13)
+#define FACE_TRIANGLE   (1 << 19)
 #define FACE_CLIPPED    (1 << 18)
 #define FACE_TYPE_SHIFT 14
 #define FACE_TYPE_MASK  15
 #define FACE_GOURAUD    (2 << FACE_TYPE_SHIFT)
-#define FACE_TEXTURE    0x1FFF
+#define FACE_TEXTURE    0x3FFF
 
 #include "rasterizer.h"
 
@@ -411,6 +411,7 @@ void faceAddRoomTriangles_c(const RoomTriangle* polys, int32 count)
         if (g0 != g1 || g0 != g2) {
             flags += FACE_GOURAUD;
         }
+        flags |= FACE_TRIANGLE;
 
         if (checkBackface(v0, v1, v2))
             continue;
@@ -487,6 +488,7 @@ void faceAddMeshTriangles_c(const MeshTriangle* polys, int32 count)
         if ((c0 | c1 | c2) & CLIP_MASK_VP) {
             flags |= FACE_CLIPPED;
         }
+        flags |= FACE_TRIANGLE;
 
         int32 depth = (v0->z + v1->z + v2->z + v2->z) >> (2 + OT_SHIFT);
 
@@ -634,11 +636,9 @@ X_NOINLINE void rasterize_c(uint32 flags, VertexLink* top)
 
     uint32 type = (flags >> FACE_TYPE_SHIFT) & FACE_TYPE_MASK;
 
-    if (type == FACE_TYPE_F) {
-        top->v.clip = flags; // use tex coord as color index for untextured polys
-    }
+    VertexLink* R = (type == FACE_TYPE_F) ? (VertexLink*)(flags & 0xFF) : top;
 
-    gRasterProc[type]((uint16*)pixel, top, top);
+    gRasterProc[type]((uint16*)pixel, top, R);
 }
 
 void flush_c()

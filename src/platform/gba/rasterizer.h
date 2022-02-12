@@ -153,7 +153,8 @@ void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
 void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    uint16 color = gLightmap[(L->v.g << 8) | L->v.clip];
+    uint32 color = (uint32)R;
+    color = gLightmap[(L->v.g << 8) | color];
     color |= (color << 8);
 
     int32 Lh = 0;
@@ -162,6 +163,8 @@ void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     int32 Rdx = 0;
     int32 Rx;
     int32 Lx;
+
+    R = L;
 
     while (1)
     {

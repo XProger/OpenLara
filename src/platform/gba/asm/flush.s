@@ -25,6 +25,7 @@ verticesBase .req vZG
 facesBase    .req vZG
 vertex       .req vZG
 texture      .req tmp
+texAnim      .req vXY
 texIndex     .req tmp
 texTile      .req tmp
 sprite       .req tmp
@@ -121,8 +122,12 @@ flush_asm:
 
   .set_texture:
     mov texIndex, flags, lsl #(32 - FACE_TEXTURE_BITS)
+    //cmp texIndex, #(MAX_ANIM_TEX << (32 - FACE_TEXTURE_BITS)) // TODO split to animated and static textures arrays
     add texIndex, texIndex, texIndex, lsl #1
     add texture, TEXTURES, texIndex, lsr #(32 - FACE_TEXTURE_BITS - 2)
+    //addge texture, TEXTURES, texIndex, lsr #(32 - FACE_TEXTURE_BITS - 2)
+    //ldrlt texAnim, =gAnimTextures
+    //addlt texture, texAnim, texIndex, lsr #(32 - FACE_TEXTURE_BITS - 2)
 
     ldmia texture, {texTile, uv01, uv23}
     str texTile, [TILE]

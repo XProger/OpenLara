@@ -1,8 +1,6 @@
 .section .iwram
 .arm
 
-#define TEX_2PX     // lazy texturing, comment out for per-pixel
-
 #define FRAME_WIDTH   240
 #define FRAME_HEIGHT  160
 
@@ -45,9 +43,11 @@
 .equ CLIP_MASK_VP,  (CLIP_LEFT + CLIP_RIGHT + CLIP_TOP + CLIP_BOTTOM)
 .equ CLIP_MASK,     (CLIP_MASK_VP + CLIP_FAR + CLIP_NEAR)
 
-.equ FACE_TEXTURE_BITS, 13
-.equ FACE_TRIANGLE,     (1 << FACE_TEXTURE_BITS)
+.equ FACE_TEXTURE_BITS, 14
 .equ FACE_TEXTURE,      ((1 << FACE_TEXTURE_BITS) - 1)
+.equ FACE_GOURAUD,      (2 << FACE_TYPE_SHIFT)
+.equ FACE_CLIPPED,      (1 << 18)
+.equ FACE_TRIANGLE,     (1 << 19)
 
 .equ FACE_FLAGS,      0
 .equ FACE_NEXT,       4
@@ -66,9 +66,6 @@
 .equ FACE_TYPE_FILL_S,  (7 << FACE_TYPE_SHIFT)
 .equ FACE_TYPE_LINE_H,  (8 << FACE_TYPE_SHIFT)
 .equ FACE_TYPE_LINE_V,  (9 << FACE_TYPE_SHIFT)
-
-.equ FACE_GOURAUD,    (2 << FACE_TYPE_SHIFT)
-.equ FACE_CLIPPED,    (1 << 18)
 
 .equ FIXED_SHIFT,   14
 .equ PROJ_SHIFT,    4
@@ -90,6 +87,7 @@
 
 .equ MAX_CAUSTICS,   32
 .equ MAX_RAND_TABLE, 32
+.equ MAX_ANIM_TEX,   128
 
 .equ MIN_INT32,     0x80000000
 .equ MAX_INT32,     0x7FFFFFFF
@@ -108,6 +106,17 @@
     sub vy2, vy2, vy0
     mlas tmp, vx1, vy2, tmp
     ble \skip
+.endm
+
+.macro scaleUV uv, u, v, f
+    asr \u, \uv, #16
+    mul \u, \f                // u = f * int16(uv >> 16)
+    lsl \v, \uv, #16
+    asr \v, #16
+    mul \v, \f                // v = f * int16(uv)
+    lsr \u, #16
+    lsl \u, #16
+    orr \uv, \u, \v, lsr #16  // uv = (u & 0xFFFF0000) | (v >> 16)
 .endm
 
 .macro tex index, uv
