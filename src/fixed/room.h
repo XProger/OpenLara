@@ -49,9 +49,9 @@ int32 Sector::getFloor(int32 x, int32 y, int32 z) const
             floor -= sx * (sx < 0 ? dx : (dx - 1023)) >> 2;
             floor -= sz * (sz < 0 ? dz : (dz - 1023)) >> 2;
         }
-    }
 
-    lowerSector->getTriggerFloorCeiling(x, y, z, &floor, NULL);
+        lowerSector->getTriggerFloorCeiling(x, y, z, &floor, NULL);
+    }
 
     return floor;
 }
@@ -86,7 +86,10 @@ int32 Sector::getCeiling(int32 x, int32 y, int32 z) const
 
     const Sector* lowerSector = getSectorBelow(x, z);
 
-    lowerSector->getTriggerFloorCeiling(x, y, z, NULL, &ceiling);
+    if (lowerSector->floorIndex)
+    {
+        lowerSector->getTriggerFloorCeiling(x, y, z, NULL, &ceiling);
+    }
 
     return ceiling;
 }
