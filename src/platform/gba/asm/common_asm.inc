@@ -92,6 +92,11 @@
 .equ MIN_INT32,     0x80000000
 .equ MAX_INT32,     0x7FFFFFFF
 
+.macro divLUT res, x
+    add \res, \x, #DIVLUT_ADDR
+    ldrh \res, [\res, \x]
+.endm
+
 .macro CCW skip
     ldrsh vx0, [vp0, #VERTEX_X]
     ldrsh vy0, [vp0, #VERTEX_Y]

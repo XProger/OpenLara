@@ -69,10 +69,9 @@ SIZE    = (6 * 3 * 4)
 
     mov dz, z, lsr #(FIXED_SHIFT + 6)
     add dz, dz, z, lsr #(FIXED_SHIFT + 4)
-    add tmp, dz, #DIVLUT_ADDR
-    ldrh dz, [tmp, dz]
-    mul x, dz, x
-    mul y, dz, y
+    divLUT tmp, dz
+    mul x, tmp, x
+    mul y, tmp, y
 
     cmp x, rMinX
     movlt rMinX, x

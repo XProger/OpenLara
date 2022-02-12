@@ -49,11 +49,10 @@ sphereIsVisible_asm:
 
     mov z, vz, lsr #(FIXED_SHIFT + 6)
     add z, z, vz, lsr #(FIXED_SHIFT + 4)
-    add tmp, z, #DIVLUT_ADDR
-    ldrh z, [tmp, z]
-    mul x, z, x
-    mul y, z, y
-    mul r, z, r
+    divLUT tmp, z
+    mul x, tmp, x
+    mul y, tmp, y
+    mul r, tmp, r
 
     mov x, x, asr #(16 - PROJ_SHIFT)
     mov y, y, lsl #(PROJ_SHIFT)

@@ -109,8 +109,7 @@ rasterizeFT_asm:
         cmp Lh, #1                  // if (Lh <= 1) skip Ldx calc
           beq .calc_left_end
 
-        add tmp, Lh, #DIVLUT_ADDR
-        ldrh tmp, [tmp, Lh]         // tmp = FixedInvU(Lh)
+        divLUT tmp, Lh              // tmp = FixedInvU(Lh)
 
         ldrsh Ldx, [L, #VERTEX_X]
         sub Ldx, Lx, asr #16
@@ -142,8 +141,7 @@ rasterizeFT_asm:
         cmp Rh, #1                  // if (Rh <= 1) skip Rdx calc
           beq .calc_right_end
 
-        add tmp, Rh, #DIVLUT_ADDR
-        ldrh tmp, [tmp, Rh]         // tmp = FixedInvU(Rh)
+        divLUT tmp, Rh              // tmp = FixedInvU(Rh)
 
         ldrsh Rdx, [R, #VERTEX_X]
         sub Rdx, Rx, asr #16
@@ -172,8 +170,7 @@ rasterizeFT_asm:
 
     add ptr, pixel, tmp             // ptr = pixel + x1
 
-    add inv, width, #DIVLUT_ADDR
-    ldrh inv, [inv, width]          // inv = FixedInvU(width)
+    divLUT inv, width               // inv = FixedInvU(width)
 
     sub dtdx, Rt, Lt                // duv = Rt - Lt
     scaleUV dtdx, du, dv, inv

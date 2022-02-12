@@ -106,8 +106,7 @@ matrixLerp_asm:
     lerp _1_2
     b .done
 .mX_dY:
-    add tmp, pdiv, #DIVLUT_ADDR
-    ldrh tmp, [tmp, pdiv]
+    divLUT tmp, pdiv
     mul tmp, pmul, tmp
     mov pmul, tmp, asr #8
     lerp _X_Y

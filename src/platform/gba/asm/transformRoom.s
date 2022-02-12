@@ -110,10 +110,9 @@ transformRoom_asm:
     // project
     mov dz, z, lsr #6
     add dz, dz, z, lsr #4
-    add tmp, dz, #DIVLUT_ADDR
-    ldrh dz, [tmp, dz]
-    mul x, dz, x
-    mul y, dz, y
+    divLUT tmp, dz
+    mul x, tmp, x
+    mul y, tmp, y
     mov x, x, asr #(16 - PROJ_SHIFT)
     mov y, y, asr #(16 - PROJ_SHIFT)
 
