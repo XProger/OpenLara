@@ -185,7 +185,7 @@ void Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int
     } while (!FD_END(cmd));
 }
 
-
+#ifndef USE_ASM
 const Sector* Room::getSector(int32 x, int32 z) const
 {
     // TODO remove clamp?
@@ -194,6 +194,7 @@ const Sector* Room::getSector(int32 x, int32 z) const
 
     return sectors + sx * info->zSectors + sz;
 }
+#endif
 
 const Sector* Room::getWaterSector(int32 x, int32 z) const
 {
