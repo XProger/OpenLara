@@ -56,40 +56,39 @@ faceAddMeshTriangles_asm:
 
     CCW .skip
 
-    // fetch ((clip << 8) | g)
-    ldrh vg0, [vp0, #VERTEX_G]
-    ldrh vg1, [vp1, #VERTEX_G]
-    ldrh vg2, [vp2, #VERTEX_G]
+    // fetch clip flags
+    ldrb vg0, [vp0, #VERTEX_CLIP]
+    ldrb vg1, [vp1, #VERTEX_CLIP]
+    ldrb vg2, [vp2, #VERTEX_CLIP]
 
     // check clipping
     and tmp, vg0, vg1
-    and tmp, tmp, vg2
-    tst tmp, #CLIP_MASK
+    ands tmp, vg2
     bne .skip
 
     // mark if should be clipped by viewport
     orr tmp, vg0, vg1
-    orr tmp, tmp, vg2
-    tst tmp, #CLIP_MASK_VP
+    orr tmp, vg2
+    tst tmp, #(CLIP_MASK_VP >> 8)
     ldrh flags, [polys, #-8]
-    orrne flags, flags, #FACE_CLIPPED
+    orrne flags, #FACE_CLIPPED
 
     // vz0 = AVG_Z3 (depth)
     ldrh vz0, [vp0, #VERTEX_Z]
     ldrh vz1, [vp1, #VERTEX_Z]
     ldrh vz2, [vp2, #VERTEX_Z]
     add depth, vz0, vz1
-    add depth, depth, vz2, lsl #1
-    mov depth, depth, lsr #(2 + OT_SHIFT)
+    add depth, vz2, lsl #1
+    lsr depth, #(2 + OT_SHIFT)
 
     // faceAdd
-    sub vp0, vp0, vertices
-    sub vp1, vp1, vertices
-    sub vp2, vp2, vertices
+    sub vp0, vertices
+    sub vp1, vertices
+    sub vp2, vertices
 
-    mov vp0, vp0, lsr #3
+    lsr vp0, #3
     orr vp1, vp0, vp1, lsl #(16 - 3)
-    mov vp2, vp2, lsr #3
+    lsr vp2, #3
 
     orr flags, #FACE_TRIANGLE
 
@@ -97,7 +96,7 @@ faceAddMeshTriangles_asm:
     str face, [ot, depth, lsl #2]
     stmia face!, {flags, next, vp1, vp2}
 .skip:
-    subs count, count, #1
+    subs count, #1
     bne .loop
 
     ldr tmp, =gFacesBase

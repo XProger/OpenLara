@@ -65,25 +65,25 @@ faceAddRoomQuads_asm:
 
     // check clipping
     and tmp, vg0, vg1
-    and tmp, tmp, vg2
-    and tmp, tmp, vg3
+    and tmp, vg2
+    and tmp, vg3
     tst tmp, #CLIP_MASK
     bne .skip
 
     // mark if should be clipped by viewport
     orr tmp, vg0, vg1
-    orr tmp, tmp, vg2
-    orr tmp, tmp, vg3
+    orr tmp, vg2
+    orr tmp, vg3
     tst tmp, #CLIP_MASK_VP
     ldrh flags, [polys, #-12]
-    orrne flags, flags, #FACE_CLIPPED
+    orrne flags, #FACE_CLIPPED
 
-    // shift and compare VERTEX_G for flat rasterization
-    mov vg0, vg0, lsl #24
+    // shift and compare VERTEX_G for gouraud rasterization
+    lsl vg0, #24
     cmp vg0, vg1, lsl #24
     cmpeq vg0, vg2, lsl #24
     cmpeq vg0, vg3, lsl #24
-    addne flags, flags, #FACE_GOURAUD
+    addne flags, #FACE_GOURAUD
 
     CCW .skip
 
@@ -102,22 +102,21 @@ faceAddRoomQuads_asm:
 
     // faceAdd
     ldr vertices, =gVertices
+    sub vp0, vertices
+    sub vp1, vertices
+    sub vp2, vertices
+    sub vp3, vertices
 
-    sub vp0, vp0, vertices
-    sub vp1, vp1, vertices
-    sub vp2, vp2, vertices
-    sub vp3, vp3, vertices
-
-    mov vp0, vp0, lsr #3
+    lsr vp0, #3
     orr vp1, vp0, vp1, lsl #(16 - 3)
-    mov vp2, vp2, lsr #3
+    lsr vp2, #3
     orr vp3, vp2, vp3, lsl #(16 - 3)
 
     ldr next, [ot, depth, lsl #2]
     str face, [ot, depth, lsl #2]
     stmia face!, {flags, next, vp1, vp3}
 .skip:
-    subs count, count, #1
+    subs count, #1
     bne .loop
 
     ldr tmp, =gFacesBase
