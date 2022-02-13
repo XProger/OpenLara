@@ -97,19 +97,25 @@
     ldrh \res, [\res, \x]
 .endm
 
+// vx0 - vg0
+// vy0 - vg1
+// vx1 - vg2
+// vy1 - vg3
+// vx2 - vg2
+// vy2 - vg2
 .macro CCW skip
     ldrsh vx0, [vp0, #VERTEX_X]
     ldrsh vy0, [vp0, #VERTEX_Y]
     ldrsh vx2, [vp2, #VERTEX_X]
     ldrsh vy1, [vp1, #VERTEX_Y]
-    rsb vx2, vx2, vx0   // reverse order for mla
+    rsb vx2, vx2, vx0 // reverse order for mla
     sub vy1, vy1, vy0
-    mul tmp, vx2, vy1
+    mul vy1, vx2, vy1
     ldrsh vx1, [vp1, #VERTEX_X]
+    sub vx0, vx1, vx0
     ldrsh vy2, [vp2, #VERTEX_Y]
-    sub vx1, vx1, vx0
-    sub vy2, vy2, vy0
-    mlas tmp, vx1, vy2, tmp
+    sub vy0, vy2, vy0
+    mlas vy1, vx0, vy0, vy1
     ble \skip
 .endm
 

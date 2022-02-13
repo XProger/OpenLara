@@ -12,7 +12,7 @@ vp0         .req r8
 vp1         .req r9
 vp2         .req r10
 vertices    .req r11
-tmp         .req r12
+ot          .req r12
 face        .req lr
 
 vx0         .req vg0
@@ -20,14 +20,14 @@ vy0         .req vg1
 vx1         .req vg2
 vy1         .req vg3
 vx2         .req vg2
-vy2         .req vg3
+vy2         .req vg2
 
 vz0         .req vg0
 vz1         .req vg1
 vz2         .req vg2
 depth       .req vg0
 
-ot          .req vg1
+tmp         .req flags
 next        .req vp0
 
 .global faceAddMeshTriangles_asm
@@ -40,14 +40,15 @@ faceAddMeshTriangles_asm:
     ldr face, =gFacesBase
     ldr face, [face]
 
+    ldr ot, =gOT
     ldr vertices, =gVertices
 
+    add polys, #2   // skip flags
+
 .loop:
-    ldrh flags, [polys, #0]
-    ldrb vp0, [polys, #2]
-    ldrb vp1, [polys, #3]
-    ldrb vp2, [polys, #4]
-    add polys, polys, #6
+    ldrb vp0, [polys], #1
+    ldrb vp1, [polys], #1
+    ldrb vp2, [polys], #4   // + padding + flags
 
     add vp0, vp, vp0, lsl #3
     add vp1, vp, vp1, lsl #3
@@ -70,6 +71,7 @@ faceAddMeshTriangles_asm:
     orr tmp, vg0, vg1
     orr tmp, tmp, vg2
     tst tmp, #CLIP_MASK_VP
+    ldrh flags, [polys, #-8]
     orrne flags, flags, #FACE_CLIPPED
 
     // vz0 = AVG_Z3 (depth)
@@ -91,7 +93,6 @@ faceAddMeshTriangles_asm:
 
     orr flags, #FACE_TRIANGLE
 
-    ldr ot, =gOT
     ldr next, [ot, depth, lsl #2]
     str face, [ot, depth, lsl #2]
     stmia face!, {flags, next, vp1, vp2}

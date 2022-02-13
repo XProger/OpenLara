@@ -12,7 +12,7 @@ vp0         .req r8
 vp1         .req r9
 vp2         .req r10
 vp3         .req r11
-tmp         .req r12
+ot          .req r12
 face        .req lr
 
 vx0         .req vg0
@@ -20,7 +20,7 @@ vy0         .req vg1
 vx1         .req vg2
 vy1         .req vg3
 vx2         .req vg2
-vy2         .req vg3
+vy2         .req vg2
 
 vz0         .req vg0
 vz1         .req vg1
@@ -28,13 +28,9 @@ vz2         .req vg2
 vz3         .req vg3
 depth       .req vg0
 
-ot          .req vg1
+tmp         .req flags
 vertices    .req vg2
 next        .req vp0
-
-SP_OT       = 0
-SP_VERTICES = 4
-SP_SIZE     = 8
 
 .global faceAddMeshQuads_asm
 faceAddMeshQuads_asm:
@@ -47,15 +43,14 @@ faceAddMeshQuads_asm:
     ldr face, [face]
 
     ldr ot, =gOT
-    ldr vertices, =gVertices
-    stmfd sp!, {ot, vertices}
+
+    add polys, #2   // skip flags
 
 .loop:
-    ldrh flags, [polys], #2
     ldrb vp0, [polys], #1
     ldrb vp1, [polys], #1
     ldrb vp2, [polys], #1
-    ldrb vp3, [polys], #1
+    ldrb vp3, [polys], #3   // + flags
 
     add vp0, vp, vp0, lsl #3
     add vp1, vp, vp1, lsl #3
@@ -82,6 +77,7 @@ faceAddMeshQuads_asm:
     orr tmp, tmp, vg2
     orr tmp, tmp, vg3
     tst tmp, #CLIP_MASK_VP
+    ldrh flags, [polys, #-8]
     orrne flags, flags, #FACE_CLIPPED
 
     // vz0 = AVG_Z4 (depth)
@@ -95,7 +91,7 @@ faceAddMeshQuads_asm:
     mov depth, depth, lsr #(2 + OT_SHIFT)
 
     // faceAdd
-    ldmia sp, {ot, vertices}
+    ldr vertices, =gVertices
 
     sub vp0, vp0, vertices
     sub vp1, vp1, vertices
@@ -117,5 +113,4 @@ faceAddMeshQuads_asm:
     ldr tmp, =gFacesBase
     str face, [tmp]
 
-    add sp, sp, #SP_SIZE
     ldmfd sp!, {r4-r11, pc}
