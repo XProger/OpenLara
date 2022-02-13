@@ -65,10 +65,10 @@ const uint8* gTile;
 Vertex* gVerticesBase;
 Face* gFacesBase;
 
-EWRAM_DATA uint8 gBackgroundCopy[FRAME_WIDTH * FRAME_HEIGHT]; // EWRAM 37.5k
-EWRAM_DATA Vertex gVertices[MAX_VERTICES]; // EWRAM 16k
-EWRAM_DATA Face gFaces[MAX_FACES];         // EWRAM 5k
-Face* gOT[OT_SIZE];                        // IWRAM 2.5k
+EWRAM_DATA uint8 gBackgroundCopy[FRAME_WIDTH * FRAME_HEIGHT];   // EWRAM 37.5k
+EWRAM_DATA ALIGN8 Vertex gVertices[MAX_VERTICES];               // EWRAM 16k
+EWRAM_DATA Face gFaces[MAX_FACES];                              // EWRAM 30k
+Face* gOT[OT_SIZE];                                             // IWRAM 2.5k
 
 enum ClipFlags {
     CLIP_LEFT     = 1 << 0,

@@ -32,12 +32,18 @@ tmp         .req flags
 vertices    .req vg2
 next        .req vp0
 
+SP_SIZE = 4
+
 .global faceAddRoomQuads_asm
 faceAddRoomQuads_asm:
     stmfd sp!, {r4-r11, lr}
 
     ldr vp, =gVerticesBase
     ldr vp, [vp]
+
+    ldr vertices, =gVertices
+    lsr vertices, #3
+    stmfd sp!, {vertices}
 
     ldr face, =gFacesBase
     ldr face, [face]
@@ -101,16 +107,14 @@ faceAddRoomQuads_asm:
     mov depth, vz0, lsr #OT_SHIFT
 
     // faceAdd
-    ldr vertices, =gVertices
-    sub vp0, vertices
-    sub vp1, vertices
-    sub vp2, vertices
-    sub vp3, vertices
+    ldr vertices, [sp]
+    rsb vp0, vertices, vp0, lsr #3
+    rsb vp1, vertices, vp1, lsr #3
+    rsb vp2, vertices, vp2, lsr #3
+    rsb vp3, vertices, vp3, lsr #3
 
-    lsr vp0, #3
-    orr vp1, vp0, vp1, lsl #(16 - 3)
-    lsr vp2, #3
-    orr vp3, vp2, vp3, lsl #(16 - 3)
+    orr vp1, vp0, vp1, lsl #16
+    orr vp3, vp2, vp3, lsl #16
 
     ldr next, [ot, depth, lsl #2]
     str face, [ot, depth, lsl #2]
@@ -122,4 +126,5 @@ faceAddRoomQuads_asm:
     ldr tmp, =gFacesBase
     str face, [tmp]
 
+    add sp, #SP_SIZE
     ldmfd sp!, {r4-r11, pc}

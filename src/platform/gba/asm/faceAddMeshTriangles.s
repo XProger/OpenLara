@@ -42,6 +42,7 @@ faceAddMeshTriangles_asm:
 
     ldr ot, =gOT
     ldr vertices, =gVertices
+    lsr vertices, #3
 
     add polys, #2   // skip flags
 
@@ -82,13 +83,11 @@ faceAddMeshTriangles_asm:
     lsr depth, #(2 + OT_SHIFT)
 
     // faceAdd
-    sub vp0, vertices
-    sub vp1, vertices
-    sub vp2, vertices
+    rsb vp0, vertices, vp0, lsr #3
+    rsb vp1, vertices, vp1, lsr #3
+    rsb vp2, vertices, vp2, lsr #3
 
-    lsr vp0, #3
-    orr vp1, vp0, vp1, lsl #(16 - 3)
-    lsr vp2, #3
+    orr vp1, vp0, vp1, lsl #16
 
     orr flags, #FACE_TRIANGLE
 

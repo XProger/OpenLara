@@ -157,16 +157,19 @@
     #define X_INLINE    inline
     #define X_NOINLINE  __declspec(noinline)
     #define ALIGN4      __declspec(align(4))
+    #define ALIGN8      __declspec(align(8))
     #define ALIGN16     __declspec(align(16))
 #elif defined(__WATCOMC__) || defined(__3DO__)
     #define X_INLINE    inline
     #define X_NOINLINE
     #define ALIGN4
+    #define ALIGN8
     #define ALIGN16
 #else
     #define X_INLINE    __attribute__((always_inline)) inline
     #define X_NOINLINE  __attribute__((noinline))
     #define ALIGN4      __attribute__((aligned(4)))
+    #define ALIGN8      __attribute__((aligned(8)))
     #define ALIGN16     __attribute__((aligned(16)))
 #endif
 
@@ -689,6 +692,7 @@ struct Face
     int32    ccb_HDDX;
     int32    ccb_HDDY;
     uint32   ccb_PIXC;
+    // TODO use 1x1 textures instead of colored faces to remove preamble words (8 bytes per face - 15k)
     uint32   ccb_PRE0;
     uint32   ccb_PRE1;
     //int32    ccb_Width;
