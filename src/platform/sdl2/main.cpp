@@ -270,10 +270,10 @@ void joyRemove(Sint32 instanceID) {
     if (joyIsController(instanceID)) {
         for (i = 0; i < sdl_numcontrollers; i++) {
             if (SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(sdl_controllers[i])) == instanceID) {
-	        SDL_GameControllerClose(sdl_controllers[i]);
+            SDL_GameControllerClose(sdl_controllers[i]);
                 sdl_controllers[i] = NULL;
-	        sdl_numcontrollers--;
-	        sdl_numjoysticks--;
+            sdl_numcontrollers--;
+            sdl_numjoysticks--;
             }
         }   
     }
@@ -353,10 +353,10 @@ void inputUpdate() {
             }
 
             case SDL_KEYUP: {
-		int scancode = event.key.keysym.scancode;
+        int scancode = event.key.keysym.scancode;
                 InputKey key = codeToInputKey(scancode);
-		if (key != ikNone) {
-		    Input::setDown(key, 0);
+        if (key != ikNone) {
+            Input::setDown(key, 0);
                 }
                 break;
             }
@@ -408,9 +408,9 @@ void inputUpdate() {
             case SDL_JOYDEVICEADDED:
             case SDL_JOYDEVICEREMOVED:
                 // Only handle the event if the joystick is incompatible with the SDL_GameController interface.
-	        // (Otherwise it will interfere with the normal action of the SDL_GameController API, because
+                // (Otherwise it will interfere with the normal action of the SDL_GameController API, because
                 // the event is both a GameController event AND a Joystick event.)
-		if (SDL_IsGameController(joyIndex)) {
+        if (SDL_IsGameController(joyIndex)) {
                     break;
                 }
 
