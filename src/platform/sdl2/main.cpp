@@ -463,8 +463,53 @@ void inputUpdate() {
     }
 }
 
-int main(int argc, char **argv) {
+void print_help(int argc, char **argv) {
+    
+    printf("%s [OPTION]\nA open source re-implementation of the classic Tomb Raider engine.\n",
+           argc ? argv[0] : "OpenLara");
+    puts("-d [DIRECTORY]  directory where data files are");
+    puts("-l [FILE]       load a specific level file");
+    puts("-h              print this help");
+}
 
+int main(int argc, char **argv) {
+    
+    cacheDir[0] = saveDir[0] = contentDir[0] = 0;
+    char *lvlName = nullptr;
+    
+    char option;
+    char *datadirectory = nullptr;
+    while ((option = getopt(argc, argv, "hl:d:")) != -1) {
+        switch(option) {
+            case 'h':
+                print_help(argc, argv);
+                return 0;
+            case 'l':
+               lvlName = optarg;
+               break;
+            case 'd':
+               strncpy(contentDir, optarg, 255);
+               break;
+            case ':':
+                printf("option %c needs a value\n", optopt);
+                print_help(argc, argv);
+                return -1;
+            default:
+                printf("unknown option: %c\n", optopt);
+                print_help(argc, argv);
+                return -1;
+        }
+    }
+    
+    size_t contentDirLen = strlen(contentDir);
+    
+    if (contentDirLen > 0 &&
+        contentDir[contentDirLen-1] != '/' && contentDir[contentDirLen-1] != '\\' &&
+        contentDirLen < 254) {
+        contentDir[contentDirLen] = '/';
+        contentDir[contentDirLen+1] = '\0';
+    }
+    
     int w, h;
     SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
     SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_EVENTS|SDL_INIT_GAMECONTROLLER);
@@ -499,8 +544,6 @@ int main(int argc, char **argv) {
 
     SDL_ShowCursor(SDL_DISABLE);
 
-    cacheDir[0] = saveDir[0] = contentDir[0] = 0;
-
     const char *home;
     if (!(home = getenv("HOME")))
         home = getpwuid(getuid())->pw_dir;
@@ -520,8 +563,6 @@ int main(int argc, char **argv) {
 
     inputInit();
 
-    char *lvlName = argc > 1 ? argv[1] : NULL;
-
     Game::init(lvlName);
 
     while (!Core::isQuit) {
@@ -530,7 +571,7 @@ int main(int argc, char **argv) {
         if (Game::update()) {
             Game::render();
             Core::waitVBlank();
-	    SDL_GL_SwapWindow(sdl_window);
+            SDL_GL_SwapWindow(sdl_window);
         }
     };
 
