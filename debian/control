@@ -1,0 +1,24 @@
+Source: openlara
+Section: user/games
+Priority: optional
+Maintainer: Uvos <carl@uvos.xyz>
+Build-Depends:
+ debhelper,
+ libsdl2-dev,
+ libgles-dev
+Standards-Version: 3.7.2
+
+Package: openlara
+Architecture: any
+Multi-arch: same
+Depends:
+ ${shlibs:Depends}
+Description: FOSS reimplementation of the classic Tomb Raider engine
+XB-Maemo-Display-Name: OpenLara
+XB-Maemo-Icon-26: iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAAAAAByaaZbAAAACXBIWXMAAAGxAAABsQFhmCgOAAAA
+ /0lEQVRIx+1VSxaEIAyrvrliPGQ8ZGahMgX5tPthJzSmaWkw+692IRNMSVLi55IksdneF9mclgRY
+ GIABbM/WZ19pP5OAMw1oN7ahApqZnUe4aWSna4smSyRS8YqRQBITCEiiJ4nEm2MQAvGVDKyGhr/p
+ WYpAOX8oOBVx6fUDKnACgOfnnQ7GOVXxKIKHsulP+OsB+xT0BQR9SbuAOr4uKTs50XcIbZvfFJRY
+ bnJ1Vx+KNt5fe74ALQXbz3rhzsCZwHxwL3IABXAcc59YOv87JYORWrwL7ThgPBd1XcuPb9mfgNlV
+ 29vE9izhfYw5QEdH8gntXOw9avNBisTDjoGELyIonJ0+Ky5QAAAAAElFTkSuQmCC
+

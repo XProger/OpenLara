@@ -1,0 +1,12 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_auto_build:
+	 $(MAKE) -C src/platform/sdl2
+
+override_dh_auto_install:
+	 $(MAKE) -C src/platform/sdl2 install DESTDIR=$(CURDIR)/debian/openlara/usr
+
+override_dh_auto_clean:
+	  $(MAKE) -C src/platform/sdl2 clean
