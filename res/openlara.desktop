@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=OpenLara
+Comment=FOSS reimplementation of the classic Tomb Raider engine
+Exec=sh -c 'openlara -d $HOME/.openlara/'
+Icon=openlara
+Terminal=false
+Categories=Game
