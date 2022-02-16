@@ -1,31 +1,27 @@
-SRCS=main.cpp ../../libs/stb_vorbis/stb_vorbis.c ../../libs/minimp3/minimp3.cpp ../../libs/tinf/tinflate.c
+SRCS=main.cpp \
+     ../../libs/stb_vorbis/stb_vorbis.c \
+     ../../libs/minimp3/minimp3.cpp \
+     ../../libs/tinf/tinflate.c
 CC=g++
-OBJS=OpenLara.o
-BIN=OpenLara
 
-CFLAGS+=-D__SDL2__
-LDFLAGS+=-lGLESv2 -lEGL -lSDL2 -lpthread -lrt -lm
+SDL_CFLAGS := $(shell sdl2-config --cflags)
+SDL_LDFLAGS := $(shell sdl2-config --libs)
 
-INCLUDES+=-I./ 
+CFLAGS+=-DSDL2_GLES -D_GAPI_GLES2 -std=c++11 -O3 -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -Wl,--gc-sections -D__SDL2__ $(SDL_CFLAGS) -Wall
+LDFLAGS+=-lGLESv2 -lEGL -lm -lrt -lpthread -lasound -ludev $(SDL_LDFLAGS)
 
-openlara : $(OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+INCLUDES+=-I../../
 
-%.o: %.c
-	@rm -f $@ 
-	$(CC) $(CFLAGS) $(INCLUDES) -g -c $< -o $@ -Wno-deprecated-declarations
+openlara :
+	$(CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) $(SRCS) -o $@
 
-%.o: %.cpp
-	@rm -f $@ 
-	$(CXX) $(CFLAGS) $(INCLUDES) -g -c $< -o $@ -Wno-deprecated-declarations
+install : openlara
+	install -d $(DESTDIR)$(PREFIX)/bin/
+	install openlara $(DESTDIR)$(PREFIX)/bin/openlara
 
-%.bin: $(OBJS)
-	$(CC) -o $@ -Wl,--whole-archive $(OBJS) $(LDFLAGS) -Wl,--no-whole-archive -rdynamic
-
-%.a: $(OBJS)
-	$(AR) r $@ $^
+uninstall :
+	rm -f $(DESTDIR)$(PREFIX)/bin/openlara
 
 clean:
-	for i in $(OBJS); do (if test -e "$$i"; then ( rm $$i ); fi ); done
-	@rm -f $(BIN) $(LIB)
+	rm -f openlara
 
