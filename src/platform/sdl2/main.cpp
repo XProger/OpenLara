@@ -270,10 +270,10 @@ void joyRemove(Sint32 instanceID) {
     if (joyIsController(instanceID)) {
         for (i = 0; i < sdl_numcontrollers; i++) {
             if (SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(sdl_controllers[i])) == instanceID) {
-	        SDL_GameControllerClose(sdl_controllers[i]);
+                SDL_GameControllerClose(sdl_controllers[i]);
                 sdl_controllers[i] = NULL;
-	        sdl_numcontrollers--;
-	        sdl_numjoysticks--;
+                sdl_numcontrollers--;
+                sdl_numjoysticks--;
             }
         }   
     }
@@ -296,9 +296,8 @@ bool inputInit() {
     for (index = 0; index < MAX_JOYS; index++)
         sdl_joysticks[index] = NULL;
 
-    for (index = 0; index < sdl_numjoysticks; index++) {
+    for (index = 0; index < sdl_numjoysticks; index++)
         joyAdd(index);
-    }
     return true;
 }
 
@@ -336,11 +335,11 @@ void inputUpdate() {
     while (SDL_PollEvent(&event) == 1) { // while there are still events to be processed
         switch (event.type) {
             case SDL_KEYDOWN: {
-		int scancode = event.key.keysym.scancode;
+                int scancode = event.key.keysym.scancode;
                 InputKey key = codeToInputKey(scancode);
-		if (key != ikNone) {
-		    Input::setDown(key, 1);
-		}
+                if (key != ikNone) {
+                    Input::setDown(key, 1);
+                }
 
 #ifndef _GAPI_GLES 
                 if (scancode == SDL_SCANCODE_RETURN) {
@@ -353,11 +352,10 @@ void inputUpdate() {
             }
 
             case SDL_KEYUP: {
-		int scancode = event.key.keysym.scancode;
+                int scancode = event.key.keysym.scancode;
                 InputKey key = codeToInputKey(scancode);
-		if (key != ikNone) {
-		    Input::setDown(key, 0);
-                }
+                if (key != ikNone)
+                    Input::setDown(key, 0);
                 break;
             }
 
@@ -376,16 +374,24 @@ void inputUpdate() {
             }
 
             case SDL_CONTROLLERAXISMOTION: {
-                 joyIndex = joyGetIndex(event.caxis.which);
-                 switch (event.caxis.axis) {
-                     case SDL_CONTROLLER_AXIS_LEFTX:  joyL.x = joyAxisValue(event.caxis.value); break;
-                     case SDL_CONTROLLER_AXIS_LEFTY:  joyL.y = joyAxisValue(event.caxis.value); break;
-                     case SDL_CONTROLLER_AXIS_RIGHTX: joyR.x = joyAxisValue(event.caxis.value); break;
-                     case SDL_CONTROLLER_AXIS_RIGHTY: joyR.y = joyAxisValue(event.caxis.value); break;
-                 }
-                 Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
-                 Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
-                 break;
+                joyIndex = joyGetIndex(event.caxis.which);
+                switch (event.caxis.axis) {
+                    case SDL_CONTROLLER_AXIS_LEFTX:
+                        joyL.x = joyAxisValue(event.caxis.value);
+                        break;
+                    case SDL_CONTROLLER_AXIS_LEFTY:
+                        joyL.y = joyAxisValue(event.caxis.value);
+                        break;
+                    case SDL_CONTROLLER_AXIS_RIGHTX:
+                        joyR.x = joyAxisValue(event.caxis.value);
+                        break;
+                    case SDL_CONTROLLER_AXIS_RIGHTY:
+                        joyR.y = joyAxisValue(event.caxis.value);
+                        break;
+                }
+                Input::setJoyPos(joyIndex, jkL, joyDir(joyL));
+                Input::setJoyPos(joyIndex, jkR, joyDir(joyR));
+                break;
             }
 
             // GameController connection or disconnection
@@ -408,9 +414,9 @@ void inputUpdate() {
             case SDL_JOYDEVICEADDED:
             case SDL_JOYDEVICEREMOVED:
                 // Only handle the event if the joystick is incompatible with the SDL_GameController interface.
-	        // (Otherwise it will interfere with the normal action of the SDL_GameController API, because
+                // (Otherwise it will interfere with the normal action of the SDL_GameController API, because
                 // the event is both a GameController event AND a Joystick event.)
-		if (SDL_IsGameController(joyIndex)) {
+                if (SDL_IsGameController(joyIndex)) {
                     break;
                 }
 
@@ -463,7 +469,53 @@ void inputUpdate() {
     }
 }
 
+void print_help(int argc, char **argv) {
+    
+    printf("%s [OPTION]\nA open source re-implementation of the classic Tomb Raider engine.\n",
+           argc ? argv[0] : "OpenLara");
+    puts("-d [DIRECTORY]  directory where data files are");
+    puts("-l [FILE]       load a specific level file");
+    puts("-h              print this help");
+}
+
 int main(int argc, char **argv) {
+    
+    cacheDir[0] = saveDir[0] = contentDir[0] = 0;
+    char *lvlName = nullptr;
+
+    int option;
+    while ((option = getopt(argc, argv, "hl:d:")) != -1) {
+        switch(option) {
+            case 'h':
+                print_help(argc, argv);
+                return 0;
+            case 'l':
+               lvlName = optarg;
+               break;
+            case 'd':
+               strncpy(contentDir, optarg, 254);
+               break;
+            case ':':
+                printf("option %c needs a value\n", optopt);
+                print_help(argc, argv);
+                return -1;
+            case '?':
+                printf("unknown option: %c\n", optopt);
+                print_help(argc, argv);
+                return -1;
+            default:
+                break;
+        }
+    }
+
+    size_t contentDirLen = strlen(contentDir);
+
+    if (contentDirLen > 0 &&
+        contentDir[contentDirLen-1] != '/' && contentDir[contentDirLen-1] != '\\' &&
+        contentDirLen < 254) {
+        contentDir[contentDirLen] = '/';
+        contentDir[contentDirLen+1] = '\0';
+    }
 
     int w, h;
     SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
@@ -485,7 +537,7 @@ int main(int argc, char **argv) {
 #ifdef _GAPI_GLES
         sdl_displaymode.w, sdl_displaymode.h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP
 #else
-	WIN_W, WIN_H, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
+        WIN_W, WIN_H, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
 #endif
     ); 
  
@@ -498,8 +550,6 @@ int main(int argc, char **argv) {
     SDL_GLContext context = SDL_GL_CreateContext(sdl_window);
 
     SDL_ShowCursor(SDL_DISABLE);
-
-    cacheDir[0] = saveDir[0] = contentDir[0] = 0;
 
     const char *home;
     if (!(home = getenv("HOME")))
@@ -520,8 +570,6 @@ int main(int argc, char **argv) {
 
     inputInit();
 
-    char *lvlName = argc > 1 ? argv[1] : NULL;
-
     Game::init(lvlName);
 
     while (!Core::isQuit) {
@@ -530,7 +578,7 @@ int main(int argc, char **argv) {
         if (Game::update()) {
             Game::render();
             Core::waitVBlank();
-	    SDL_GL_SwapWindow(sdl_window);
+            SDL_GL_SwapWindow(sdl_window);
         }
     };
 
