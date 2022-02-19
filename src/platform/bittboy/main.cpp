@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <sys/time.h>
+#include <alsa/asoundlib.h>
 #include <SDL/SDL.h>
 
 #include "game.h"
@@ -38,6 +39,99 @@ int osGetTimeMS() {
     timeval t;
     gettimeofday(&t, NULL);
     return int((t.tv_sec - startTime) * 1000 + t.tv_usec / 1000);
+}
+
+// sound
+snd_pcm_uframes_t   SND_FRAMES = 512;
+snd_pcm_t           *sndOut;
+Sound::Frame        *sndData;
+pthread_t           sndThread;
+
+void* sndFill(void *arg) {
+    while (sndOut) {
+        Sound::fill(sndData, SND_FRAMES);
+
+        int count = SND_FRAMES;
+        while (count > 0) {
+            int frames = snd_pcm_writei(sndOut, &sndData[SND_FRAMES - count], count);
+            if (frames < 0) {
+                frames = snd_pcm_recover(sndOut, frames, 0);
+                if (frames == -EAGAIN) {
+                    LOG("snd_pcm_writei try again\n");
+                    sleep(1);
+                    continue;
+                }
+                if (frames < 0) {
+                    LOG("snd_pcm_writei failed: %s\n", snd_strerror(frames));
+                    sndOut = NULL;
+                    return NULL;
+                }
+            }
+            count -= frames;
+        }
+
+        snd_pcm_prepare(sndOut);
+    }
+    return NULL;
+}
+
+bool sndInit() {
+    unsigned int freq = 44100;
+
+    int err;
+
+    for (int i = 0; i < 20; i++) { // 20 * 0.1 = 2 secs
+        sndOut = NULL;
+        if ((err = snd_pcm_open(&sndOut, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
+            LOG("sound: try to snd_pcm_open #%d...\n", i);
+            usleep(100000); // wait for 100 ms
+            continue;
+        }
+        break;
+    }
+
+    // I've bad news for you
+    if (!sndOut) {
+        LOG("! sound: snd_pcm_open %s\n", snd_strerror(err));
+        return false;
+    }
+
+    snd_pcm_hw_params_t *params;
+
+    snd_pcm_hw_params_alloca(&params);
+    snd_pcm_hw_params_any(sndOut, params);
+    snd_pcm_hw_params_set_access(sndOut, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+
+    snd_pcm_hw_params_set_channels(sndOut, params, 2);
+    snd_pcm_hw_params_set_format(sndOut, params, SND_PCM_FORMAT_S16_LE);
+    snd_pcm_hw_params_set_rate_near(sndOut, params, &freq, NULL);
+
+    snd_pcm_hw_params_set_periods(sndOut, params, 4, 0);
+    snd_pcm_hw_params_set_period_size_near(sndOut, params, &SND_FRAMES, NULL);
+    snd_pcm_hw_params_get_period_size(params, &SND_FRAMES, 0);
+
+    snd_pcm_hw_params(sndOut, params);
+    snd_pcm_prepare(sndOut);
+
+    sndData = new Sound::Frame[SND_FRAMES];
+    memset(sndData, 0, SND_FRAMES * sizeof(Sound::Frame));
+    if ((err = snd_pcm_writei(sndOut, sndData, SND_FRAMES)) < 0) {
+        LOG("! sound: write %s\n", snd_strerror(err));
+        sndOut = NULL;
+    }
+
+    snd_pcm_start(sndOut);
+    pthread_create(&sndThread, NULL, sndFill, NULL);
+
+    return true;
+}
+
+void sndFree() {
+    pthread_cancel(sndThread);
+    snd_pcm_drop(sndOut);
+    snd_pcm_drain(sndOut);
+    snd_pcm_close(sndOut);
+    delete[] sndData;
 }
 
 // input
@@ -95,6 +189,8 @@ int main() {
     GAPI::resize();
     GAPI::swColor = (uint16*)screen->pixels;
 
+    sndInit();
+
     bool isQuit = false;
 
     while (!isQuit) {
@@ -119,6 +215,8 @@ int main() {
     }
 
     Game::deinit();
+
+    sndFree();
 
     return 0;
 }
