@@ -8,10 +8,21 @@ SDL_Surface *screen = NULL;
 
 #define SCREEN_WIDTH    (SCREEN_HEIGHT/3)*4
 #define SCREEN_HEIGHT   240
+#ifdef __MIYOO__
+#define BTN_A           SDLK_LALT
+#define BTN_B           SDLK_LCTRL
+#define BTN_X           SDLK_LSHIFT
+#define BTN_Y           SDLK_SPACE
+#define BTN_L1          SDLK_BACKSPACE
+#define BTN_R1          SDLK_TAB
+#define BTN_L2          SDLK_RSHIFT
+#define BTN_R2          SDLK_RALT
+#else
 #define BTN_B           SDLK_SPACE
 #define BTN_A           SDLK_LCTRL
 #define BTN_TA          SDLK_LALT
 #define BTN_TB          SDLK_LSHIFT
+#endif
 #define BTN_START       SDLK_RETURN
 #define BTN_SELECT      SDLK_ESCAPE
 #define BTN_R           SDLK_RCTRL
@@ -40,10 +51,21 @@ void osJoyVibrate(int index, float L, float R) {
 
 JoyKey getJoyKey(int key) {
     switch (key) {
+#ifdef __MIYOO__
+        case BTN_A      : return jkA;
+        case BTN_B      : return jkB;
+        case BTN_X      : return jkX;
+        case BTN_Y      : return jkY;
+        case BTN_L1     : return jkLB;
+        case BTN_R1     : return jkRB;
+        case BTN_L2     : return jkLT;
+        case BTN_R2     : return jkRT;
+#else
         case BTN_B      : return jkX;
         case BTN_A      : return jkA;
         case BTN_TA     : return jkRB;
         case BTN_TB     : return jkY;
+#endif
         case BTN_START  : return jkStart;
         case BTN_SELECT : return jkSelect;
         case BTN_UP     : return jkUp;
@@ -68,7 +90,7 @@ int main() {
 
     Core::defLang = 0;
 
-    Game::init("/mnt/games/OpenLara/LEVEL2.PSX");
+    Game::init((const char *)NULL);
 
     GAPI::resize();
     GAPI::swColor = (uint16*)screen->pixels;

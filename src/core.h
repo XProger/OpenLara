@@ -96,7 +96,7 @@
     #define DYNGEOM_NO_VBO
     #define INV_GAMEPAD_ONLY
     #define INV_STEREO
-#elif __BITTBOY__
+#elif __BITTBOY__ || __MIYOO__
     #define _OS_BITTBOY 1
     #define _OS_LINUX   1
     #define _GAPI_SW    1
