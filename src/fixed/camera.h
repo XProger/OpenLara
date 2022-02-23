@@ -13,6 +13,69 @@
 #define CAM_ANGLE_COMBAT        ANGLE(-10)
 #define CAM_ANGLE_MAX           ANGLE(85)
 
+void Camera::initCinematic()
+{
+    switch (gLevelID)
+    {
+        case LVL_TR1_CUT_1:
+            gCinematicCamera.view.pos.x = 36668;
+            gCinematicCamera.view.pos.z = 63180;
+            gCinematicCamera.targetAngle.y = -ANGLE(128);
+            break;
+        case LVL_TR1_CUT_2:
+            gCinematicCamera.view.pos.x = 51962;
+            gCinematicCamera.view.pos.z = 53760;
+            gCinematicCamera.targetAngle.y = ANGLE_90 - 4;
+            break;
+        case LVL_TR1_CUT_3:
+            gCinematicCamera.targetAngle.y = ANGLE_90;
+            //level.flip();
+            break;
+        case LVL_TR1_CUT_4:
+            gCinematicCamera.targetAngle.y = ANGLE_90;
+            break;
+        default:
+            ASSERT(false);
+            break;
+    }
+}
+
+void Camera::updateCinematic()
+{
+    const CameraFrame &frame = level.cameraFrames[timer++];
+
+    int32 px = frame.pos.x;
+    int32 py = frame.pos.y;
+    int32 pz = frame.pos.z;
+
+    int32 dx = frame.target.x - px;
+    int32 dy = frame.target.y - py;
+    int32 dz = frame.target.z - pz;
+
+    anglesFromVector(dx, dy, dz, angle.x, angle.y);
+
+    int32 s, c;
+    sincos(targetAngle.y, s, c);
+
+    X_ROTXY(pz, px, s, c);
+
+    px += view.pos.x;
+    py += view.pos.y;
+    pz += view.pos.z;
+
+    matrixSetView(_vec3i(px, py, pz), angle.x, angle.y + targetAngle.y);
+
+    Room* nextRoom = view.room->getRoom(px, py, pz);
+    if (nextRoom) {
+        view.room = nextRoom;
+    }
+
+    if (timer >= level.cameraFramesCount) {
+        timer = level.cameraFramesCount - 1;
+        nextLevel(LevelID(gLevelID + 1));
+    }
+}
+
 void Camera::init(ItemObj* lara)
 {
     ASSERT(lara->extraL);

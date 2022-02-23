@@ -10,34 +10,49 @@
 
 #if defined(_WIN32)
     #define MODE4
-    //#define MODE13
     #define USE_DIV_TABLE
+
+    #define MODE4
+    #define FRAME_WIDTH  240
+    #define FRAME_HEIGHT 160
 
     #define _CRT_SECURE_NO_WARNINGS
     #include <windows.h>
 #elif defined(__GBA__)
-    #define MODE4
     #define USE_DIV_TABLE
     #define ROM_READ
     #define USE_ASM
     #define ALIGNED_LIGHTMAP
 
+    #define MODE4
+    #define FRAME_WIDTH  240
+    #define FRAME_HEIGHT 160
+
     #include <tonc.h>
 #elif defined(__NDS__)
-    #define MODEHW
     #define USE_DIV_TABLE
+
+    #define MODEHW
+    #define FRAME_WIDTH  256
+    #define FRAME_HEIGHT 192
 
     #include <nds.h>
     #include <fat.h>
     #include <filesystem.h>
 #elif defined(__TNS__)
-    #define MODE13
     #define USE_DIV_TABLE
+
+    #define MODE13
+    #define FRAME_WIDTH  320
+    #define FRAME_HEIGHT 240
 
     #include <os.h>
 #elif defined(__DOS__)
-    #define MODE13
     #define USE_DIV_TABLE
+
+    #define MODE13
+    #define FRAME_WIDTH  320
+    #define FRAME_HEIGHT 200
 
     #include <stdlib.h>
     #include <stddef.h>
@@ -45,10 +60,13 @@
     #include <dos.h>
     #include <mem.h>
 #elif defined(__3DO__)
-    #define MODEHW
     #define USE_DIV_TABLE   // 4k of DRAM
     #define CPU_BIG_ENDIAN
     #define USE_ASM
+
+    #define MODEHW
+    #define FRAME_WIDTH  320
+    #define FRAME_HEIGHT 240
 
     #include <displayutils.h>
     #include <debug.h>
@@ -69,6 +87,16 @@
     #include <celutils.h>
     #include <timerutils.h>
     #include <hardware.h>
+#elif defined(__32X__)
+    #define USE_DIV_TABLE
+    #define CPU_BIG_ENDIAN
+    #define ROM_READ
+
+    #define MODE13
+    #define FRAME_WIDTH  320
+    #define FRAME_HEIGHT 224
+
+    #include "32x.h"
 #else
     #error unsupported platform
 #endif
@@ -81,30 +109,8 @@
 
 #include <math.h>
 #include <limits.h>
-#include <new>
 
-#if defined(MODEHW)
-    #if defined(__3DO__)
-        #define FRAME_WIDTH  320
-        #define FRAME_HEIGHT 240
-    #elif defined(__NDS__)
-        #define FRAME_WIDTH  256
-        #define FRAME_HEIGHT 192
-    #endif
-#elif defined(MODE4)
-    #define VRAM_WIDTH   120 // in shorts (240 bytes)
-    #define FRAME_WIDTH  240
-    #define FRAME_HEIGHT 160
-#elif defined(MODE13)
-    #define VRAM_WIDTH   160 // in shorts (320 bytes)
-    #define FRAME_WIDTH  320
-
-    #if defined(__TNS__)
-        #define FRAME_HEIGHT 240 // MODE X?
-    #else
-        #define FRAME_HEIGHT 200
-    #endif
-#endif
+#define VRAM_WIDTH   (FRAME_WIDTH/2)    // in shorts
 
 // Optimization flags =========================================================
 #ifdef __GBA__
@@ -137,6 +143,23 @@
     #define MAX_ENEMIES 3
 // set the maximum number of simultaneously played channels
     #define SND_CHANNELS 4
+// visibility distance
+    #define VIEW_DIST (1024 * 10)
+// skip collideSpheres for enemies
+    #define FAST_HITMASK
+#endif
+
+#ifdef __32X__
+// hide dead enemies after a while to reduce the number of polygons on the screen
+    #define HIDE_CORPSES (30*10) // 10 sec
+// replace trap flor geometry by two flat quads in the static state
+    #define LOD_TRAP_FLOOR
+// disable some plants environment to reduce overdraw of transparent geometry
+    #define NO_STATIC_MESH_PLANTS
+// use IWRAM_CODE section that faster for matrix interpolation (GBA only)
+    #define IWRAM_MATRIX_LERP
+// the maximum of active enemies
+    #define MAX_ENEMIES 3
 // visibility distance
     #define VIEW_DIST (1024 * 10)
 // skip collideSpheres for enemies
@@ -190,16 +213,24 @@ typedef unsigned int       uint32;
 typedef uint16             divTableInt;
 #endif
 
-#if defined(__3DO__)
+//#include <new>
+inline void* operator new(size_t, void *ptr)
+{
+    return ptr;
+}
+
+#if defined(__3DO__) || defined(__32X__)
 X_INLINE int32 abs(int32 x) {
     return (x >= 0) ? x : -x;
 }
 #endif
 
-#if defined(__GBA__) || defined(__NDS__)
+#if defined(__GBA__) || defined(__NDS__) || defined(__32X__)
     #define int2str(x,str) itoa(x, str, 10)
 #elif defined(__3DO__)
     #define int2str(x,str) sprintf(str, "%d", x)
+#elif defined(__TNS__)
+    #define int2str(x,str) __itoa(x, str, 10)
 #else
     #define int2str(x,str) _itoa(x, str, 10)
 #endif
@@ -436,7 +467,7 @@ extern int32 fps;
 #define MAX_TEXTURES        1536
 #define MAX_SPRITES         180
 #define MAX_FACES           1920
-#define MAX_ROOM_LIST       16
+#define MAX_ROOM_LIST       32
 #define MAX_PORTALS         16
 #define MAX_CAUSTICS        32
 #define MAX_RAND_TABLE      32
@@ -521,10 +552,11 @@ enum InputKey {
     IK_C        = (1 << 6),
     IK_X        = (1 << 7),
     IK_Y        = (1 << 8),
-    IK_L        = (1 << 9),
-    IK_R        = (1 << 10),
-    IK_START    = (1 << 11),
-    IK_SELECT   = (1 << 12)
+    IK_Z        = (1 << 9),
+    IK_L        = (1 << 10),
+    IK_R        = (1 << 11),
+    IK_START    = (1 << 12),
+    IK_SELECT   = (1 << 13)
 };
 
 // action keys (ItemObj::input)
@@ -1322,6 +1354,9 @@ struct Camera {
     bool lastFixed;
     bool center;
 
+    void initCinematic();
+    void updateCinematic();
+
     void init(ItemObj* lara);
     Location getLocationForAngle(int32 angle, int32 distH, int32 distV);
     void clip(Location &loc);
@@ -1516,6 +1551,8 @@ struct ExtraInfoLara
 };
 
 extern ExtraInfoLara playersExtra[MAX_PLAYERS];
+
+#define gCinematicCamera playersExtra[0].camera
 
 struct Enemy;
 
@@ -1993,6 +2030,14 @@ struct Box
     uint16 overlap;
 };
 
+struct CameraFrame
+{
+    vec3s  target;
+    vec3s  pos;
+    int16  fov;
+    int16  roll;
+};
+
 struct Level
 {
     uint32 magic;
@@ -2037,7 +2082,7 @@ struct Level
     const uint16* zones[2][ZONE_MAX];
     const int16* animTexData;
     const ItemObjInfo* itemsInfo;
-    uint32 cameraFrames;
+    const CameraFrame* cameraFrames;
     const uint16* soundMap;
     const SoundInfo* soundsInfo;
     const uint8* soundData;
@@ -2645,6 +2690,13 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     void flush_c();
 #endif
 
+#ifdef __32X__ // TODO
+    #undef matrixPush
+    #define matrixPush              matrixPush_asm
+
+    extern "C" void matrixPush_asm();
+#endif
+
 #define matrixPop()     gMatrixPtr--
 
 X_INLINE vec3i matrixGetDir(const Matrix &m)
@@ -2678,6 +2730,7 @@ void drawText(int32 x, int32 y, const char* text, TextAlign align);
 void drawModel(const ItemObj* item);
 void drawItem(const ItemObj* item);
 void drawRooms(Camera* camera);
+void drawCinematicRooms();
 void drawHUD(Lara* lara);
 void drawNodesLerp(const ItemObj* item, const AnimFrame* frameA, const AnimFrame* frameB, int32 frameDelta, int32 frameRate);
 

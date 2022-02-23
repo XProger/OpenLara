@@ -7,7 +7,7 @@ vec3i gCameraViewPos;
 Matrix gMatrixStack[MAX_MATRICES];
 Matrix* gMatrixPtr = gMatrixStack;
 
-EWRAM_DATA Sphere gSpheres[2][MAX_SPHERES];
+EWRAM_DATA Sphere gSpheres[2][MAX_SPHERES]; // EWRAM 1k
 
 const FloorData* gLastFloorData;
 FloorData gLastFloorSlant;
@@ -45,7 +45,7 @@ EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
 #ifdef __3DO__ // TODO fix the title scren on 3DO
 EWRAM_DATA LevelID gLevelID = LVL_TR1_1;
 #else
-EWRAM_DATA LevelID gLevelID = LVL_TR1_TITLE;
+EWRAM_DATA LevelID gLevelID = LVL_TR1_1;
 #endif
 
 const LevelInfo gLevelInfo[LVL_MAX] = {
@@ -1144,7 +1144,7 @@ X_INLINE int16 lerpAngleSlow(int16 a, int16 b, int32 mul, int32 div)
 void matrixPush_c()
 {
     ASSERT(gMatrixPtr - gMatrixStack < MAX_MATRICES);
-    memcpy(gMatrixPtr + 1, gMatrixPtr, sizeof(Matrix));
+    gMatrixPtr[1] = gMatrixPtr[0];
     gMatrixPtr++;
 }
 
@@ -1556,7 +1556,8 @@ void palSet(const uint16* palette, int32 gamma, int32 bright)
 
     if (gamma || bright)
     {
-        uint16 tmp[256];
+        uint16* tmp = (uint16*)&gSpheres;
+
         if (gamma) {
             palGamma(pal, tmp, gamma);
             pal = tmp;
@@ -1574,9 +1575,11 @@ void palSet(const uint16* palette, int32 gamma, int32 bright)
 void dmaFill(void* dst, uint8 value, uint32 count)
 {
     ASSERT((count & 3) == 0);
-#ifdef __GBA__
+#if defined(__GBA__)
     vu32 v = value;
     dma3_fill(dst, v, count);
+#elif defined(__32X__)
+    fast_memset(dst, value, count >> 2);
 #else
     memset(dst, value, count);
 #endif
@@ -1586,8 +1589,10 @@ void dmaFill(void* dst, uint8 value, uint32 count)
 void dmaCopy(const void* src, void* dst, uint32 size)
 {
     ASSERT((size & 3) == 0);
-#ifdef __GBA__
+#if defined(__GBA__)
     dma3_cpy(dst, src, size);
+#elif defined(__32X__)
+    fast_memcpy(dst, src, size >> 2);
 #else
     memcpy(dst, src, size);
 #endif

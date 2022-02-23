@@ -937,7 +937,7 @@ int32 ItemObj::getSpheres(Sphere* spheres, bool flag) const
 #include "enemy.h"
 #include "object.h"
 
-#ifdef __GBA__
+#ifdef __GNUC__
 // ItemObj ctor is called on existing and pre-filled memory
 #pragma GCC diagnostic ignored "-Wuninitialized"
 #endif
@@ -992,7 +992,7 @@ ItemObj::ItemObj(Room* room)
     room->add(this);
 }
 
-#ifdef __GBA__
+#ifdef __GNUC__
 #pragma GCC diagnostic warning "-Wuninitialized"
 #endif
 
@@ -1472,10 +1472,10 @@ ItemObj* ItemObj::init(Room* room)
         // INIT_ITEM( GEARS_1               , ??? );
         // INIT_ITEM( GEARS_2               , ??? );
         // INIT_ITEM( GEARS_3               , ??? );
-        // INIT_ITEM( CUT_1                 , ??? );
-        // INIT_ITEM( CUT_2                 , ??? );
-        // INIT_ITEM( CUT_3                 , ??? );
-        // INIT_ITEM( CUT_4                 , ??? );
+        INIT_ITEM( CUT_1                 , CinematicObject );
+        INIT_ITEM( CUT_2                 , CinematicObject );
+        INIT_ITEM( CUT_3                 , CinematicObject );
+        INIT_ITEM( CUT_4                 , CinematicObject );
         // INIT_ITEM( INV_PASSPORT_CLOSED   , ??? );
         // INIT_ITEM( INV_MAP               , ??? );
         INIT_ITEM( CRYSTAL               , Crystal );

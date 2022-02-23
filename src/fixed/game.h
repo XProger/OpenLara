@@ -149,6 +149,11 @@ void gameLoadLevel(const void* data)
     }
     ItemObj::sFirstFree = items + level.itemsCount;
 
+    for (int32 i = 0; i < MAX_PLAYERS; i++)
+    {
+        players[i] = NULL;
+    }
+
     if (gLevelID == LVL_TR1_TITLE) {
         // init dummy Lara for updateInput()
         items->extraL = playersExtra;
@@ -173,12 +178,18 @@ void gameLoadLevel(const void* data)
             item->angle.y = ((info->flags >> 14) - 2) * ANGLE_90;
             item->flags = info->flags;
 
-            if (item->type == ITEM_LARA || item->type == ITEM_CUT_1) {
+            if (item->type == ITEM_LARA) {
                 players[0] = (Lara*)item;
             }
 
             item->init(rooms + info->roomIndex);
         }
+
+        if (isCutsceneLevel())
+        {
+            gCinematicCamera.initCinematic();
+        }
+
 
     // gym
         //resetLara(0, 7, _vec3i(39038, -1280, 51712), ANGLE_90); // start
@@ -233,10 +244,17 @@ void updateItems()
         item = next;
     }
 
-    for (int32 i = 0; i < MAX_PLAYERS; i++)
+    if (isCutsceneLevel())
     {
-        if (players[i]) {
-            players[i]->update();
+        gCinematicCamera.updateCinematic();
+    }
+    else
+    {
+        for (int32 i = 0; i < MAX_PLAYERS; i++)
+        {
+            if (players[i]) {
+                players[i]->update();
+            }
         }
     }
 }
@@ -306,9 +324,17 @@ void gameRender()
             {
                 // TODO set viewports for coop
             #ifndef PROFILE_SOUNDTIME
-                drawRooms(&players[i]->extraL->camera);
+                if (isCutsceneLevel()) {
+                    drawCinematicRooms();
+                } else {
+                    drawRooms(&players[i]->extraL->camera);
+                }
             #endif
-                drawHUD(players[i]);
+
+                if (players[i])
+                {
+                    drawHUD(players[i]);
+                }
             }
         } else {
             inventory.draw();

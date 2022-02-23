@@ -224,4 +224,12 @@ int32 getAmbientTrack()
     return gLevelInfo[gLevelID].track;
 }
 
+bool isCutsceneLevel()
+{
+    return (gLevelID == LVL_TR1_CUT_1) ||
+           (gLevelID == LVL_TR1_CUT_2) ||
+           (gLevelID == LVL_TR1_CUT_3) ||
+           (gLevelID == LVL_TR1_CUT_4);
+}
+
 #endif

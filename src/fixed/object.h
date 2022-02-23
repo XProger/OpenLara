@@ -335,6 +335,35 @@ struct TrapDoor : Object
 };
 
 
+struct CinematicObject : Object
+{
+    CinematicObject(Room* room) : Object(room)
+    {
+        angle.y = 0;
+
+        if (type == ITEM_CUT_1)
+        {
+            gCinematicCamera.view.pos = pos;
+            gCinematicCamera.view.room = room;
+        }
+
+        flags |= ITEM_FLAG_SHADOW;
+
+        activate();
+    }
+
+    virtual void update()
+    {
+        if (type == ITEM_CUT_1 || type == ITEM_CUT_2 || type == ITEM_CUT_3)
+        {
+            pos = playersExtra[0].camera.view.pos;
+            angle.y = playersExtra[0].camera.targetAngle.y;
+        }
+        animProcess();
+    }
+};
+
+
 struct Crystal : Object
 {
     Crystal(Room* room) : Object(room)

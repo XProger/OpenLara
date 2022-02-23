@@ -771,6 +771,48 @@ void drawRooms(Camera* camera)
     setViewport(vp);
 }
 
+void drawCinematicRooms()
+{
+    RectMinMax vp = viewport;
+#if 1
+    gCinematicCamera.view.room->clip = viewport;
+
+    Room** visRoom = gCinematicCamera.view.room->getVisibleRooms();
+
+    // draw rooms and objects
+    while (*visRoom)
+    {
+        Room* room = *visRoom++;
+        drawRoom(room);
+        room->reset();
+    }
+#else
+    for (int32 i = 0; i < level.roomsCount; i++)
+    {
+        rooms[i].clip = vp;
+    }
+
+    for (int32 i = 0; i < level.roomsCount; i++)
+    {
+        if (rooms[i].info->alternateRoom != NO_ROOM) {
+            rooms[rooms[i].info->alternateRoom].clip.x0 = 0xFFFF;
+        }
+    }
+
+    for (int32 i = 0; i < level.roomsCount; i++)
+    {
+        const Room* room = rooms + i;
+        if (room->clip.x0 == 0xFFFF)
+            continue;
+
+        drawRoom(room);
+    }
+#endif
+
+    setPaletteIndex(0);
+    setViewport(vp);
+}
+
 void drawHUD(Lara* lara)
 {
     int32 x = (FRAME_WIDTH - (100 + 2 + 2)) - 4;
