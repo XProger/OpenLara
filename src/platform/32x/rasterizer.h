@@ -788,22 +788,197 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
 void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    // TODO
+    R++;
+    const uint8* ft_lightmap = &gLightmap[L->v.g << 8];
+
+    int32 w = R->v.x - L->v.x;
+    if (w <= 0 || w >= DIV_TABLE_SIZE) return;
+
+    int32 h = R->v.y - L->v.y;
+    if (h <= 0 || h >= DIV_TABLE_SIZE) return;
+
+    int32 u = L->t.uv.v;
+    int32 v = L->t.uv.u;
+
+    int32 iw = FixedInvU(w);
+    int32 ih = FixedInvU(h);
+
+    int32 du = R->t.uv.v * iw >> 8;
+    int32 dv = R->t.uv.u * ih >> 8;
+
+    if (L->v.y < 0)
+    {
+        pixel -= L->v.y * VRAM_WIDTH;
+        v -= L->v.y * dv;
+        h += L->v.y;
+    }
+
+    if (R->v.y > FRAME_HEIGHT)
+    {
+        h -= R->v.y - FRAME_HEIGHT;
+    }
+
+    uint8* ptr = (uint8*)pixel;
+
+    if (h <= 0) return;
+
+    ptr += L->v.x;
+
+    if (L->v.x < 0)
+    {
+        ptr -= L->v.x;
+        u -= L->v.x * du;
+        w += L->v.x;
+    }
+
+    if (R->v.x > FRAME_WIDTH)
+    {
+        w -= R->v.x - FRAME_WIDTH;
+    }
+
+    if (w <= 0) return;
+
+    for (int32 y = 0; y < h; y++)
+    {
+        const uint8* xtile = gTile + (v & 0xFF00);
+
+        volatile uint8* xptr = ptr;
+
+        int32 xu = u;
+
+        int32 width = w;
+
+        if (intptr_t(xptr) & 1)
+        {
+            uint8 indexB = xtile[xu >> 8];
+            if (indexB) {
+                *xptr = ft_lightmap[indexB];
+            }
+
+            xptr++;
+
+            xu += du;
+        }
+
+        if (width & 1)
+        {
+            width--;
+            uint8 indexA = xtile[xu >> 8];
+            if (indexA) {
+                xptr[width] = ft_lightmap[indexA];
+            }
+        }
+
+        for (int32 x = 0; x < width / 2; x++)
+        {
+            uint8 indexA = xtile[xu >> 8];
+            xu += du;
+            uint8 indexB = xtile[xu >> 8];
+            xu += du;
+
+            if (indexA | indexB)
+            {
+                indexA = (indexA) ? ft_lightmap[indexA] : xptr[0];
+                indexB = (indexB) ? ft_lightmap[indexB] : xptr[1];
+            #ifdef CPU_BIG_ENDIAN
+                *(uint16*)xptr = indexB | (indexA << 8);
+            #else
+                *(uint16*)xptr = indexA | (indexB << 8);
+            #endif
+            }
+
+            xptr += 2;
+        }
+
+        v += dv;
+
+        ptr += FRAME_WIDTH;
+    }
 }
 
 void rasterizeLineH_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    // TODO
+    R++;
+    int32 x = L->v.x;
+    int32 index = L->v.g;
+    int32 width = R->v.x;
+
+    volatile uint8* ptr = (uint8*)pixel + x;
+
+    if (intptr_t(ptr) & 1)
+    {
+        *ptr++ = index;
+        width--;
+    }
+
+    if (width & 1)
+    {
+        width--;
+        ptr[width] = index;
+    }
+
+    index |= (index << 8);
+
+    for (int32 i = 0; i < width / 2; i++)
+    {
+        *(uint16*)ptr = index;
+        ptr += 2;
+    }
 }
 
 void rasterizeLineV_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    // TODO
+    R++;
+    int32 x = L->v.x;
+    int32 index = L->v.g;
+    int32 height = R->v.y;
+
+    volatile uint8* ptr = (uint8*)pixel + x;
+
+    for (int32 i = 0; i < height; i++)
+    {
+        *ptr = index;
+        ptr += FRAME_WIDTH;
+    }
 }
 
 void rasterizeFillS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    // TODO
+    R++;
+    int32 x = L->v.x;
+    int32 shade = L->v.g;
+    int32 width = R->v.x;
+    int32 height = R->v.y;
+
+    const uint8* lm = &gLightmap[shade << 8];
+
+    for (int32 i = 0; i < height; i++)
+    {
+        volatile uint8* ptr = (uint8*)pixel + x;
+        int32 w = width;
+
+        if (intptr_t(ptr) & 1)
+        {
+            ptr[0] = lm[ptr[0]];
+            ptr++;
+            w--;
+        }
+
+        if (w & 1)
+        {
+            w--;
+            ptr[w] = lm[ptr[w]];
+        }
+
+        for (int32 i = 0; i < w / 2; i++)
+        {
+            uint16 p = *(uint16*)ptr;
+            *(uint16*)ptr = lm[p & 0xFF] | (lm[p >> 8] << 8);
+            ptr += 2;
+        }
+
+        pixel += FRAME_WIDTH / 2;
+    }
 }
 
 #endif

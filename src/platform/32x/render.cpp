@@ -960,7 +960,12 @@ void faceAddMesh(const MeshQuad* quads, const MeshTriangle* triangles, int32 qCo
 
 void clear()
 {
-    dmaFill((void*)fb, 0, FRAME_WIDTH * FRAME_HEIGHT);
+    MARS_VDP_FILLEN = 0xFF;
+    for(int32 i = 0x100; i < 0x100 + (FRAME_WIDTH * FRAME_HEIGHT >> 1); i += 0xFF)
+    {
+        MARS_VDP_FILADR = i;
+        MARS_VDP_FILDAT = 0x0000;
+    }
 }
 
 void renderRoom(const Room* room)

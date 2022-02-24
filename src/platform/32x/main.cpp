@@ -114,12 +114,22 @@ int main()
     gameInit(gLevelInfo[gLevelID].name);
 
     int32 lastFrame = (MARS_SYS_COMM12 >> 1) - 1;
+    int32 fpsCounter = 0;
+    int32 fpsFrame = MARS_SYS_COMM12;
+    int32 vsyncRate = (MARS_VDP_DISPMODE & MARS_NTSC_FORMAT) ? 60 : 50;
 
     while (1)
     {
         int32 frame = MARS_SYS_COMM12;
 
-        if (!(MARS_VDP_DISPMODE & MARS_NTSC_FORMAT))
+        if (frame - fpsFrame >= vsyncRate)
+        {
+            fpsFrame += vsyncRate;
+            fps = fpsCounter;
+            fpsCounter = 0;
+        }
+
+        if (vsyncRate == 50)
         {
             frame = frame * 6 / 5;  // PAL fix
         }
@@ -132,16 +142,18 @@ int main()
             continue;
 
         lastFrame = frame;
-        
+
         updateInput();
 
         gameUpdate(delta);
-        
+
         pageWait();
-        
+
         gameRender();
 
         pageFlip();
+
+        fpsCounter++;
     }
 
     return 0;
