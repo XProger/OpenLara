@@ -1,119 +1,65 @@
 | SEGA 32X support code for the 68000
 | by Chilly Willy
-| Third part of rom header
 
         .text
 
-| Standard Mars startup code at 0x3F0 - this is included as binary as SEGA
-| uses this as a security key. US law allows us to include this as-is because
-| it's used for security. The interoperability clauses in the law state this
-| trumps copyright... and the Supreme Court agrees. :P
+| 0x880800 - entry point for reset/cold-start
 
-        .word   0x287C,0xFFFF,0xFFC0,0x23FC,0x0000,0x0000,0x00A1,0x5128
-        .word   0x46FC,0x2700,0x4BF9,0x00A1,0x0000,0x7001,0x0CAD,0x4D41
-        .word   0x5253,0x30EC,0x6600,0x03E6,0x082D,0x0007,0x5101,0x67F8
-        .word   0x4AAD,0x0008,0x6710,0x4A6D,0x000C,0x670A,0x082D,0x0000
-        .word   0x5101,0x6600,0x03B8,0x102D,0x0001,0x0200,0x000F,0x6706
-        .word   0x2B78,0x055A,0x4000,0x7200,0x2C41,0x4E66,0x41F9,0x0000
-        .word   0x04D4,0x6100,0x0152,0x6100,0x0176,0x47F9,0x0000,0x04E8
-        .word   0x43F9,0x00A0,0x0000,0x45F9,0x00C0,0x0011,0x3E3C,0x0100
-        .word   0x7000,0x3B47,0x1100,0x3B47,0x1200,0x012D,0x1100,0x66FA
-        .word   0x7425,0x12DB,0x51CA,0xFFFC,0x3B40,0x1200,0x3B40,0x1100
-        .word   0x3B47,0x1200,0x149B,0x149B,0x149B,0x149B,0x41F9,0x0000
-        .word   0x04C0,0x43F9,0x00FF,0x0000,0x22D8,0x22D8,0x22D8,0x22D8
-        .word   0x22D8,0x22D8,0x22D8,0x22D8,0x41F9,0x00FF,0x0000,0x4ED0
-        .word   0x1B7C,0x0001,0x5101,0x41F9,0x0000,0x06BC,0xD1FC,0x0088
-        .word   0x0000,0x4ED0,0x0404,0x303C,0x076C,0x0000,0x0000,0xFF00
-        .word   0x8137,0x0002,0x0100,0x0000,0xAF01,0xD91F,0x1127,0x0021
-        .word   0x2600,0xF977,0xEDB0,0xDDE1,0xFDE1,0xED47,0xED4F,0xD1E1
-        .word   0xF108,0xD9C1,0xD1E1,0xF1F9,0xF3ED,0x5636,0xE9E9,0x9FBF
-        .word   0xDFFF,0x4D41,0x5253,0x2049,0x6E69,0x7469,0x616C,0x2026
-        .word   0x2053,0x6563,0x7572,0x6974,0x7920,0x5072,0x6F67,0x7261
-        .word   0x6D20,0x2020,0x2020,0x2020,0x2020,0x2043,0x6172,0x7472
-        .word   0x6964,0x6765,0x2056,0x6572,0x7369,0x6F6E,0x2020,0x2020
-        .word   0x436F,0x7079,0x7269,0x6768,0x7420,0x5345,0x4741,0x2045
-        .word   0x4E54,0x4552,0x5052,0x4953,0x4553,0x2C4C,0x5444,0x2E20
-        .word   0x3139,0x3934,0x2020,0x2020,0x2020,0x2020,0x2020,0x2020
-        .word   0x2020,0x2020,0x2020,0x2020,0x2020,0x2020,0x2020,0x2020
-        .word   0x2020,0x2020,0x2020,0x524F,0x4D20,0x5665,0x7273,0x696F
-        .word   0x6E20,0x312E,0x3000,0x48E7,0xC040,0x43F9,0x00C0,0x0004
-        .word   0x3011,0x303C,0x8000,0x323C,0x0100,0x3E3C,0x0012,0x1018
-        .word   0x3280,0xD041,0x51CF,0xFFF8,0x4CDF,0x0203,0x4E75,0x48E7
-        .word   0x81C0,0x41F9,0x0000,0x063E,0x43F9,0x00C0,0x0004,0x3298
-        .word   0x3298,0x3298,0x3298,0x3298,0x3298,0x3298,0x2298,0x3341
-        .word   0xFFFC,0x3011,0x0800,0x0001,0x66F8,0x3298,0x3298,0x7000
-        .word   0x22BC,0xC000,0x0000,0x7E0F,0x3340,0xFFFC,0x3340,0xFFFC
-        .word   0x3340,0xFFFC,0x3340,0xFFFC,0x51CF,0xFFEE,0x22BC,0x4000
-        .word   0x0010,0x7E09,0x3340,0xFFFC,0x3340,0xFFFC,0x3340,0xFFFC
-        .word   0x3340,0xFFFC,0x51CF,0xFFEE,0x4CDF,0x0381,0x4E75,0x8114
-        .word   0x8F01,0x93FF,0x94FF,0x9500,0x9600,0x9780,0x4000,0x0080
-        .word   0x8104,0x8F02,0x48E7,0xC140,0x43F9,0x00A1,0x5180,0x08A9
-        .word   0x0007,0xFF80,0x66F8,0x3E3C,0x00FF,0x7000,0x7200,0x337C
-        .word   0x00FF,0x0004,0x3341,0x0006,0x3340,0x0008,0x4E71,0x0829
-        .word   0x0001,0x000B,0x66F8,0x0641,0x0100,0x51CF,0xFFE8,0x4CDF
-        .word   0x0283,0x4E75,0x48E7,0x8180,0x41F9,0x00A1,0x5200,0x08A8
-        .word   0x0007,0xFF00,0x66F8,0x3E3C,0x001F,0x20C0,0x20C0,0x20C0
-        .word   0x20C0,0x51CF,0xFFF6,0x4CDF,0x0181,0x4E75,0x41F9,0x00FF
-        .word   0x0000,0x3E3C,0x07FF,0x7000,0x20C0,0x20C0,0x20C0,0x20C0
-        .word   0x20C0,0x20C0,0x20C0,0x20C0,0x51CF,0xFFEE,0x3B7C,0x0000
-        .word   0x1200,0x7E0A,0x51CF,0xFFFE,0x43F9,0x00A1,0x5100,0x7000
-        .word   0x2340,0x0020,0x2340,0x0024,0x1B7C,0x0003,0x5101,0x2E79
-        .word   0x0088,0x0000,0x0891,0x0007,0x66FA,0x7000,0x3340,0x0002
-        .word   0x3340,0x0004,0x3340,0x0006,0x2340,0x0008,0x2340,0x000C
-        .word   0x3340,0x0010,0x3340,0x0030,0x3340,0x0032,0x3340,0x0038
-        .word   0x3340,0x0080,0x3340,0x0082,0x08A9,0x0000,0x008B,0x66F8
-        .word   0x6100,0xFF12,0x08E9,0x0000,0x008B,0x67F8,0x6100,0xFF06
-        .word   0x08A9,0x0000,0x008B,0x6100,0xFF3C,0x303C,0x0040,0x2229
-        .word   0x0020,0x0C81,0x5351,0x4552,0x6700,0x0092,0x303C,0x0080
-        .word   0x2229,0x0020,0x0C81,0x5344,0x4552,0x6700,0x0080,0x21FC
-        .word   0x0088,0x02A2,0x0070,0x303C,0x0002,0x7200,0x122D,0x0001
-        .word   0x1429,0x0080,0xE14A,0x8242,0x0801,0x000F,0x660A,0x0801
-        .word   0x0006,0x6700,0x0058,0x6008,0x0801,0x0006,0x6600,0x004E
-        .word   0x7020,0x41F9,0x0088,0x0000,0x3C28,0x018E,0x4A46,0x6700
-        .word   0x0010,0x3429,0x0028,0x0C42,0x0000,0x67F6,0xB446,0x662C
-        .word   0x7000,0x2340,0x0028,0x2340,0x002C,0x3E14,0x2C7C,0xFFFF
-        .word   0xFFC0,0x4CD6,0x7FF9,0x44FC,0x0000,0x6014,0x43F9,0x00A1
-        .word   0x5100,0x3340,0x0006,0x303C,0x8000,0x6004,0x44FC,0x0001
+        .global _start
+_start:
 
-| At this point (0x800), the Work RAM is clear, the VDP initialized, the
-| VRAM/VSRAM/CRAM cleared, the Z80 initialized, the 32X initialized,
-| both 32X framebuffers cleared, the 32X palette cleared, the SH2s
-| checked for a startup error, the adapter TV mode matches the MD TV
-| mode, and the ROM checksum checked. If any error is detected, the
-| carry is set, otherwise it is cleared. The 68000 main code is now
-| entered.
+| Clear Work RAM
+        moveq   #0,d0
+        move.w  #0x3FFF,d1
+        suba.l  a1,a1
+1:
+        move.l  d0,-(a1)
+        dbra    d1,1b
 
-        jmp     __start+0x00880000+0x3F0
+| Copy initialized variables from ROM to Work RAM
+        lea     __text_end,a0
+        move.w  #__data_size,d0
+        lsr.w   #1,d0
+        subq.w  #1,d0
+2:
+        move.w  (a0)+,(a1)+
+        dbra    d0,2b
 
-| 68000 General exception handler at 0x806
+        lea     __stack,sp              /* set stack pointer to top of Work RAM */
 
-        jmp     __except+0x00880000+0x3F0
+        bsr     init_hardware           /* initialize the console hardware */
 
-| 68000 Level 4 interrupt handler at 0x80C - HBlank IRQ
+        jsr     main                    /* call program main() */
+3:
+        stop    #0x2700
+        bra.b   3b
 
-        jmp     __hblank+0x00880000+0x3F0
+        .align  64
 
-| 68000 Level 6 interrupt handler at 0x812 - VBlank IRQ
+| 0x880840 - 68000 General exception handler
 
-        jmp     __vblank+0x00880000+0x3F0
-
-__except:
         move.l  d0,-(sp)
         move.l  4(sp),d0            /* jump table return address */
         sub.w   #0x206,d0           /* 0 = BusError, 6 = AddrError, etc */
 
-| handle exception
+        /* handle exception here */
 
         move.l  (sp)+,d0
         addq.l  #4,sp               /* pop jump table return address */
         rte
 
-__hblank:
+        .align  64
+
+| 0x880880 - 68000 Level 4 interrupt handler - HBlank IRQ
+
         rte
 
-__vblank:
+        .align  64
+
+| 0x8808C0 - 68000 Level 6 interrupt handler - VBlank IRQ
+
         move.l  d0,-(sp)
-        move.l  0xFF0FFC,d0
+        move.l  vblank,d0
         beq.b   1f
         move.l  a0,-(sp)
         movea.l d0,a0
@@ -123,14 +69,12 @@ __vblank:
         rte
 
 
-__start:
-        move.b  #0,0xA15107             /* clear RV - allow SH2 to access ROM */
-0:
-        cmp.l   #0x4D5F4F4B,0xA15120    /* M_OK */
-        bne.b   0b                      /* wait for master ok */
-1:
-        cmp.l   #0x535F4F4B,0xA15124    /* S_OK */
-        bne.b   1b                      /* wait for slave ok */
+| Initialize the MD side to a known state for the game
+
+init_hardware:
+        lea     0xC00004,a0
+        move.w  #0x8104,(a0)            /* display off, vblank disabled */
+        move.w  (a0),d0                 /* read VDP Status reg */
 
 | init joyports
         move.b  #0x40,0xA10009
@@ -139,7 +83,6 @@ __start:
         move.b  #0x40,0xA10005
 
 | init MD VDP
-        lea     0xC00004,a0
         move.w  #0x8004,(a0) /* reg. 0 - Disable HBL INT */
         move.w  #0x8174,(a0) /* reg. 1 - Enable display, VBL INT, DMA + 28 VCell size */
         move.w  #0x8230,(a0) /* reg. 2 - Plane A =$30*$400=$C000 */
@@ -160,21 +103,12 @@ __start:
         move.w  #0x9100,(a0) /* reg 17 - window hpos */
         move.w  #0x92FF,(a0) /* reg 18 - window vpos */
 
-| Copy 68000 main loop to Work RAM to keep contention for the ROM with
-| SH2s to a minimum.
-        lea     __m68k_start(pc),a0
-        lea     0x00FF1000,a1
-        move.w  #__m68k_end-__m68k_start-1,d0
-cpyloop:
-        move.b  (a0)+,(a1)+
-        dbra    d0,cpyloop
-
         move.w  #0,0xA15128         /* controller 1 */
         move.w  #0,0xA1512A         /* controller 2 */
 | look for mouse
         lea     0xA10003,a0
 0:
-        bsr     get_mky
+        jsr     get_mky
         cmpi.l  #-2,d0
         beq.b   0b                  /* timeout */
         cmpi.l  #-1,d0
@@ -183,21 +117,84 @@ cpyloop:
 1:
         lea     2(a0),a0
 2:
-        bsr     get_mky
+        jsr     get_mky
         cmpi.l  #-2,d0
         beq.b   2b                  /* timeout */
         cmpi.l  #-1,d0
         beq.b   3f                  /* no mouse */
         move.w  #0xF001,0xA1512A    /* mouse in port 2 */
 3:
-        move.l  #0,0xA1512C         /* clear the vblank count */
 
-| jump to main loop in Work RAM
-        jmp     0xFF1000.l
+| allow the 68k to access the FM chip
+        move.w  #0x0100,0xA11100    /* Z80 assert bus request */
+        move.w  #0x0100,0xA11200    /* Z80 deassert reset */
 
-| this block of code must be pc relative as it's copied into Work RAM
+| wait on Mars side
+        move.b  #0,0xA15107             /* clear RV - allow SH2 to access ROM */
+0:
+        cmp.l   #0x4D5F4F4B,0xA15120    /* M_OK */
+        bne.b   0b                      /* wait for master ok */
+1:
+        cmp.l   #0x535F4F4B,0xA15124    /* S_OK */
+        bne.b   1b                      /* wait for slave ok */
 
-__m68k_start:
+        move.l  #vert_blank,vblank  /* set vertical blank interrupt handler */
+        move.w  #0x2000,sr          /* enable interrupts */
+        rts
+
+
+| void write_byte(void *dst, unsigned char val)
+        .global write_byte
+write_byte:
+        movea.l 4(sp),a0
+        move.l  8(sp),d0
+        move.b  d0,(a0)
+        rts
+
+| void write_word(void *dst, unsigned short val)
+        .global write_word
+write_word:
+        movea.l 4(sp),a0
+        move.l  8(sp),d0
+        move.w  d0,(a0)
+        rts
+
+| void write_long(void *dst, unsigned int val)
+        .global write_long
+write_long:
+        movea.l 4(sp),a0
+        move.l  8(sp),d0
+        move.l  d0,(a0)
+        rts
+
+| unsigned char read_byte(void *src)
+        .global read_byte
+read_byte:
+        movea.l 4(sp),a0
+        move.b  (a0),d0
+        rts
+
+| unsigned short read_word(void *src)
+        .global read_word
+read_word:
+        movea.l 4(sp),a0
+        move.w  (a0),d0
+        rts
+
+| unsigned int read_long(void *src)
+        .global read_long
+read_long:
+        movea.l 4(sp),a0
+        move.l  (a0),d0
+        rts
+
+
+        .data
+
+| Put remaining code in data section to lower bus contention for the rom.
+
+        .global do_main
+do_main:
         move.b  #1,0xA15107         /* set RV */
         move.b  #2,0xA130F1         /* SRAM disabled, write protected */
         move.b  #0,0xA15107         /* clear RV */
@@ -207,16 +204,11 @@ __m68k_start:
         move.w  d0,0xA15100         /* set FM - allow SH2 access to MARS hw */
         move.l  #0,0xA15120         /* let Master SH2 run */
 
-        lea     vert_blank(pc),a0
-        move.l  a0,0xFF0FFC         /* set vertical blank interrupt handler */
-        move.w  #0x2000,sr          /* enable interrupts */
-
 main_loop:
         move.w  0xA15120,d0         /* get COMM0 */
         bne.b   handle_req
 
-| any other 68000 tasks here
-
+        nop
         bra.b   main_loop
 
 | process request from Master SH2
@@ -278,7 +270,56 @@ set_rom_bank:
         rts
 
 start_music:
+        tst.w   cd_ok
+        beq.b   2f                  /* couldn't init cd */
+        tst.b   cd_ok
+        bne.b   0f                  /* disc found - try to play track */
+        /* check for CD */
+10:
+        move.b  0xA1200F,d1
+        bne.b   10b                 /* wait until Sub-CPU is ready to receive command */
+        move.b  #'D,0xA1200E        /* set main comm port to GetDiskInfo command */
+11:
+        move.b  0xA1200F,d0
+        beq.b   11b                 /* wait for acknowledge byte in sub comm port */
+        move.b  #0x00,0xA1200E      /* acknowledge receipt of command result */
+
+        cmpi.b  #'D,d0
+        bne.b   2f                  /* couldn't get disk info */
+        move.w  0xA12020,d0         /* BIOS status */
+        cmpi.w  #0x1000,d0
+        bhs.b   2f                  /* open, busy, or no disc */
+        move.b  #1,cd_ok            /* we have a disc - try to play track */
+0:
+        move.b  0xA1200F,d1
+        bne.b   0b                  /* wait until Sub-CPU is ready to receive command */
+
+        move.b  d0,0xA12012         /* repeat flag */
+        move.w  0xA15122,d0
+        addq.w  #1,d0
+        move.w  d0,0xA12010         /* track no. */
+        move.b  #'P,0xA1200E        /* set main comm port to PlayTrack command */
+1:
+        move.b  0xA1200F,d0
+        beq.b   1b                  /* wait for acknowledge byte in sub comm port */
+        move.b  #0x00,0xA1200E      /* acknowledge receipt of command result */
+2:
+        move.w  #0,0xA15120         /* done */
+        bra     main_loop
+
 stop_music:
+        tst.w   cd_ok
+        beq.b   2f
+0:
+        move.b  0xA1200F,d1
+        bne.b   0b                  /* wait until Sub-CPU is ready to receive command */
+
+        move.b  #'S,0xA1200E        /* set main comm port to StopPlayback command */
+1:
+        move.b  0xA1200F,d0
+        beq.b   1b                  /* wait for acknowledge byte in sub comm port */
+        move.b  #0x00,0xA1200E      /* acknowledge receipt of command result */
+2:
         move.w  #0,0xA15120         /* done */
         bra     main_loop
 
@@ -347,10 +388,14 @@ vert_blank:
         bsr.b   get_pad
         move.w  d2,0xA1512A         /* controller 2 current value */
 1:
-        move.l  0xA1512C,d0
-        addq.l  #1,d0
-        move.l  d0,0xA1512C         /* increment the vblank count */
 
+        tst.w   gen_lvl2
+        beq.b   2f
+        lea     0xA12000,a0
+        move.w  (a0),d0
+        ori.w   #0x0100,d0
+        move.w  d0,(a0)
+2:
         move.l  (sp)+,d2
         move.l  (sp)+,d1
         movea.l (sp)+,a0
@@ -543,6 +588,20 @@ mky_err:
         moveq   #-1,d0
         rts
 
-__m68k_end:
 
-        .align 4
+| Global variables for 68000
+
+        .align  4
+
+vblank:
+        dc.l    0
+
+        .global gen_lvl2
+gen_lvl2:
+        dc.w    0
+
+        .global cd_ok
+cd_ok:
+        dc.w    0
+
+        .align  4

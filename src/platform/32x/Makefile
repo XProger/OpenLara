@@ -13,6 +13,7 @@ LDSCRIPTSDIR = $(ROOTDIR)/ldscripts
 SHPREFIX = $(ROOTDIR)/sh-elf/bin/sh-elf-
 SHCC = $(SHPREFIX)gcc
 SHXX = $(SHPREFIX)g++
+SHPP = $(SHPREFIX)cpp
 SHAS = $(SHPREFIX)as
 SHLD = $(SHPREFIX)ld
 SHOBJC = $(SHPREFIX)objcopy
@@ -41,14 +42,13 @@ FILES_CC = $(foreach dir, $(SOURCES), $(wildcard $(dir)/*.c))
 FILES_XX = $(foreach dir, $(SOURCES), $(wildcard $(dir)/*.cpp))
 
 LIBS = $(LIBPATH) -lm -lc -lgcc -lgcc-Os-4-200 -lnosys
-OBJS =  $(BUILD)/sh2_crt0.o
-OBJS += $(addprefix $(BUILD)/, $(notdir $(FILES_AS:%.s=%.o)))
+OBJS =  $(addprefix $(BUILD)/, $(notdir $(FILES_AS:%.s=%.o)))
 OBJS += $(addprefix $(BUILD)/, $(notdir $(FILES_CC:%.c=%.o)))
 OBJS += $(addprefix $(BUILD)/, $(notdir $(FILES_XX:%.cpp=%.o)))
 
 .PHONY: dump clean
 
-all: $(BUILD) m68k_crt0.bin m68k_crt1.bin $(TARGET).32x
+all: $(BUILD) m68k.bin $(TARGET).32x
 
 dump:
 	@[ -d dump ] || mkdir -p dump
@@ -68,15 +68,15 @@ $(TARGET).32x: $(TARGET).elf
 $(TARGET).elf: $(OBJS)
 	$(SHCC) $(SHLDFLAGS) $(OBJS) $(LIBS) -o $(TARGET).elf
 
-%.bin: crt/%.s
-	$(MDAS) $(MDASFLAGS) -o $(BUILD)/$@.o $<
-	$(MDLD) $(MDLDFLAGS) -o $(BUILD)/$@ $(BUILD)/$@.o
+m68k.bin:
+	make -C src-md
 
-$(BUILD)/%.o: crt/%.s
+$(BUILD)/%.o: %.s
 	$(SHAS) $(SHASFLAGS) $(INCPATH) -o $@ $<
 
 $(BUILD)/%.o: asm/%.s
-	$(SHAS) $(SHASFLAGS) $(INCPATH) -o $@ $<
+	$(SHPP) $(INCPATH) -o $(BUILD)/$(notdir $<) $<
+	$(SHAS) $(SHASFLAGS) $(INCPATH) -o $@ $(BUILD)/$(notdir $<)
 
 $(BUILD)/%.o: %.c
 	$(SHCC) $(SHCCFLAGS) $(INCPATH) -o $@ $<
