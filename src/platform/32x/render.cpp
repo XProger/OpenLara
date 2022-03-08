@@ -123,6 +123,17 @@ extern "C" {
     X_NOINLINE void drawQuad(uint32 flags, VertexLink* v);
 }
 
+extern "C" {
+    void transformRoom_asm(const RoomVertex* vertices, int32 count);
+    void transformRoomUW_asm(const RoomVertex* vertices, int32 count);
+    void transformMesh_asm(const MeshVertex* vertices, int32 count, int32 intensity);
+    void faceAddRoomQuads_asm(const RoomQuad* polys, int32 count);
+    void faceAddRoomTriangles_asm(const RoomTriangle* polys, int32 count);
+    void faceAddMeshQuads_asm(const MeshQuad* polys, int32 count);
+    void faceAddMeshTriangles_asm(const MeshTriangle* polys, int32 count);
+    void rasterize_asm(uint32 flags, VertexLink* top);
+}
+
 #ifdef USE_ASM
     #define transformRoom           transformRoom_asm
     #define transformRoomUW         transformRoomUW_asm
@@ -133,16 +144,7 @@ extern "C" {
     #define faceAddMeshTriangles    faceAddMeshTriangles_asm
     #define rasterize               rasterize_asm
 
-    extern "C" {
-        void transformRoom_asm(const RoomVertex* vertices, int32 count);
-        void transformRoomUW_asm(const RoomVertex* vertices, int32 count);
-        void transformMesh_asm(const MeshVertex* vertices, int32 count, int32 intensity);
-        void faceAddRoomQuads_asm(const RoomQuad* polys, int32 count);
-        void faceAddRoomTriangles_asm(const RoomTriangle* polys, int32 count);
-        void faceAddMeshQuads_asm(const MeshQuad* polys, int32 count);
-        void faceAddMeshTriangles_asm(const MeshTriangle* polys, int32 count);
-        void rasterize_asm(uint32 flags, VertexLink* top);
-    }
+
 #else
     #define transformRoom           transformRoom_c
     #define transformRoomUW         transformRoomUW_c
@@ -151,7 +153,8 @@ extern "C" {
     #define faceAddRoomTriangles    faceAddRoomTriangles_c
     #define faceAddMeshQuads        faceAddMeshQuads_c
     #define faceAddMeshTriangles    faceAddMeshTriangles_c
-    #define rasterize               rasterize_c
+    //#define rasterize               rasterize_c
+    #define rasterize               rasterize_asm
 
 X_INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c)
 {
@@ -619,7 +622,7 @@ int32 sphereIsVisible_c(int32 sx, int32 sy, int32 sz, int32 r)
 
 typedef void (*RasterProc)(uint16* pixel, const VertexLink* L, const VertexLink* R);
 
-RasterProc gRasterProc[FACE_TYPE_MAX] = { // IWRAM
+extern "C" const RasterProc gRasterProc[FACE_TYPE_MAX] = { // IWRAM
     rasterizeS,
     rasterizeF,
     rasterizeFT,
@@ -960,12 +963,18 @@ void faceAddMesh(const MeshQuad* quads, const MeshTriangle* triangles, int32 qCo
 
 void clear()
 {
+#if 1
     MARS_VDP_FILLEN = 0xFF;
-    for(int32 i = 0x100; i < 0x100 + (FRAME_WIDTH * FRAME_HEIGHT >> 1); i += 0xFF)
+    MARS_VDP_FILADR = 0x100; // skip line table
+    for(int32 i = 0; i < (FRAME_WIDTH * FRAME_HEIGHT) >> 9; i++)
     {
-        MARS_VDP_FILADR = i;
         MARS_VDP_FILDAT = 0x0000;
+        while (MARS_VDP_FBCTL & MARS_VDP_FEN);
+        MARS_VDP_FILADR += 0x100;
     }
+#else
+    dmaFill((void*)fb, 0, FRAME_WIDTH * FRAME_HEIGHT);
+#endif
 }
 
 void renderRoom(const Room* room)

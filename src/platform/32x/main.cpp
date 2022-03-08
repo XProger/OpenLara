@@ -5,6 +5,23 @@ extern void* LEVEL1_PKD;
 
 #include "game.h"
 
+volatile unsigned mars_frt_ovf_count = 0;
+
+extern "C" {
+    volatile uint32 mars_pwdt_ovf_count = 0;
+    volatile uint32 mars_swdt_ovf_count = 0;
+}
+
+int32 gFrameIndex = 0;
+
+#define SH2_WDT_RTCSR       (*(volatile unsigned char *)0xFFFFFE80)
+#define SH2_WDT_RTCNT       (*(volatile unsigned char *)0xFFFFFE81)
+#define SH2_WDT_RRSTCSR     (*(volatile unsigned char *)0xFFFFFE83)
+#define SH2_WDT_WTCSR_TCNT  (*(volatile unsigned short *)0xFFFFFE80)
+#define SH2_WDT_WRWOVF_RST  (*(volatile unsigned short *)0xFFFFFE82)
+#define SH2_WDT_VCR         (*(volatile unsigned short *)0xFFFFFEE4)
+
+int32 g_timer;
 int32 fps;
 
 void osSetPalette(const uint16* palette)
@@ -15,7 +32,7 @@ void osSetPalette(const uint16* palette)
 
 int32 osGetSystemTimeMS()
 {
-    return 0;
+    return int32((mars_pwdt_ovf_count << 8) | SH2_WDT_RTCNT);
 }
 
 bool osSaveSettings()
@@ -85,9 +102,44 @@ void pageFlip()
     MARS_VDP_FBCTL = pageIndex;
 }
 
-extern "C" void slave(void)
+extern "C" void pri_vbi_handler()
 {
-    // TODO
+    gFrameIndex++;
+}
+
+extern "C" void secondary()
+{
+    // init DMA
+    SH2_DMA_SAR0 = 0;
+    SH2_DMA_DAR0 = 0;
+    SH2_DMA_TCR0 = 0;
+    SH2_DMA_CHCR0 = 0;
+    SH2_DMA_DRCR0 = 0;
+    SH2_DMA_SAR1 = 0;
+    SH2_DMA_DAR1 = 0;
+    SH2_DMA_TCR1 = 0;
+    SH2_DMA_CHCR1 = 0;
+    SH2_DMA_DRCR1 = 0;
+    SH2_DMA_DMAOR = 1;  // enable DMA
+
+    SH2_DMA_VCR1 = 66;  // set exception vector for DMA channel 1
+    SH2_INT_IPRA = (SH2_INT_IPRA & 0xF0FF) | 0x0400;    // set DMA INT to priority 4
+
+    while (1)
+    {
+        int cmd;
+        while ((cmd = MARS_SYS_COMM4) == 0);
+
+        // TODO
+
+        MARS_SYS_COMM4 = 0;
+    }
+}
+
+extern "C" void sec_dma1_handler()
+{
+    SH2_DMA_CHCR1; // read TE
+    SH2_DMA_CHCR1 = 0; // clear TE
 }
 
 int main()
@@ -102,25 +154,37 @@ int main()
 
         volatile uint16* lineTable = &MARS_FRAMEBUFFER;
         uint16 wordOffset = 0x100;
-        for (int32 i = 0; i < 224; i++, wordOffset += FRAME_WIDTH / 2)
+
+        for (int32 i = 0; i < 256; i++)
         {
             lineTable[i] = wordOffset;
+
+            if (i < FRAME_HEIGHT - 1) {
+                wordOffset += FRAME_WIDTH / 2;
+            }
         }
 
-        uint8* fb = (uint8*)(lineTable + 0x100);
-        memset(fb, 0, 0x10000 - 0x200);
+        clear();
     }
+
+    SH2_WDT_VCR = (65<<8) | (SH2_WDT_VCR & 0x00FF); // set exception vector for WDT
+    SH2_INT_IPRA = (SH2_INT_IPRA & 0xFF0F) | 0x0020; // set WDT INT to priority 2
+
+    SH2_WDT_WTCSR_TCNT = 0x5A00;
+    SH2_WDT_WTCSR_TCNT = 0xA53E;
+
+    MARS_SYS_COMM4 = 0;
 
     gameInit(gLevelInfo[gLevelID].name);
 
-    int32 lastFrame = (MARS_SYS_COMM12 >> 1) - 1;
+    int32 lastFrame = (gFrameIndex >> 1) - 1;
     int32 fpsCounter = 0;
-    int32 fpsFrame = MARS_SYS_COMM12;
+    int32 fpsFrame = gFrameIndex;
     int32 vsyncRate = (MARS_VDP_DISPMODE & MARS_NTSC_FORMAT) ? 60 : 50;
 
     while (1)
     {
-        int32 frame = MARS_SYS_COMM12;
+        int32 frame = gFrameIndex;
 
         if (frame - fpsFrame >= vsyncRate)
         {

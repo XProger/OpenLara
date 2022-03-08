@@ -91,7 +91,15 @@
 
 #define SH2_DMA_DMAOR       (*(volatile unsigned long *)0xFFFFFFB0)
 
+#define SH2_INT_ICR         (*(volatile unsigned short *)0xFFFFFEE0)
 #define SH2_INT_IPRA        (*(volatile unsigned short *)0xFFFFFEE2)
+#define SH2_INT_IPRB        (*(volatile unsigned short *)0xFFFFFE60)
+#define SH2_INT_VCRA        (*(volatile unsigned short *)0xFFFFFE62)
+#define SH2_INT_VCRB        (*(volatile unsigned short *)0xFFFFFE64)
+#define SH2_INT_VCRC        (*(volatile unsigned short *)0xFFFFFE66)
+#define SH2_INT_VCRD        (*(volatile unsigned short *)0xFFFFFE68)
+#define SH2_INT_VCRWDT      (*(volatile unsigned short *)0xFFFFFEE4)
+#define SH2_INT_VCRDIV      (*(volatile unsigned long *)0xFFFFFF0C)
 
 #define SEGA_CTRL_UP        0x0001
 #define SEGA_CTRL_DOWN      0x0002
@@ -115,6 +123,20 @@
 #define SLAVE_STATUS_OK     2
 #define MASTER_LOCK         4
 #define SLAVE_LOCK          8
+
+#define SH2_WDT_WTCNT           0x5A00
+#define SH2_WDT_WTCSR           (0xA500 | (1 << 3) | (1 << 4))
+#define SH2_WDT_WTCSR_CKS_2     0
+#define SH2_WDT_WTCSR_CKS_64    1
+#define SH2_WDT_WTCSR_CKS_128   2
+#define SH2_WDT_WTCSR_CKS_256   3
+#define SH2_WDT_WTCSR_CKS_512   4
+#define SH2_WDT_WTCSR_CKS_1024  5
+#define SH2_WDT_WTCSR_CKS_4096  6
+#define SH2_WDT_WTCSR_CKS_8192  7
+#define SH2_WDT_WTCSR_TME       (1 << 5)
+#define SH2_WDT_WTCSR_WTIT      (1 << 6)
+#define SH2_WDT_WTCSR_OVF       (1 << 7)
 
 /* global functions in sh2_crt0.s */
 extern "C"

@@ -1,10 +1,10 @@
 #ifndef H_COMMON
 #define H_COMMON
 //#define STATIC_ITEMS
-//#define PROFILING
+#define PROFILING
 #ifdef PROFILING
     #define STATIC_ITEMS
-//    #define PROFILE_FRAMETIME
+    #define PROFILE_FRAMETIME
 //    #define PROFILE_SOUNDTIME
 #endif
 
@@ -322,7 +322,7 @@ extern void* osLoadLevel(const char* name);
 
     extern uint32 gCounters[CNT_MAX];
     
-    #if defined(__3DO__) // should be first, armcpp bug (#elif)
+    #if defined(__3DO__) || defined(__32X__) // should be first, armcpp bug (#elif)
         extern int32 g_timer;
 
         #define PROFILE_START() {\
@@ -2692,9 +2692,61 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
 
 #ifdef __32X__ // TODO
     #undef matrixPush
-    #define matrixPush              matrixPush_asm
+    #undef matrixSetIdentity
+    #undef matrixSetBasis
+    #undef matrixLerp
+    #undef matrixTranslateRel
+    #undef matrixTranslateAbs
+    #undef matrixTranslateSet
+    #undef matrixRotateX
+    #undef matrixRotateY
+    #undef matrixRotateZ
+    #undef matrixRotateYXZ
+    #undef matrixRotateYQ
+    //#undef boxTranslate
+    //#undef boxRotateYQ
+    //#undef boxIsVisible
+    //#undef sphereIsVisible
+    //#undef flush
 
-    extern "C" void matrixPush_asm();
+    #define matrixPush              matrixPush_asm
+    #define matrixSetIdentity       matrixSetIdentity_asm
+    #define matrixSetBasis          matrixSetBasis_asm
+    #define matrixLerp              matrixLerp_asm
+    #define matrixTranslateRel      matrixTranslateRel_asm
+    #define matrixTranslateAbs      matrixTranslateAbs_asm
+    #define matrixTranslateSet      matrixTranslateSet_asm
+    #define matrixRotateX           matrixRotateX_asm
+    #define matrixRotateY           matrixRotateY_asm
+    #define matrixRotateZ           matrixRotateZ_asm
+    #define matrixRotateYXZ         matrixRotateYXZ_asm
+    #define matrixRotateYQ          matrixRotateYQ_asm
+    //#define boxTranslate            boxTranslate_asm
+    //#define boxRotateYQ             boxRotateYQ_asm
+    //#define boxIsVisible            boxIsVisible_asm
+    //#define sphereIsVisible         sphereIsVisible_asm
+    //#define flush                   flush_asm
+
+    extern "C" 
+    {
+        void matrixPush_asm();
+        void matrixSetIdentity_asm();
+        void matrixSetBasis_asm(Matrix &dst, const Matrix &src);
+        void matrixLerp_asm(const Matrix &n, int32 pmul, int32 pdiv);
+        void matrixTranslateRel_asm(int32 x, int32 y, int32 z);
+        void matrixTranslateAbs_asm(int32 x, int32 y, int32 z);
+        void matrixTranslateSet_asm(int32 x, int32 y, int32 z);
+        void matrixRotateX_asm(int32 angle);
+        void matrixRotateY_asm(int32 angle);
+        void matrixRotateZ_asm(int32 angle);
+        void matrixRotateYQ_asm(int32 quadrant);
+        void matrixRotateYXZ_asm(int32 angleX, int32 angleY, int32 angleZ);
+        void boxTranslate_asm(AABBi &box, int32 x, int32 y, int32 z);
+        void boxRotateYQ_asm(AABBi &box, int32 quadrant);
+        int32 boxIsVisible_asm(const AABBs* box);
+        int32 sphereIsVisible_asm(int32 x, int32 y, int32 z, int32 r);
+        void flush_asm();
+    }
 #endif
 
 #define matrixPop()     gMatrixPtr--
