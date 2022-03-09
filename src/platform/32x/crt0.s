@@ -192,6 +192,9 @@
         .incbin "src-md/m68k.bin"       /* all 68000 code & data, compiled to 0x880800/0xFF0000 */
 
         .data
+        .global _gLightmap
+_gLightmap:
+        .space  256 * 32
 
 !-----------------------------------------------------------------------
 ! Primary Vector Base Table

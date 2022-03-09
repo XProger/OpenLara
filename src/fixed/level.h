@@ -6,8 +6,12 @@
 
 Level level;
 
-#ifndef MODEHW
-IWRAM_DATA uint8 gLightmap[256 * 32]; // IWRAM 8k
+#ifdef __32X__
+    extern uint8 gLightmap[256 * 32]; // SDRAM 8k at 0x6000000
+#else
+    #ifndef MODEHW
+        IWRAM_DATA uint8 gLightmap[256 * 32]; // IWRAM 8k
+    #endif
 #endif
 
 EWRAM_DATA ItemObj items[MAX_ITEMS];

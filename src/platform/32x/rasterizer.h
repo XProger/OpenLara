@@ -340,6 +340,21 @@ extern "C" void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLi
                 }
 
                 width >>= 1;
+
+            #ifdef TEX_2PX
+                dtdx <<= 1;
+
+                while (width--)
+                {
+                    uint8 indexA = ft_lightmap[gTile[(t & 0xFF00) | (t >> 24)]];
+                    t += dtdx;
+
+                    *(uint16*)ptr = indexA | (indexA << 8);
+
+                    ptr += 2;
+                }
+            #else
+                width >>= 1;
                 while (width--)
                 {
                     uint8 indexA = ft_lightmap[gTile[(t & 0xFF00) | (t >> 24)]];
@@ -355,6 +370,7 @@ extern "C" void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLi
 
                     ptr += 2;
                 }
+            #endif
             }
 
             pixel += VRAM_WIDTH;
@@ -445,6 +461,11 @@ extern "C" void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLi
         Lh -= h;
         Rh -= h;
 
+    #ifdef ALIGNED_LIGHTMAP
+        Lg |= intptr_t(gLightmap);
+        Rg |= intptr_t(gLightmap);
+    #endif
+
         while (h--)
         {
             int32 x1 = Lx >> 16;
@@ -470,7 +491,13 @@ extern "C" void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLi
 
                 if (intptr_t(ptr) & 1)
                 {
-                    *ptr++ = gLightmap[(g >> 8 << 8) | gTile[(t & 0xFF00) | (t >> 24)]];
+                #ifdef ALIGNED_LIGHTMAP
+                    const uint8* LMAP = (uint8*)(g >> 8 << 8); 
+                    uint8 indexA = LMAP[gTile[(t & 0xFF00) | (t >> 24)]];
+                #else
+                    uint8 indexA = gLightmap[(g >> 8 << 8) | gTile[(t & 0xFF00) | (t >> 24)]];
+                #endif
+                    *ptr++ = indexA;
                     t += dtdx;
                     g += dgdx >> 1;
                     width--;
@@ -479,15 +506,34 @@ extern "C" void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLi
                 if (width & 1)
                 {
                     uint32 tmp = Rt - dtdx;
-                    ptr[width - 1] = gLightmap[(Rg >> 8 << 8) | gTile[(tmp & 0xFF00) | (tmp >> 24)]];
+                #ifdef ALIGNED_LIGHTMAP
+                    const uint8* LMAP = (uint8*)(Rg >> 8 << 8); 
+                    uint8 indexA = LMAP[gTile[(tmp & 0xFF00) | (tmp >> 24)]];
+                #else
+                    uint8 indexA = gLightmap[(Rg >> 8 << 8) | gTile[(tmp & 0xFF00) | (tmp >> 24)]];
+                #endif
+                    ptr[width - 1] = indexA;
                 }
-
-            #ifdef ALIGNED_LIGHTMAP
-                g += intptr_t(gLightmap);
-            #endif
 
                 width >>= 1;
 
+            #ifdef TEX_2PX
+                dtdx <<= 1;
+
+                while (width--)
+                {
+                #ifdef ALIGNED_LIGHTMAP
+                    const uint8* LMAP = (uint8*)(g >> 8 << 8); 
+                    uint8 indexA = LMAP[gTile[(t & 0xFF00) | (t >> 24)]];
+                #else
+                    uint8 indexA = gLightmap[(g >> 8 << 8) | gTile[(t & 0xFF00) | (t >> 24)]];
+                #endif
+                    *(uint16*)ptr = indexA | (indexA << 8);
+                    ptr += 2;
+                    t += dtdx;
+                    g += dgdx;
+                }
+            #else
                 while (width--)
                 {
                 #ifdef ALIGNED_LIGHTMAP
@@ -514,6 +560,7 @@ extern "C" void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLi
 
                     ptr += 2;
                 }
+            #endif
             }
 
             pixel += VRAM_WIDTH;
@@ -635,6 +682,24 @@ extern "C" void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexL
                 }
 
                 width >>= 1;
+
+            #ifdef TEX_2PX
+                dtdx <<= 1;
+
+                while (width--)
+                {
+                    uint8 indexA = gTile[(t & 0xFF00) | (t >> 24)];
+                    t += dtdx;
+
+                    if (indexA)
+                    {
+                        indexA = ft_lightmap[indexA];
+                        *(uint16*)ptr = indexA | (indexA << 8);
+                    }
+
+                    ptr += 2;
+                }
+            #else
                 while (width--)
                 {
                     uint8 indexA = gTile[(t & 0xFF00) | (t >> 24)];
@@ -662,6 +727,7 @@ extern "C" void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexL
 
                     ptr += 2;
                 }
+            #endif
             }
 
             pixel += VRAM_WIDTH;

@@ -91,6 +91,8 @@
     #define USE_DIV_TABLE
     #define CPU_BIG_ENDIAN
     #define ROM_READ
+    #define TEX_2PX
+    #define ALIGNED_LIGHTMAP
 
     #define MODE13
     #define FRAME_WIDTH  320
