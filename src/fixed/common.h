@@ -637,11 +637,15 @@ struct vec4i {
 
 struct Matrix
 {
-#ifdef __3DO__
+#if defined(__3DO__)
     int32 e00, e10, e20;
     int32 e01, e11, e21;
     int32 e02, e12, e22;
     int32 e03, e13, e23;
+#elif defined(__32X__)
+    int32 e03; int16 e00, e01, e02, _pad0;
+    int32 e13; int16 e10, e11, e12, _pad1;
+    int32 e23; int16 e20, e21, e22, _pad2;
 #else
     int32 e00, e01, e02, e03;
     int32 e10, e11, e12, e13;
@@ -2133,14 +2137,16 @@ struct IMA_STATE
         y = (y * d) >> (16 - PROJ_SHIFT);\
     }
 #elif defined(MODE4)
+    #define PROJ_SHIFT 4
+
     #define PERSPECTIVE_DZ(z) ((z >> 4) + (z >> 6))
 
     #define PERSPECTIVE(x, y, z) {\
         int32 dz = PERSPECTIVE_DZ(z);\
         if (dz >= DIV_TABLE_SIZE) dz = DIV_TABLE_SIZE - 1;\
         int32 d = FixedInvU(dz);\
-        x = (x * d) >> 12;\
-        y = (y * d) >> 12;\
+        x = (x * d) >> (16 - PROJ_SHIFT);\
+        y = (y * d) >> (16 - PROJ_SHIFT);\
     }
 #else
     #define PERSPECTIVE(x, y, z) {\

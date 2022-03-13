@@ -60,8 +60,12 @@
 #define MARS_VDP_FEN        0x0002
 #define MARS_VDP_FS         0x0001
 
+#define SH2_CCTL_W1         0x80
+#define SH2_CCTL_W0         0x40
 #define SH2_CCTL_CP         0x10
 #define SH2_CCTL_TW         0x08
+#define SH2_CCTL_OD         0x04
+#define SH2_CCTL_ID         0x02
 #define SH2_CCTL_CE         0x01
 
 #define SH2_FRT_TIER        (*(volatile unsigned char *)0xFFFFFE10)

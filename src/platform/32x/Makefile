@@ -27,7 +27,7 @@ MDLD = $(MDPREFIX)ld
 LIBPATH = -L$(ROOTDIR)/sh-elf/lib -L$(ROOTDIR)/sh-elf/lib/gcc/sh-elf/$(CC_VER) -L$(ROOTDIR)/sh-elf/sh-elf/lib
 INCPATH = -I. -I../../fixed -I$(ROOTDIR)/sh-elf/include -I$(ROOTDIR)/sh-elf/sh-elf/include
 
-SHCCFLAGS = -D__32X__ -m2 -mb -O2 -Wall -g -c -fno-rtti -fno-exceptions -fno-asynchronous-unwind-tables -fomit-frame-pointer -ffast-math -Wno-class-memaccess
+SHCCFLAGS = -D__32X__ -m2 -mb -O2 -Wall -Wno-class-memaccess -g -c -fno-rtti -fno-exceptions -fomit-frame-pointer -fshort-enums -frandom-seed=0
 SHLDFLAGS = -T $(LDSCRIPTSDIR)/mars.ld -Wl,-Map=$(BUILD)/output.map -nostdlib
 SHASFLAGS = --big
 

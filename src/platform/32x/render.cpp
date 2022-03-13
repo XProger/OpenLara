@@ -68,9 +68,9 @@ Vertex* gVerticesBase;
 Face* gFacesBase;
 
 //EWRAM_DATA uint8 gBackgroundCopy[FRAME_WIDTH * FRAME_HEIGHT];   // EWRAM 37.5k
-EWRAM_DATA ALIGN8 Vertex gVertices[MAX_VERTICES];               // EWRAM 16k
-EWRAM_DATA Face gFaces[MAX_FACES];                              // EWRAM 30k
-Face* gOT[OT_SIZE];                                             // IWRAM 2.5k
+EWRAM_DATA ALIGN16 Vertex gVertices[MAX_VERTICES];                // EWRAM 16k
+EWRAM_DATA ALIGN16 Face gFaces[MAX_FACES];                        // EWRAM 30k
+Face* gOT[OT_SIZE];                                               // IWRAM 2.5k
 
 enum ClipFlags {
     CLIP_LEFT     = 1 << 0,
@@ -153,7 +153,6 @@ extern "C" {
     #define faceAddRoomTriangles    faceAddRoomTriangles_c
     #define faceAddMeshQuads        faceAddMeshQuads_c
     #define faceAddMeshTriangles    faceAddMeshTriangles_c
-    //#define rasterize               rasterize_c
     #define rasterize               rasterize_asm
 
 X_INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c)
@@ -730,6 +729,26 @@ void flush_c()
         } while (face);
     }
 }
+#endif
+
+#if defined(__32X__)
+    //#undef transformRoom
+    //#undef transformRoomUW
+    #undef transformMesh
+    //#undef faceAddRoomQuads
+    //#undef faceAddRoomTriangles
+    //#undef faceAddMeshQuads
+    //#undef faceAddMeshTriangles
+    #undef rasterize
+
+    //#define transformRoom           transformRoom_asm
+    //#define transformRoomUW         transformRoomUW_asm
+    #define transformMesh           transformMesh_asm           // -56%
+    //#define faceAddRoomQuads        faceAddRoomQuads_asm
+    //#define faceAddRoomTriangles    faceAddRoomTriangles_asm
+    //#define faceAddMeshQuads        faceAddMeshQuads_asm
+    //#define faceAddMeshTriangles    faceAddMeshTriangles_asm
+    #define rasterize               rasterize_asm
 #endif
 
 VertexLink* clipPoly(VertexLink* poly, VertexLink* tmp, int32 &pCount)

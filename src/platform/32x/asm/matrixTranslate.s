@@ -1,14 +1,17 @@
 #include "common.i"
-.text
+SEG_MATH
 
-#define m       r0
+#define v       r0
 #define e0      r1
 #define e1      r2
 #define e2      r3
 #define x       r4      // arg
 #define y       r5      // arg
 #define z       r6      // arg
-#define v       r7
+#define m       r7
+#define e       e0
+#define tmp     e1
+
 
 .align 4
 .global _matrixTranslateRel_asm
@@ -16,43 +19,44 @@ _matrixTranslateRel_asm:
         mov.l   var_gMatrixPtr, m
         mov.l   @m, m
 
-        mov     #1, v
-        mov.l   v, @-sp
+        // store xyz_ to the stack
+        shll16  z
+        shll16  y
+        xtrct   x, y
         mov.l   z, @-sp
         mov.l   y, @-sp
-        mov.l   x, @-sp
 
         // x
-        clrmac
+        lds.l   @m+, MACL
         mov     sp, v
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        add     #-6, m
         sts.l   MACL, @-m
-        add     #4, m
+        add     #12, m
 
         // y
-        clrmac
+        lds.l   @m+, MACL
         mov     sp, v
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        add     #-6, m
         sts.l   MACL, @-m
-        add     #4, m
+        add     #12, m
 
         // z
-        clrmac
+        lds.l   @m+, MACL
         mov     sp, v
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        add     #-6, m
         sts.l   MACL, @-m
-
         rts
-        add     #16, sp
+        add     #8, sp
+
 
 .align 4
 .global _matrixTranslateAbs_asm
@@ -64,84 +68,90 @@ _matrixTranslateAbs_asm:
         sub     e0, x
         sub     e1, y
         sub     e2, z
-        mov.l   z, @-sp
-        mov.l   y, @-sp
-        mov.l   x, @-sp
 
         mov.l   var_gMatrixPtr, m
         mov.l   @m, m
+        add     #M00, m
+
+        // store yz to the stack
+        shll16  z
+        xtrct   y, z
+        mov.l   z, @-sp
 
         // x
-        clrmac
+        mov.w   @m+, e
         mov     sp, v
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        add     #4, m
+        muls.w  x, e
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        add     #-6, m
         sts.l   MACL, @-m
-        add     #4, m
+        add     #16, m
 
         // y
-        clrmac
+        mov.w   @m+, e
         mov     sp, v
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        add     #4, m
+        muls.w  x, e
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        add     #-6, m
         sts.l   MACL, @-m
-        add     #4, m
+        add     #16, m
 
         // z
-        clrmac
+        mov.w   @m+, e
         mov     sp, v
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        add     #4, m
+        muls.w  x, e
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        add     #-6, m
         sts.l   MACL, @-m
         rts
-        add     #12, sp
+        add     #4, sp
 
 .align 4
 .global _matrixTranslateSet_asm
 _matrixTranslateSet_asm:
-        mov.l   z, @-sp
-        mov.l   y, @-sp
-        mov.l   x, @-sp
-
         mov.l   var_gMatrixPtr, m
         mov.l   @m, m
+        add     #M00, m
+
+        // store yz to the stack
+        shll16  z
+        xtrct   y, z
+        mov.l   z, @-sp
 
         // x
-        clrmac
+        mov.w   @m+, e
         mov     sp, v
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        add     #4, m
+        muls.w  x, e
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        add     #-6, m
         sts.l   MACL, @-m
-        add     #4, m
+        add     #16, m
 
         // y
-        clrmac
+        mov.w   @m+, e
         mov     sp, v
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        add     #4, m
+        muls.w  x, e
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        add     #-6, m
         sts.l   MACL, @-m
-        add     #4, m
+        add     #16, m
 
         // z
-        clrmac
+        mov.w   @m+, e
         mov     sp, v
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        mac.l   @v+, @m+
-        add     #4, m
+        muls.w  x, e
+        mac.w   @v+, @m+
+        mac.w   @v+, @m+
+        add     #-6, m
         sts.l   MACL, @-m
         rts
-        add     #12, sp
+        add     #4, sp
+        nop
 
 var_gMatrixPtr:
         .long   _gMatrixPtr

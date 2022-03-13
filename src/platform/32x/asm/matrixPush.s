@@ -1,22 +1,19 @@
 #include "common.i"
-.text
+SEG_MATH
 
 #define ptr     r0
 #define x       r1
 #define y       r2
 #define z       r3
-#define w       r4
 #define m       r5
 
 .macro COPY_ROW
         mov.l   @m+, x
         mov.l   @m+, y
         mov.l   @m+, z
-        mov.l   @m+, w
-        mov.l   x, @(32, m)
-        mov.l   y, @(36, m)
-        mov.l   z, @(40, m)
-        mov.l   w, @(44, m)
+        mov.l   x, @(24, m)
+        mov.l   y, @(28, m)
+        mov.l   z, @(32, m)
 .endm
 
 .align 4

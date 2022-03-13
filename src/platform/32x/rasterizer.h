@@ -3,6 +3,14 @@
 
 #include "common.h"
 
+#ifdef ALIGNED_LIGHTMAP
+    #ifdef __32X__
+        #define LIGHTMAP_ADDR   (0x06000000)
+    #else
+        #define LIGHTMAP_ADDR   intptr_t(gLightmap)
+    #endif
+#endif
+
 extern uint8 gLightmap[256 * 32];
 extern const uint8* gTile;
 
@@ -462,8 +470,8 @@ extern "C" void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLi
         Rh -= h;
 
     #ifdef ALIGNED_LIGHTMAP
-        Lg |= intptr_t(gLightmap);
-        Rg |= intptr_t(gLightmap);
+        Lg |= LIGHTMAP_ADDR;
+        Rg |= LIGHTMAP_ADDR;
     #endif
 
         while (h--)
