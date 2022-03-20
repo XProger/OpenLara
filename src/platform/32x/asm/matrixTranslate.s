@@ -12,6 +12,46 @@ SEG_MATH
 #define e       e0
 #define tmp     e1
 
+.macro push
+        // store xyz_ to the stack
+        shll16  z
+        xtrct   y, z
+        mov.l   z, @-sp
+.endm
+
+.macro pop
+        add     #4, sp
+.endm
+
+.macro Inc offset
+        mov.w   @m+, v
+        mov     sp, tmp
+        muls.w  x, v
+        mac.w   @m+, @tmp+
+        mac.w   @m+, @tmp+
+        mov.w   @(\offset, m), v
+        sts     MACL, tmp
+        shlr14  tmp
+        add     tmp, v          // trash in high word, that's fine!
+        mov.w   v, @(\offset, m)
+.endm
+
+.macro Set offset
+        mov.w   @m+, v
+        mov     sp, tmp
+        muls.w  x, v
+        mac.w   @m+, @tmp+
+        mac.w   @m+, @tmp+
+        sts     MACL, v
+        shlr14  v
+        mov.w   v, @(\offset, m)
+.endm
+
+.macro transform func
+        \func (M03 - 6)          // x
+        \func (M13 - 12)         // y
+        \func (M23 - 18)         // z
+.endm
 
 .align 4
 .global _matrixTranslateRel_asm
@@ -19,46 +59,12 @@ _matrixTranslateRel_asm:
         mov.l   var_gMatrixPtr, m
         mov.l   @m, m
 
-        // store xyz_ to the stack
-        shll16  z
-        shll16  y
-        xtrct   x, y
-        mov.l   z, @-sp
-        mov.l   y, @-sp
-
-        // x
-        lds.l   @m+, MACL
-        mov     sp, v
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        add     #-6, m
-        sts.l   MACL, @-m
-        add     #12, m
-
-        // y
-        lds.l   @m+, MACL
-        mov     sp, v
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        add     #-6, m
-        sts.l   MACL, @-m
-        add     #12, m
-
-        // z
-        lds.l   @m+, MACL
-        mov     sp, v
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        add     #-6, m
-        sts.l   MACL, @-m
+        push
+        transform Inc
         rts
-        add     #8, sp
+        pop
 
-
-.align 4
+.align 2
 .global _matrixTranslateAbs_asm
 _matrixTranslateAbs_asm:
         mov.l   var_gCameraViewPos, v
@@ -71,88 +77,24 @@ _matrixTranslateAbs_asm:
 
         mov.l   var_gMatrixPtr, m
         mov.l   @m, m
-        add     #M00, m
 
-        // store yz to the stack
-        shll16  z
-        xtrct   y, z
-        mov.l   z, @-sp
-
-        // x
-        mov.w   @m+, e
-        mov     sp, v
-        muls.w  x, e
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        add     #-6, m
-        sts.l   MACL, @-m
-        add     #16, m
-
-        // y
-        mov.w   @m+, e
-        mov     sp, v
-        muls.w  x, e
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        add     #-6, m
-        sts.l   MACL, @-m
-        add     #16, m
-
-        // z
-        mov.w   @m+, e
-        mov     sp, v
-        muls.w  x, e
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        add     #-6, m
-        sts.l   MACL, @-m
+        push
+        transform Set
         rts
-        add     #4, sp
+        pop
 
-.align 4
+.align 2
 .global _matrixTranslateSet_asm
 _matrixTranslateSet_asm:
         mov.l   var_gMatrixPtr, m
         mov.l   @m, m
-        add     #M00, m
 
-        // store yz to the stack
-        shll16  z
-        xtrct   y, z
-        mov.l   z, @-sp
-
-        // x
-        mov.w   @m+, e
-        mov     sp, v
-        muls.w  x, e
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        add     #-6, m
-        sts.l   MACL, @-m
-        add     #16, m
-
-        // y
-        mov.w   @m+, e
-        mov     sp, v
-        muls.w  x, e
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        add     #-6, m
-        sts.l   MACL, @-m
-        add     #16, m
-
-        // z
-        mov.w   @m+, e
-        mov     sp, v
-        muls.w  x, e
-        mac.w   @v+, @m+
-        mac.w   @v+, @m+
-        add     #-6, m
-        sts.l   MACL, @-m
+        push
+        transform Set
         rts
-        add     #4, sp
-        nop
+        pop
 
+.align 2
 var_gMatrixPtr:
         .long   _gMatrixPtr
 var_gCameraViewPos:

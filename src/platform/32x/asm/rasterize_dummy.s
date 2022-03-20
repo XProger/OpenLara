@@ -2,7 +2,7 @@
 
 .text
 .align 4
-.global _rasterize_dummy_asm
-_rasterize_dummy_asm:
+.global _rasterize_dummy
+_rasterize_dummy:
         rts
         nop

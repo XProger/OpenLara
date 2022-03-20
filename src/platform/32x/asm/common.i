@@ -2,27 +2,40 @@
 #define SEG_TRANS   .data
 #define SEG_FACE    .data
 #define SEG_RASTER  .data
+#define SEG_PHYSICS .data
 
-// row[0]
-#define M03     0   // int32
-#define M00     4   // int16
-#define M01     6   // int16
-#define M02     8   // int16
-#define M0P     10  // int16 (padding)
-// row[1]
-#define M13     12  // int32
-#define M10     16  // int16
-#define M11     18  // int16
-#define M12     20  // int16
-#define M1P     22  // int16 (padding)
-// row[2]
-#define M23     24  // int32
-#define M20     28  // int16
-#define M21     30  // int16
-#define M22     32  // int16
-#define M2P     34  // int16 (padding)
+// Matrix:
+// int16 e00, e01, e02  // rotation
+// int16 e10, e11, e12  // rotation
+// int16 e20, e21, e22  // rotation
+// int16 e03, e13, e23  // translation
+//
+// word [ N Z Z ]  // rot
+//      [ Z N Z ]  // rot
+//      [ Z Z N ]  // rot
+//      [ Z Z Z ]  // trans
+// long [ NZ ZZ NZ ZZ NZ ZZ ]
 
-#define FIXED_SHIFT 14
+// row[0] rotation
+#define M00     0
+#define M01     2
+#define M02     4
+// row[1] rotation
+#define M10     6
+#define M11     8
+#define M12     10
+// row[2] rotation
+#define M20     12
+#define M21     14
+#define M22     16
+// row[3] translation
+#define M03     18
+#define M13     20
+#define M23     22
+
+#define MATRIX_SIZEOF   24
+
+#define FIXED_SHIFT     14
 
 #define FACE_TYPE_F     1
 
@@ -54,3 +67,9 @@
 #define VP_MINY         4
 #define VP_MAXX         8
 #define VP_MAXY         12
+
+.macro shlr14 reg
+        shll2   \reg
+        shlr16  \reg
+        //exts.w  reg, reg      // skip this because of mov.w
+.endm

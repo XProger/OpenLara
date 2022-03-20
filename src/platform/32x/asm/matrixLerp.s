@@ -10,7 +10,7 @@ SEG_MATH
 #define pdiv    r6      // arg
 #define n1      pdiv
 #define n2      r7
-#define m       r14
+#define m       r8
 #define tmp     m0
 #define divLUT  m1
 
@@ -30,8 +30,7 @@ SEG_MATH
 .endm
 
 .macro next
-        add     #12, m
-        add     #6, n
+        add     #6, m
 .endm
 
 .macro _1_2 // a = (a + b) / 2
@@ -82,14 +81,8 @@ SEG_MATH
 .macro masr_8 x
         muls.w  \x, pmul
         sts     MACL, \x
-        shar    \x
-        shar    \x
-        shar    \x
-        shar    \x
-        shar    \x
-        shar    \x
-        shar    \x
-        shar    \x
+        shlr8   \x
+        exts.w  \x, \x
 .endm
 
 .macro _X_Y // a = a + (b - a) * mul / div
@@ -120,21 +113,19 @@ SEG_MATH
 .align 4
 .global _matrixLerp_asm
 _matrixLerp_asm:
-        mov.l   r14, @-sp
+        mov.l   r8, @-sp
         mov.l   var_gMatrixPtr, m
         mov.l   @m, m
         mov     pdiv, tmp
-        add     #4, n           // skip n.e03
-        add     #4, m           // skip m.e03
 .check_2:
         cmp/eq  #2, tmp
-        bf      .check_XY
+        bf/s    .check_XY
+        cmp/eq  #4, tmp
 .m1_d2:
         lerp    _1_2
         rts
-        mov.l   @sp+, r14
+        mov.l   @sp+, r8
 .check_XY:
-        cmp/eq  #4, tmp
         bt      .check_4
         bra     .mX_dY
         nop
@@ -147,11 +138,11 @@ _matrixLerp_asm:
 .m3_d4:
         lerp    _3_4
         rts
-        mov.l   @sp+, r14
+        mov.l   @sp+, r8
 .m1_d4:
         lerp    _1_4
         rts
-        mov.l   @sp+, r14
+        mov.l   @sp+, r8
 .mX_dY:
         mov.l   var_divTable, divLUT
         shll    tmp
@@ -162,7 +153,7 @@ _matrixLerp_asm:
 
         lerp    _X_Y
         rts
-        mov.l   @sp+, r14
+        mov.l   @sp+, r8
         nop
 
 var_gMatrixPtr:

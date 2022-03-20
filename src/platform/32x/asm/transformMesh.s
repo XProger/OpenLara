@@ -23,15 +23,15 @@ SEG_TRANS
 #define minZ            tmp
 
 .macro transform v
-        lds.l   @m+, MACL
+        clrmac
         mac.w   @vertices+, @m+
         mac.w   @vertices+, @m+
         mac.w   @vertices+, @m+
-        sts     MACL, \v
-        // v >>= FIXED_SHIFT
-        shll2   \v
-        shlr16  \v
-        exts.w  \v, \v
+        sts     MACL, tmp
+        // v += tmp >> (FIXED_SHIFT + FP16_SHIFT)
+        shlr16  tmp
+        exts.w  tmp, tmp
+        add     tmp, \v
 .endm
 
 .align 4
@@ -46,17 +46,17 @@ _transformMesh_asm:
         mov.l   r13, @-sp
         mov.l   r14, @-sp
 
-        mov.l   var_viewport, tmp
-        mov.l   @tmp+, minX
-        mov.l   @tmp+, minY
-        mov.l   @tmp+, maxX
-        mov.l   @tmp+, maxY
-
-        mov.l   var_gMatrixPtr, tmp
-        mov.l   @tmp, m
+        mov.l   var_viewportRel, tmp
+        mov.w   @tmp+, minX
+        mov.w   @tmp+, minY
+        mov.w   @tmp+, maxX
+        mov.w   @tmp+, maxY
 
         mov.l   var_gVerticesBase, tmp
         mov.l   @tmp, res
+
+        mov.l   var_gMatrixPtr, tmp
+        mov.l   @tmp, m
 
         mov.l   var_gLightAmbient, tmp
         mov.l   @tmp, ambient
@@ -84,26 +84,29 @@ _transformMesh_asm:
 
         shll8   vg              // lower 8 bits = vertex.clip flags
         add     #8, res         // extra offset for @-Rn
+        add     #M03, m         // extra offset to the matrix translation row
 
 .loop:
         // clear clipping flags
         shlr8   vg
         shll8   vg
 
+        mov.w   @m+, x
+        mov.w   @m+, y
+        mov.w   @m+, z
+        add     #-MATRIX_SIZEOF, m
+
         // transform to view space
         transform x
-        add     #2, m           // next row
         add     #-6, vertices   // reset vertex ptr
         transform y
-        add     #2, m           // next row
         add     #-6, vertices   // reset vertex ptr
         transform z
-        add     #-34, m         // reset matrix ptr
 
         // z clipping
 .clip_z_near:
         mov     #VIEW_MIN, minZ // 64
-        cmp/ge  z, minZ
+        cmp/gt  z, minZ
         bf/s    .clip_z_far
         cmp/ge  maxZ, z
         mov     minZ, z
@@ -137,22 +140,15 @@ _transformMesh_asm:
         shlr16  y
         exts.w  y, y
 
-        // x += FRAME_WIDTH / 2 (160)
-        add     #100, x
-        add     #60, x
-        // y += FRAME_HEIGHT / 2 (112)
-        add     #100, y
-        add     #12, y
-
         // viewport clipping
 .clip_vp_minX:
-        cmp/ge  x, minX
+        cmp/gt  x, minX
         bf/s    .clip_vp_minY
         cmp/ge  y, minY
         add     #CLIP_LEFT, vg
 .clip_vp_minY:
         bf/s    .clip_vp_maxX
-        cmp/ge  maxX, x
+        cmp/gt  maxX, x
         add     #CLIP_TOP, vg
 .clip_vp_maxX:
         bf/s    .clip_vp_maxY
@@ -164,6 +160,12 @@ _transformMesh_asm:
         add     #CLIP_BOTTOM, vg
 
 .store_vertex:
+        // x += FRAME_WIDTH / 2 (160)
+        add     #100, x
+        add     #60, x
+        // y += FRAME_HEIGHT / 2 (112)
+        add     #112, y
+
         mov.w   vg, @-res
         mov.w   z, @-res
         mov.w   y, @-res
@@ -183,12 +185,12 @@ _transformMesh_asm:
         mov.l   @sp+, r8
 
 .align 2
-var_viewport:
-        .long   _viewport
-var_gMatrixPtr:
-        .long   _gMatrixPtr
+var_viewportRel:
+        .long   _viewportRel
 var_gVerticesBase:
         .long   _gVerticesBase
+var_gMatrixPtr:
+        .long   _gMatrixPtr
 var_gLightAmbient:
         .long   _gLightAmbient
 var_divTable:

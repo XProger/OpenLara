@@ -850,7 +850,9 @@ vec3i ItemObj::getJoint(int32 jointIndex, const vec3i &offset) const
     matrixTranslateRel(offset.x, offset.y, offset.z);
 
     Matrix &m = matrixGet();
-    vec3i result = _vec3i(m.e03 >> FIXED_SHIFT, m.e13 >> FIXED_SHIFT, m.e23 >> FIXED_SHIFT);
+    vec3i result = _vec3i(m.e03 >> (FIXED_SHIFT - MATRIX_FIXED_SHIFT),
+                          m.e13 >> (FIXED_SHIFT - MATRIX_FIXED_SHIFT),
+                          m.e23 >> (FIXED_SHIFT - MATRIX_FIXED_SHIFT));
 
     gMatrixPtr = oldMatrixPtr;
 
@@ -893,9 +895,9 @@ int32 ItemObj::getSpheres(Sphere* spheres, bool flag) const
         const Mesh* mesh = *meshPtr;
         matrixTranslateRel(mesh->center.x, mesh->center.y, mesh->center.z);
         Matrix &m = matrixGet();
-        sphere->center.x = x + (m.e03 >> FIXED_SHIFT);
-        sphere->center.y = y + (m.e13 >> FIXED_SHIFT);
-        sphere->center.z = z + (m.e23 >> FIXED_SHIFT);
+        sphere->center.x = x + (m.e03 >> (FIXED_SHIFT - MATRIX_FIXED_SHIFT));
+        sphere->center.y = y + (m.e13 >> (FIXED_SHIFT - MATRIX_FIXED_SHIFT));
+        sphere->center.z = z + (m.e23 >> (FIXED_SHIFT - MATRIX_FIXED_SHIFT));
         sphere->radius = mesh->radius;
         sphere++;
         meshPtr++;
@@ -916,9 +918,9 @@ int32 ItemObj::getSpheres(Sphere* spheres, bool flag) const
             const Mesh* mesh = *meshPtr;
             matrixTranslateRel(mesh->center.x, mesh->center.y, mesh->center.z);
             Matrix &m = matrixGet();
-            sphere->center.x = x + (m.e03 >> FIXED_SHIFT);
-            sphere->center.y = y + (m.e13 >> FIXED_SHIFT);
-            sphere->center.z = z + (m.e23 >> FIXED_SHIFT);
+            sphere->center.x = x + (m.e03 >> (FIXED_SHIFT - MATRIX_FIXED_SHIFT));
+            sphere->center.y = y + (m.e13 >> (FIXED_SHIFT - MATRIX_FIXED_SHIFT));
+            sphere->center.z = z + (m.e23 >> (FIXED_SHIFT - MATRIX_FIXED_SHIFT));
             sphere->radius = mesh->radius;
             sphere++;
             meshPtr++;

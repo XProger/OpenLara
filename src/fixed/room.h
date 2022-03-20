@@ -188,6 +188,7 @@ void Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int
     } while (!FD_END(cmd));
 }
 
+#ifndef __32X__
 #ifndef USE_ASM
 const Sector* Room::getSector(int32 x, int32 z) const
 {
@@ -197,6 +198,7 @@ const Sector* Room::getSector(int32 x, int32 z) const
 
     return sectors + sx * info->zSectors + sz;
 }
+#endif
 #endif
 
 const Sector* Room::getWaterSector(int32 x, int32 z) const

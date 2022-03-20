@@ -4,6 +4,14 @@
 #include "common.h"
 #include "item.h"
 
+//#define TEST_ROOM_CACHE
+
+#ifdef TEST_ROOM_CACHE
+RoomVertex roomVert[512];
+RoomQuad roomQuads[512];
+RoomTriangle roomTri[64];
+#endif
+
 void drawInit()
 {
     for (int32 i = 0; i < MAX_RAND_TABLE; i++)
@@ -16,6 +24,18 @@ void drawInit()
         int16 rot = i * (ANGLE_90 * 4) / MAX_CAUSTICS;
         gCaustics[i] = sin(rot) * 768 >> FIXED_SHIFT;
     }
+
+#ifdef TEST_ROOM_CACHE
+    Room &room = rooms[14];
+
+    memcpy(roomVert, room.data.vertices, sizeof(RoomVertex) * room.info->verticesCount);
+    memcpy(roomQuads, room.data.quads, sizeof(RoomQuad) * room.info->quadsCount);
+    memcpy(roomTri, room.data.triangles, sizeof(RoomTriangle) * room.info->trianglesCount);
+
+    room.data.vertices = roomVert;
+    room.data.quads = roomQuads;
+    room.data.triangles = roomTri;
+#endif
 }
 
 void drawFree()
@@ -62,7 +82,7 @@ void calcLightingDynamic(const Room* room, const vec3i &point)
 
     Matrix &m = matrixGet();
 
-    int32 fogZ = m.e23 >> FIXED_SHIFT;
+    int32 fogZ = m.e23 >> (FIXED_SHIFT - MATRIX_FIXED_SHIFT);
     if (fogZ > FOG_MIN) {
         gLightAmbient += (fogZ - FOG_MIN) << FOG_SHIFT;
         gLightAmbient = X_MIN(gLightAmbient, 8191);
@@ -75,7 +95,7 @@ void calcLightingStatic(int32 intensity)
 
     Matrix &m = matrixGet();
 
-    int32 fogZ = m.e23 >> FIXED_SHIFT;
+    int32 fogZ = m.e23 >> (FIXED_SHIFT - MATRIX_FIXED_SHIFT);
     if (fogZ > FOG_MIN) {
         gLightAmbient += (fogZ - FOG_MIN) << FOG_SHIFT;
         gLightAmbient = X_MIN(gLightAmbient, 8191);

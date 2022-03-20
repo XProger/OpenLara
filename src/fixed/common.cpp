@@ -1234,9 +1234,9 @@ void matrixLerp_c(const Matrix &n, int32 pmul, int32 pdiv)
 void matrixTranslateRel_c(int32 x, int32 y, int32 z)
 {
     MATRIX_TRANS(x, y, z);
-    m.e03 += tx;
-    m.e13 += ty;
-    m.e23 += tz;
+    m.e03 += tx >> MATRIX_FIXED_SHIFT;
+    m.e13 += ty >> MATRIX_FIXED_SHIFT;
+    m.e23 += tz >> MATRIX_FIXED_SHIFT;
 }
 
 void matrixTranslateAbs_c(int32 x, int32 y, int32 z)
@@ -1245,17 +1245,17 @@ void matrixTranslateAbs_c(int32 x, int32 y, int32 z)
     y -= gCameraViewPos.y;
     z -= gCameraViewPos.z;
     MATRIX_TRANS(x, y, z);
-    m.e03 = tx;
-    m.e13 = ty;
-    m.e23 = tz;
+    m.e03 = tx >> MATRIX_FIXED_SHIFT;
+    m.e13 = ty >> MATRIX_FIXED_SHIFT;
+    m.e23 = tz >> MATRIX_FIXED_SHIFT;
 }
 
 void matrixTranslateSet_c(int32 x, int32 y, int32 z)
 {
     MATRIX_TRANS(x, y, z);
-    m.e03 = tx;
-    m.e13 = ty;
-    m.e23 = tz;
+    m.e03 = tx >> MATRIX_FIXED_SHIFT;
+    m.e13 = ty >> MATRIX_FIXED_SHIFT;
+    m.e23 = tz >> MATRIX_FIXED_SHIFT;
 }
 
 void matrixRotateX_c(int32 angle)

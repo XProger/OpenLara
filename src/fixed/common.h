@@ -63,6 +63,7 @@
     #define USE_DIV_TABLE   // 4k of DRAM
     #define CPU_BIG_ENDIAN
     #define USE_ASM
+    #define F16_SHIFT 2
 
     #define MODEHW
     #define FRAME_WIDTH  320
@@ -93,6 +94,8 @@
     #define ROM_READ
     #define TEX_2PX
     #define ALIGNED_LIGHTMAP
+    #define USE_MATRIX_INT16
+    #define F16_SHIFT 2
 
     #define MODE13
     #define FRAME_WIDTH  320
@@ -403,6 +406,16 @@ extern int32 fps;
 
 #define FIXED_SHIFT     14
 
+#ifndef F16_SHIFT
+    #define F16_SHIFT 0
+#endif
+
+#ifdef USE_MATRIX_INT16
+    #define MATRIX_FIXED_SHIFT  FIXED_SHIFT
+#else
+    #define MATRIX_FIXED_SHIFT  0
+#endif
+
 #define SND_MAX_DIST    (8 * 1024)
 
 #ifndef SND_CHANNELS
@@ -525,7 +538,7 @@ extern int32 fps;
     y = _y;\
 }
 
-#define DP43(ax,ay,az,aw,bx,by,bz)  (ax * bx + ay * by + az * bz + aw)
+#define DP43(ax,ay,az,aw,bx,by,bz)  (ax * bx + ay * by + az * bz + (aw << MATRIX_FIXED_SHIFT))
 #define DP33(ax,ay,az,bx,by,bz)     (ax * bx + ay * by + az * bz)
 
 #ifdef USE_DIV_TABLE
@@ -642,10 +655,11 @@ struct Matrix
     int32 e01, e11, e21;
     int32 e02, e12, e22;
     int32 e03, e13, e23;
-#elif defined(__32X__)
-    int32 e03; int16 e00, e01, e02, _pad0;
-    int32 e13; int16 e10, e11, e12, _pad1;
-    int32 e23; int16 e20, e21, e22, _pad2;
+#elif defined(USE_MATRIX_INT16)
+    int16 e00, e01, e02;
+    int16 e10, e11, e12;
+    int16 e20, e21, e22;
+    int16 e03, e13, e23;
 #else
     int32 e00, e01, e02, e03;
     int32 e10, e11, e12, e13;
@@ -810,8 +824,10 @@ struct Room;
 
 struct RoomVertex
 {
-#ifdef __3DO__
+#if defined(__3DO__)
     uint16 xyz565;
+#elif defined(__32X__)
+    uint8 g, z, y, x;
 #else
     uint8 x, y, z, g;
 #endif

@@ -24,14 +24,8 @@ SEG_MATH
         sts     MACL, \y
         sub     \ty, \x
         add     \tx, \y
-        // int(x) >> (FIXED_SHIFT = 14)
-        shll2   \x
-        shlr16  \x
-        exts.w  \x, \x
-        // int(y) >> (FIXED_SHIFT = 14)
-        shll2   \y
-        shlr16  \y
-        exts.w  \y, \y
+        shlr14  \x      // int(x) >> (FIXED_SHIFT = 14)
+        shlr14  \y      // int(y) >> (FIXED_SHIFT = 14)
 .endm
 
 
@@ -78,6 +72,7 @@ _matrixRotateYXZ_asm:
 #define ty      r6
 #define e0      angle
 
+.align 2
 .global _matrixRotateX_asm
 _matrixRotateX_asm:
         sincos  angle, sin, cos
@@ -92,7 +87,7 @@ _matrixRotateX_asm:
         mov.w   e1, @-m
         mov.w   e0, @-m
 
-        add     #12, m
+        add     #6, m
 
         mov.w   @m+, e0
         mov.w   @m+, e1
@@ -100,7 +95,7 @@ _matrixRotateX_asm:
         mov.w   e1, @-m
         mov.w   e0, @-m
 
-        add     #12, m
+        add     #6, m
 
         mov.w   @m+, e0
         mov.w   @m+, e1
@@ -109,13 +104,13 @@ _matrixRotateX_asm:
         rts
         mov.w   e0, @-m
 
+.align 2
 .global _matrixRotateY_asm
 _matrixRotateY_asm:
         sincos  angle, sin, cos
 
         mov.l   var_gMatrixPtr, m
         mov.l   @m, m
-        add     #M00, m
 
         mov.w   @m+, e0
         add     #2, m
@@ -125,7 +120,7 @@ _matrixRotateY_asm:
         add     #-2, m
         mov.w   e0, @-m
 
-        add     #12, m
+        add     #6, m
 
         mov.w   @m+, e0
         add     #2, m
@@ -135,7 +130,7 @@ _matrixRotateY_asm:
         add     #-2, m
         mov.w   e0, @-m
 
-        add     #12, m
+        add     #6, m
 
         mov.w   @m+, e0
         add     #2, m
@@ -146,13 +141,13 @@ _matrixRotateY_asm:
         rts
         mov.w   e0, @-m
 
+.align 2
 .global _matrixRotateZ_asm
 _matrixRotateZ_asm:
         sincos  angle, sin, cos
 
         mov.l   var_gMatrixPtr, m
         mov.l   @m, m
-        add     #M00, m
 
         mov.w   @m+, e0
         mov.w   @m+, e1
@@ -160,7 +155,7 @@ _matrixRotateZ_asm:
         mov.w   e1, @-m
         mov.w   e0, @-m
 
-        add     #12, m
+        add     #6, m
 
         mov.w   @m+, e0
         mov.w   @m+, e1
@@ -168,7 +163,7 @@ _matrixRotateZ_asm:
         mov.w   e1, @-m
         mov.w   e0, @-m
 
-        add     #12, m
+        add     #6, m
 
         mov.w   @m+, e0
         mov.w   @m+, e1
@@ -177,6 +172,7 @@ _matrixRotateZ_asm:
         rts
         mov.w   e0, @-m
 
+.align 2
 var_gMatrixPtr:
         .long   _gMatrixPtr
 var_gSinCosTable:
@@ -202,17 +198,14 @@ _matrixRotateYQ_asm:
 
         mov.l   var_gMatrixPtr_YQ, n
         mov.l   @n, n
-        add     #M00, n
 
         mov.w   @n+, e00
         add     #2, n
         mov.w   @n+, e02
-        add     #6, n
 
         mov.w   @n+, e10
         add     #2, n
         mov.w   @n+, e12
-        add     #6, n
 
         mov.w   @n+, e20
         add     #2, n
@@ -228,17 +221,14 @@ _matrixRotateYQ_asm:
         mov.w   e20, @-n
         add     #-2, n
         mov.w   e22, @-n
-        add     #-6, n
         mov.w   e10, @-n
         add     #-2, n
         mov.w   e12, @-n
-        add     #-6, n
         mov.w   e00, @-n
         add     #-2, n
         mov.w   e02, @-n
 .q_2:
         rts
-        nop
 .q_0:
         neg     e00, e00
         neg     e02, e02
@@ -248,11 +238,9 @@ _matrixRotateYQ_asm:
         mov.w   e22, @-n
         add     #-2, n
         mov.w   e20, @-n
-        add     #-6, n
         mov.w   e12, @-n
         add     #-2, n
         mov.w   e10, @-n
-        add     #-6, n
         mov.w   e02, @-n
         add     #-2, n
         rts
@@ -264,16 +252,14 @@ _matrixRotateYQ_asm:
         mov.w   e20, @-n
         add     #-2, n
         mov.w   e22, @-n
-        add     #-6, n
         mov.w   e10, @-n
         add     #-2, n
         mov.w   e12, @-n
-        add     #-6, n
         mov.w   e00, @-n
         add     #-2, n
         rts
         mov.w   e02, @-n
-        nop
 
+.align 2
 var_gMatrixPtr_YQ:
         .long   _gMatrixPtr

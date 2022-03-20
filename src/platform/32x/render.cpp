@@ -23,8 +23,6 @@ struct ViewportRel {
     int32 maxXY;
 };
 
-ViewportRel viewportRel;
-
 #if defined(_WIN32)
     uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
 #elif defined(__GBA__)
@@ -64,6 +62,7 @@ extern Level level;
 
 const uint8* gTile;
 
+ViewportRel viewportRel;
 Vertex* gVerticesBase;
 Face* gFacesBase;
 
@@ -166,12 +165,19 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
 
     for (int32 i = 0; i < count; i++, res++)
     {
+    #ifdef __32X__
+        int32 vx = vertices->x << 8;
+        int32 vy = vertices->y << 8;
+        int32 vz = vertices->z << 8;
+        int32 vg = vertices->g << 8;
+        vertices++;
+    #else
         uint32 value = *(uint32*)(vertices++);
-
         int32 vx = (value & (0xFF)) << 10;
         int32 vy = (value & (0xFF << 8));
         int32 vz = (value & (0xFF << 16)) >> 6;
         int32 vg = (value & (0xFF << 24)) >> (24 - 5);
+    #endif
 
         const Matrix &m = matrixGet();
         int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
@@ -230,12 +236,19 @@ void transformRoomUW_c(const RoomVertex* vertices, int32 count)
 
     for (int32 i = 0; i < count; i++, res++)
     {
+    #ifdef __32X__
+        int32 vx = vertices->x << 8;
+        int32 vy = vertices->y << 8;
+        int32 vz = vertices->z << 8;
+        int32 vg = vertices->g << 8;
+        vertices++;
+    #else
         uint32 value = *(uint32*)(vertices++);
-
         int32 vx = (value & (0xFF)) << 10;
         int32 vy = (value & (0xFF << 8));
         int32 vz = (value & (0xFF << 16)) >> 6;
         int32 vg = (value & (0xFF << 24)) >> (24 - 5);
+    #endif
 
         const Matrix &m = matrixGet();
         int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
@@ -301,25 +314,26 @@ void transformMesh_c(const MeshVertex* vertices, int32 count, int32 intensity)
         vertices++;
 
         const Matrix &m = matrixGet();
-        int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
-        int32 y = DP43(m.e10, m.e11, m.e12, m.e13, vx, vy, vz);
-        int32 z = DP43(m.e20, m.e21, m.e22, m.e23, vx, vy, vz);
+
+        int32 x = m.e03;
+        int32 y = m.e13;
+        int32 z = m.e23;
+
+        x += DP33(m.e00, m.e01, m.e02, vx, vy, vz) >> (FIXED_SHIFT + F16_SHIFT);
+        y += DP33(m.e10, m.e11, m.e12, vx, vy, vz) >> (FIXED_SHIFT + F16_SHIFT);
+        z += DP33(m.e20, m.e21, m.e22, vx, vy, vz) >> (FIXED_SHIFT + F16_SHIFT);
  
         uint32 clip = 0;
 
-        if (z <= VIEW_MIN_F) {
+        if (z <= (VIEW_MIN_F >> FIXED_SHIFT)) {
             clip = CLIP_NEAR;
-            z = VIEW_MIN_F;
+            z = VIEW_MIN_F >> FIXED_SHIFT;
         }
 
-        if (z >= VIEW_MAX_F) {
+        if (z >= (VIEW_MAX_F >> FIXED_SHIFT)) {
             clip = CLIP_FAR;
-            z = VIEW_MAX_F;
+            z = VIEW_MAX_F >> FIXED_SHIFT;
         }
-
-        x >>= FIXED_SHIFT;
-        y >>= FIXED_SHIFT;
-        z >>= FIXED_SHIFT;
 
         PERSPECTIVE(x, y, z);
 
@@ -508,7 +522,7 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
 {
     const Matrix &m = matrixGet();
 
-    if ((m.e23 < VIEW_MIN_F) || (m.e23 >= VIEW_MAX_F))
+    if ((m.e23 < (VIEW_MIN_F >> MATRIX_FIXED_SHIFT)) || (m.e23 >= (VIEW_MAX_F >> MATRIX_FIXED_SHIFT)))
         return false;
 
     vec3i v[8];
@@ -732,7 +746,7 @@ void flush_c()
 #endif
 
 #if defined(__32X__)
-    //#undef transformRoom
+    #undef transformRoom
     //#undef transformRoomUW
     #undef transformMesh
     //#undef faceAddRoomQuads
@@ -741,9 +755,9 @@ void flush_c()
     //#undef faceAddMeshTriangles
     #undef rasterize
 
-    //#define transformRoom           transformRoom_asm
+    #define transformRoom           transformRoom_asm
     //#define transformRoomUW         transformRoomUW_asm
-    #define transformMesh           transformMesh_asm           // -56%
+    #define transformMesh           transformMesh_asm
     //#define faceAddRoomQuads        faceAddRoomQuads_asm
     //#define faceAddRoomTriangles    faceAddRoomTriangles_asm
     //#define faceAddMeshQuads        faceAddMeshQuads_asm
@@ -800,13 +814,13 @@ VertexLink* clipPoly(VertexLink* poly, VertexLink* tmp, int32 &pCount)
     VertexLink *out = tmp;
 
     // clip x
-    CLIP_XY(x, y, viewport.x0, viewport.x1, in, out);
+    CLIP_XY(x, y, 0, FRAME_WIDTH, in, out);
 
     pCount = count;
     count = 0;
 
     // clip y
-    CLIP_XY(y, x, viewport.y0, viewport.y1, out, in);
+    CLIP_XY(y, x, 0, FRAME_HEIGHT, out, in);
     pCount = count;
 
     return in;
@@ -1078,6 +1092,11 @@ void renderShadow(int32 x, int32 z, int32 sx, int32 sz)
         ASSERT(false);
         return;
     }
+
+    x <<= F16_SHIFT;
+    z <<= F16_SHIFT;
+    sx <<= F16_SHIFT;
+    sz <<= F16_SHIFT;
 
     int16 xns1 = x - sx;
     int16 xps1 = x + sx;
