@@ -318,6 +318,7 @@ int32 osGetSystemTimeMS()
     return 0; // TODO
 }
 
+const char* SRAM_ID = "SRAM_Vnnn\0\0";
 const uint8 SRAM_MAGIC[4] = { 14, 02, 19, 68 }; 
 
 int32 byteCopy(volatile uint8* dst, const volatile uint8* src, uint32 count)
