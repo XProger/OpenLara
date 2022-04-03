@@ -73,14 +73,14 @@ faceAddRoomQuads_asm:
     and tmp, vg0, vg1
     and tmp, vg2
     and tmp, vg3
-    tst tmp, #CLIP_MASK
+    tst tmp, #CLIP_DISCARD
     bne .skip
 
     // mark if should be clipped by viewport
     orr tmp, vg0, vg1
     orr tmp, vg2
     orr tmp, vg3
-    tst tmp, #CLIP_MASK_VP
+    tst tmp, #CLIP_FRAME
     ldrh flags, [polys, #-12]
     orrne flags, #FACE_CLIPPED
 

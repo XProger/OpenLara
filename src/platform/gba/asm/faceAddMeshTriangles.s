@@ -64,13 +64,14 @@ faceAddMeshTriangles_asm:
 
     // check clipping
     and tmp, vg0, vg1
-    ands tmp, vg2
+    and tmp, vg2
+    tst tmp, #(CLIP_DISCARD >> 8)
     bne .skip
 
     // mark if should be clipped by viewport
     orr tmp, vg0, vg1
     orr tmp, vg2
-    tst tmp, #(CLIP_MASK_VP >> 8)
+    tst tmp, #(CLIP_FRAME >> 8)
     ldrh flags, [polys, #-8]
     orrne flags, #FACE_CLIPPED
 

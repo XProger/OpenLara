@@ -142,7 +142,7 @@ transformRoomUW_asm:
     asr x, #(16 - PROJ_SHIFT)
     asr y, #(16 - PROJ_SHIFT)
 
-    // viewport clipping
+    // portal rect clipping
     ldmia sp, {minXY, maxXY}
 
     cmp x, minXY, asr #16
@@ -160,6 +160,11 @@ transformRoomUW_asm:
 
     add x, #(FRAME_WIDTH >> 1)
     add y, #(FRAME_HEIGHT >> 1)
+
+    // frame rect clipping
+    cmp x, #FRAME_WIDTH
+    cmpls y, #FRAME_HEIGHT
+    orrhi vg, #CLIP_FRAME
 
     // store the result
     strh x, [res, #-6]

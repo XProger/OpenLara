@@ -71,13 +71,14 @@ EWRAM_DATA Face gFaces[MAX_FACES];                              // EWRAM 30k
 Face* gOT[OT_SIZE];                                             // IWRAM 2.5k
 
 enum ClipFlags {
-    CLIP_LEFT     = 1 << 0,
-    CLIP_RIGHT    = 1 << 1,
-    CLIP_TOP      = 1 << 2,
-    CLIP_BOTTOM   = 1 << 3,
-    CLIP_FAR      = 1 << 4,
-    CLIP_NEAR     = 1 << 5,
-    CLIP_MASK_VP  = (CLIP_LEFT | CLIP_RIGHT | CLIP_TOP | CLIP_BOTTOM),
+    CLIP_LEFT    = 1 << 0,
+    CLIP_RIGHT   = 1 << 1,
+    CLIP_TOP     = 1 << 2,
+    CLIP_BOTTOM  = 1 << 3,
+    CLIP_FAR     = 1 << 4,
+    CLIP_NEAR    = 1 << 5,
+    CLIP_FRAME   = 1 << 6,
+    CLIP_DISCARD = (CLIP_LEFT | CLIP_RIGHT | CLIP_TOP | CLIP_BOTTOM | CLIP_FAR | CLIP_NEAR),
 };
 
 const MeshQuad gShadowQuads[] = {
@@ -207,6 +208,10 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
         x += (FRAME_WIDTH  >> 1);
         y += (FRAME_HEIGHT >> 1);
 
+        if ((x < 0 || x > FRAME_WIDTH) || (y < 0 || y > FRAME_HEIGHT)) {
+            clip |= CLIP_FRAME;
+        }
+
         if (x < viewport.x0) clip |= CLIP_LEFT;
         if (x > viewport.x1) clip |= CLIP_RIGHT;
         if (y < viewport.y0) clip |= CLIP_TOP;
@@ -270,6 +275,10 @@ void transformRoomUW_c(const RoomVertex* vertices, int32 count)
         x += (FRAME_WIDTH  >> 1);
         y += (FRAME_HEIGHT >> 1);
 
+        if ((x < 0 || x > FRAME_WIDTH) || (y < 0 || y > FRAME_HEIGHT)) {
+            clip |= CLIP_FRAME;
+        }
+
         if (x < viewport.x0) clip |= CLIP_LEFT;
         if (x > viewport.x1) clip |= CLIP_RIGHT;
         if (y < viewport.y0) clip |= CLIP_TOP;
@@ -322,10 +331,9 @@ void transformMesh_c(const MeshVertex* vertices, int32 count, int32 intensity)
         x += (FRAME_WIDTH  >> 1);
         y += (FRAME_HEIGHT >> 1);
 
-        if (x < viewport.x0) clip |= CLIP_LEFT;
-        if (x > viewport.x1) clip |= CLIP_RIGHT;
-        if (y < viewport.y0) clip |= CLIP_TOP;
-        if (y > viewport.y1) clip |= CLIP_BOTTOM;
+        if ((x < 0 || x > FRAME_WIDTH) || (y < 0 || y > FRAME_HEIGHT)) {
+            clip |= CLIP_FRAME;
+        }
 
         res->x = x;
         res->y = y;
@@ -352,10 +360,10 @@ void faceAddRoomQuads_c(const RoomQuad* polys, int32 count)
         uint32 c2 = v2->clip;
         uint32 c3 = v3->clip;
 
-        if (c0 & c1 & c2 & c3)
+        if (c0 & c1 & c2 & c3 & CLIP_DISCARD)
             continue;
 
-        if ((c0 | c1 | c2 | c3) & CLIP_MASK_VP) {
+        if ((c0 | c1 | c2 | c3) & CLIP_FRAME) {
             flags |= FACE_CLIPPED;
         }
 
@@ -397,10 +405,10 @@ void faceAddRoomTriangles_c(const RoomTriangle* polys, int32 count)
         uint32 c1 = v1->clip;
         uint32 c2 = v2->clip;
 
-        if (c0 & c1 & c2)
+        if (c0 & c1 & c2 & CLIP_DISCARD)
             continue;
 
-        if ((c0 | c1 | c2) & CLIP_MASK_VP) {
+        if ((c0 | c1 | c2) & CLIP_FRAME) {
             flags |= FACE_CLIPPED;
         }
 
@@ -446,10 +454,10 @@ void faceAddMeshQuads_c(const MeshQuad* polys, int32 count)
         uint32 c2 = v2->clip;
         uint32 c3 = v3->clip;
 
-        if (c0 & c1 & c2 & c3)
+        if (c0 & c1 & c2 & c3 & CLIP_DISCARD)
             continue;
 
-        if ((c0 | c1 | c2 | c3) & CLIP_MASK_VP) {
+        if ((c0 | c1 | c2 | c3) & CLIP_FRAME) {
             flags |= FACE_CLIPPED;
         }
 
@@ -482,10 +490,10 @@ void faceAddMeshTriangles_c(const MeshTriangle* polys, int32 count)
         uint32 c1 = v1->clip;
         uint32 c2 = v2->clip;
 
-        if (c0 & c1 & c2)
+        if (c0 & c1 & c2 & CLIP_DISCARD)
             continue;
 
-        if ((c0 | c1 | c2) & CLIP_MASK_VP) {
+        if ((c0 | c1 | c2) & CLIP_FRAME) {
             flags |= FACE_CLIPPED;
         }
         flags |= FACE_TRIANGLE;
@@ -504,7 +512,7 @@ bool transformBoxRect(const AABBs* box, RectMinMax* rect)
 {
     const Matrix &m = matrixGet();
 
-    if ((m.e23 < VIEW_MIN_F) || (m.e23 >= VIEW_MAX_F))
+    if ((m.e23 < (VIEW_MIN_F >> MATRIX_FIXED_SHIFT)) || (m.e23 >= (VIEW_MAX_F >> MATRIX_FIXED_SHIFT)))
         return false;
 
     vec3i v[8];
@@ -776,13 +784,13 @@ VertexLink* clipPoly(VertexLink* poly, VertexLink* tmp, int32 &pCount)
     VertexLink *out = tmp;
 
     // clip x
-    CLIP_XY(x, y, viewport.x0, viewport.x1, in, out);
+    CLIP_XY(x, y, 0, FRAME_WIDTH, in, out);
 
     pCount = count;
     count = 0;
 
     // clip y
-    CLIP_XY(y, x, viewport.y0, viewport.y1, out, in);
+    CLIP_XY(y, x, 0, FRAME_HEIGHT, out, in);
     pCount = count;
 
     return in;
@@ -807,7 +815,7 @@ extern "C" X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v)
     v1->prev = v0 - v1;
     v2->prev = v1 - v2;
 
-   VertexLink* top;
+    VertexLink* top;
 
     if (v0->v.y < v1->v.y) {
         if (v0->v.y < v2->v.y) {

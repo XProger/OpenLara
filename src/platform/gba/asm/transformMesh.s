@@ -17,15 +17,8 @@ z           .req r12
 res         .req lr
 
 ambient     .req vx
-vp          .req vx
-minXY       .req vx
-maxXY       .req vy
 tmp         .req vy
 dz          .req vx
-
-SP_MINXY    = 0
-SP_MAXXY    = 4
-SP_SIZE     = 8
 
 .global transformMesh_asm
 transformMesh_asm:
@@ -42,11 +35,6 @@ transformMesh_asm:
     cmp vg, #31
     movge vg, #31
     bic vg, vg, asr #31
-
-    ldr vp, =viewportRel
-    ldmia vp, {minXY, maxXY}
-
-    stmfd sp!, {minXY, maxXY}
 
     ldr m, =gMatrixPtr
     ldr m, [m]
@@ -99,24 +87,13 @@ transformMesh_asm:
     asr x, #(16 - PROJ_SHIFT)
     asr y, #(16 - PROJ_SHIFT)
 
-    // viewport clipping
-    ldmia sp, {minXY, maxXY}
-    
-    cmp x, minXY, asr #16
-    orrle vg, #CLIP_LEFT
-    cmp x, maxXY, asr #16
-    orrge vg, #CLIP_RIGHT
-
-    lsl minXY, #16
-    lsl maxXY, #16
-
-    cmp y, minXY, asr #16
-    orrle vg, #CLIP_TOP
-    cmp y, maxXY, asr #16
-    orrge vg, #CLIP_BOTTOM
-
     add x, #(FRAME_WIDTH >> 1)
     add y, #(FRAME_HEIGHT >> 1)
+
+    // frame rect clipping
+    cmp x, #FRAME_WIDTH
+    cmpls y, #FRAME_HEIGHT
+    orrhi vg, #CLIP_FRAME
 
     // store the result
     strh x, [res], #2
@@ -127,5 +104,4 @@ transformMesh_asm:
     subs count, #1
     bne .loop
 
-    add sp, #SP_SIZE
     ldmfd sp!, {r4-r11, pc}

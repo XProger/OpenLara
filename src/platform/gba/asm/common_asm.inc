@@ -40,8 +40,9 @@
 .equ CLIP_BOTTOM,   ((1 << 3) << 8)
 .equ CLIP_FAR,      ((1 << 4) << 8)
 .equ CLIP_NEAR,     ((1 << 5) << 8)
-.equ CLIP_MASK_VP,  (CLIP_LEFT + CLIP_RIGHT + CLIP_TOP + CLIP_BOTTOM)
-.equ CLIP_MASK,     (CLIP_MASK_VP + CLIP_FAR + CLIP_NEAR)
+.equ CLIP_FRAME,    ((1 << 6) << 8)
+.equ CLIP_DISCARD,  (CLIP_LEFT + CLIP_RIGHT + CLIP_TOP + CLIP_BOTTOM + CLIP_FAR + CLIP_NEAR)
+.equ CLIP_MASK,     0xFF00
 
 .equ FACE_TEXTURE_BITS, 14
 .equ FACE_TEXTURE,      ((1 << FACE_TEXTURE_BITS) - 1)
