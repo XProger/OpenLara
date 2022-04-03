@@ -29,6 +29,9 @@ int32 alignOffset(int32 a, int32 b)
 
 void* soundPlay(int16 id, const vec3i* pos)
 {
+#ifdef __32X__ // TODO
+    return NULL;
+#endif
     if (!gSettings.audio_sfx)
         return NULL;
 

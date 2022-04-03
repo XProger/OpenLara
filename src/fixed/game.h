@@ -201,6 +201,7 @@ void gameLoadLevel(const void* data)
         //resetLara(0, 9, _vec3i(49669, 7680, 57891), ANGLE_0); // first door
         //resetLara(0, 10, _vec3i(43063, 7168, 61198), ANGLE_0); // transp
         //resetLara(0, 14, _vec3i(20215, 6656, 52942), ANGLE_90 + ANGLE_45); // bridge
+        //resetLara(0, 25, _vec3i(8789, 5632, 80173), 0); // portal
         //resetLara(0, 17, _vec3i(16475, 6656, 59845), ANGLE_90); // bear
         //resetLara(0, 26, _vec3i(24475, 6912, 83505), ANGLE_90); // switch timer 1
         //resetLara(0, 35, _vec3i(35149, 2048, 74189), ANGLE_90); // switch timer 2

@@ -9,7 +9,6 @@
 #endif
 
 #if defined(_WIN32)
-    #define MODE4
     #define USE_DIV_TABLE
 
     #define MODE4
@@ -216,6 +215,12 @@ typedef unsigned short     uint16;
 typedef unsigned int       uint32;
 #endif
 typedef uint16             divTableInt;
+#endif
+
+#if defined(__32X__)
+    typedef int8 ColorIndex;
+#else
+    typedef uint8 ColorIndex;
 #endif
 
 //#include <new>
@@ -826,8 +831,6 @@ struct RoomVertex
 {
 #if defined(__3DO__)
     uint16 xyz565;
-#elif defined(__32X__)
-    uint8 g, z, y, x;
 #else
     uint8 x, y, z, g;
 #endif

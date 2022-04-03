@@ -42,11 +42,7 @@ EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
     #define LEVEL_INFO(name, title, track, secrets) { #name, NULL, title, track, secrets }
 #endif
 
-#ifdef __3DO__ // TODO fix the title scren on 3DO
-EWRAM_DATA LevelID gLevelID = LVL_TR1_1;
-#else
 EWRAM_DATA LevelID gLevelID = LVL_TR1_TITLE;
-#endif
 
 const LevelInfo gLevelInfo[LVL_MAX] = {
 // TR1
@@ -97,7 +93,7 @@ int32 rand_draw()
 
 #ifdef USE_DIV_TABLE
 EWRAM_DATA ALIGN16 divTableInt divTable[DIV_TABLE_SIZE] = { // must be at EWRAM start
-    0xFFFF, 0xFFFF, 0x8000, 0x5555, 0x4000, 0x3333, 0x2AAA, 0x2492,
+    0x0000, 0x7FFF, 0x7FFF, 0x5555, 0x4000, 0x3333, 0x2AAA, 0x2492,
     0x2000, 0x1C71, 0x1999, 0x1745, 0x1555, 0x13B1, 0x1249, 0x1111,
     0x1000, 0x0F0F, 0x0E38, 0x0D79, 0x0CCC, 0x0C30, 0x0BA2, 0x0B21,
     0x0AAA, 0x0A3D, 0x09D8, 0x097B, 0x0924, 0x08D3, 0x0888, 0x0842,

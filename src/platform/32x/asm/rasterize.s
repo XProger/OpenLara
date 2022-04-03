@@ -1,4 +1,5 @@
 #include "common.i"
+SEG_RASTER
 
 #define type    r0
 #define proc    r1
@@ -9,45 +10,46 @@
 #define pixel   flags
 #define y       type
 
-.text
 .align 4
 .global _rasterize_asm
 _rasterize_asm:
         mov     flags, type
         shll2   type
-        swap.w  type, type
-        and     #15, type
+        shlr16  type
+        extu.b  type, proc
 
-        cmp/eq  #FACE_TYPE_F, type
-        bf/s    0f
+        cmp/eq  #FACE_TYPE_F, type      // cmp/eq #imm is 8-bit
+        bf/s    .getProc
         mov     L, R
         extu.b  flags, R
 
-0:      // proc = table[type]
-        mov     type, proc
+.getProc: // proc = table[type]
         mova    var_table, type
         shll2   proc
         mov.l   @(type, proc), proc
 
-        // pixel = fb + y * 320
+        // pixel = fb + y * 320 = fb + y * 256 + y * 64
         mov.w   @(VERTEX_Y, L), y
         mov.l   var_fb, pixel
         shll8   y
         add     y, pixel        // pixel += y * 256
-        shlr2   y
+        shar    y
+        shar    y
         jmp     @proc
         add     y, pixel        // pixel += y * 64
-        nop
 
+.align 2
 var_fb:
-        .long 0x24000200
+        // overwrite image frame buffer address has the same
+        // write per but allow transparent write for byte & word
+        .long 0x24020200
 var_table:
-        .long _rasterizeS_c
-        .long _rasterizeF_c
-        .long _rasterizeFT_c
-        .long _rasterizeFTA_c
-        .long _rasterizeGT_c
-        .long _rasterizeGTA_c
+        .long _rasterizeS_asm
+        .long _rasterizeF_asm
+        .long _rasterizeFT_asm
+        .long _rasterizeFT_asm
+        .long _rasterizeGT_asm
+        .long _rasterizeGT_asm
         .long _rasterizeSprite_c
         .long _rasterizeFillS_c
         .long _rasterizeLineH_c

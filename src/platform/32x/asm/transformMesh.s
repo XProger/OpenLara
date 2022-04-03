@@ -12,26 +12,24 @@ SEG_TRANS
 #define x               r8
 #define y               r9
 #define z               r10
-#define minX            r11
-#define minY            r12
-#define maxX            r13
-#define maxY            r14
+#define mx              r11
+#define my              r12
+#define mz              r13
 
 #define vg              intensity
 #define ambient         tmp
 #define dz              tmp
 #define minZ            tmp
 
-.macro transform v
-        clrmac
+.macro transform v, offset
+        lds     \offset, MACL
         mac.w   @vertices+, @m+
         mac.w   @vertices+, @m+
         mac.w   @vertices+, @m+
         sts     MACL, tmp
         // v += tmp >> (FIXED_SHIFT + FP16_SHIFT)
         shlr16  tmp
-        exts.w  tmp, tmp
-        add     tmp, \v
+        exts.w  tmp, \v
 .endm
 
 .align 4
@@ -44,13 +42,6 @@ _transformMesh_asm:
         mov.l   r11, @-sp
         mov.l   r12, @-sp
         mov.l   r13, @-sp
-        mov.l   r14, @-sp
-
-        mov.l   var_viewportRel, tmp
-        mov.w   @tmp+, minX
-        mov.w   @tmp+, minY
-        mov.w   @tmp+, maxX
-        mov.w   @tmp+, maxY
 
         mov.l   var_gVerticesBase, tmp
         mov.l   @tmp, res
@@ -71,7 +62,7 @@ _transformMesh_asm:
         shlr8   ambient
         exts.b  ambient, vg
 
-        // vg = clamp(vg, 0, 31)
+        // vg = clamp(vg, 0, 31) + 1
 .vg_max:
         mov     #31, tmp
         cmp/gt  tmp, vg
@@ -82,26 +73,32 @@ _transformMesh_asm:
         subc    tmp, tmp        // tmp = -T
         and     tmp, vg
 
+        add     #1, vg          // +1 for signed lightmap fetch
+
         shll8   vg              // lower 8 bits = vertex.clip flags
         add     #8, res         // extra offset for @-Rn
-        add     #M03, m         // extra offset to the matrix translation row
+
+        // pre-transform the matrix offset
+        add     #M03, m
+        mov.w   @m+, mx
+        shll16  mx
+        mov.w   @m+, my
+        shll16  my
+        mov.w   @m+, mz
+        shll16  mz
+        add     #-MATRIX_SIZEOF, m
 
 .loop:
         // clear clipping flags
         shlr8   vg
         shll8   vg
 
-        mov.w   @m+, x
-        mov.w   @m+, y
-        mov.w   @m+, z
-        add     #-MATRIX_SIZEOF, m
-
         // transform to view space
-        transform x
+        transform x, mx
         add     #-6, vertices   // reset vertex ptr
-        transform y
+        transform y, my
         add     #-6, vertices   // reset vertex ptr
-        transform z
+        transform z, mz
 
         // z clipping
 .clip_z_near:
@@ -124,6 +121,8 @@ _transformMesh_asm:
         shll    dz
         mov.w   @(dz, divLUT), dz
 
+        add     #-M03, m        // reset matrix ptr
+
         // x = x * dz >> (16 - PROJ_SHIFT)
         muls.w  dz, x
         sts     MACL, x
@@ -140,42 +139,36 @@ _transformMesh_asm:
         shlr16  y
         exts.w  y, y
 
-        // viewport clipping
-.clip_vp_minX:
-        cmp/gt  x, minX
-        bf/s    .clip_vp_minY
-        cmp/ge  y, minY
-        add     #CLIP_LEFT, vg
-.clip_vp_minY:
-        bf/s    .clip_vp_maxX
-        cmp/gt  maxX, x
-        add     #CLIP_TOP, vg
-.clip_vp_maxX:
-        bf/s    .clip_vp_maxY
-        cmp/ge  maxY, y
-        add     #CLIP_RIGHT, vg
-.clip_vp_maxY:
-        bf/s    .store_vertex
-        dt      count
-        add     #CLIP_BOTTOM, vg
+.apply_offset:
+        // x += FRAME_WIDTH / 2 (160)
+        add     #100, x         // x += 100
+        add     #60, x          // x += 60
+        // y += FRAME_HEIGHT / 2 (112)
+        add     #112, y         // y += 112
+
+.clip_frame_x:  // 0 < x > FRAME_WIDTH
+        mov     #80, tmp
+        shll2   tmp             // tmp = 80 * 4 = 320 = FRAME_WIDTH
+        cmp/hi  tmp, x
+        bt/s    .clip_frame
+        add     #-96, tmp       // tmp = 320 - 96 = 224 = FRAME_HEIGHT (delay slot)
+.clip_frame_y:  // 0 < y > FRAME_HEIGHT
+        cmp/hi  tmp, y
+.clip_frame:
+        movt    tmp
+        or      tmp, vg         // vg |= CLIP_FRAME
 
 .store_vertex:
-        // x += FRAME_WIDTH / 2 (160)
-        add     #100, x
-        add     #60, x
-        // y += FRAME_HEIGHT / 2 (112)
-        add     #112, y
-
         mov.w   vg, @-res
         mov.w   z, @-res
         mov.w   y, @-res
         mov.w   x, @-res
 
+        dt      count
         bf/s    .loop
         add     #16, res
 
         // pop
-        mov.l   @sp+, r14
         mov.l   @sp+, r13
         mov.l   @sp+, r12
         mov.l   @sp+, r11
@@ -185,8 +178,6 @@ _transformMesh_asm:
         mov.l   @sp+, r8
 
 .align 2
-var_viewportRel:
-        .long   _viewportRel
 var_gVerticesBase:
         .long   _gVerticesBase
 var_gMatrixPtr:

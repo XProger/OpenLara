@@ -191,8 +191,13 @@
 
         .incbin "src-md/m68k.bin"       /* all 68000 code & data, compiled to 0x880800/0xFF0000 */
 
-        .data
+
+        .global _gLightmap_base
         .global _gLightmap
+
+        .data
+_gLightmap_base:
+        .space  128
 _gLightmap:
         .space  256 * 32
 

@@ -11,8 +11,11 @@
     #endif
 #endif
 
+#define CACHE_ON(ptr)  ptr = &ptr[-0x20000000 / sizeof(ptr[0])];
+#define CACHE_OFF(ptr) ptr = &ptr[0x20000000 / sizeof(ptr[0])];
+
 extern uint8 gLightmap[256 * 32];
-extern const uint8* gTile;
+extern const ColorIndex* gTile;
 
     extern "C" {
         void rasterize_dummy_asm(uint16* pixel, const VertexLink* L, const VertexLink* R);
@@ -104,7 +107,7 @@ extern "C" void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLin
 
             if (width > 0)
             {
-                volatile uint8* ptr = (uint8*)pixel + x1;
+                volatile ColorIndex* ptr = (uint8*)pixel + x1;
 
                 if (x1 & 1)
                 {
@@ -756,7 +759,7 @@ extern "C" void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexL
 extern "C" void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     R++;
-    const uint8* ft_lightmap = &gLightmap[L->v.g << 8];
+    const uint8* ft_lightmap = &gLightmap[L->v.g << 8] + 128;
 
     int32 w = R->v.x - L->v.x;
     if (w <= 0 || w >= DIV_TABLE_SIZE) return;
@@ -817,50 +820,37 @@ extern "C" void rasterizeSprite_c(uint16* pixel, const VertexLink* L, const Vert
 
     for (int32 y = 0; y < h; y++)
     {
-        const uint8* xtile = gTile + (v & 0xFF00);
+        const ColorIndex* xtile = (ColorIndex*)gTile + (v & 0xFF00);
 
         volatile uint8* xptr = ptr;
 
-        int32 xu = u;
+        uint32 xu = uint32(u);
 
         if (alignL)
         {
-            uint8 indexB = xtile[xu >> 8];
-            if (indexB) {
-                *xptr = ft_lightmap[indexB];
-            }
-
-            xptr++;
+            ColorIndex indexB = xtile[xu >> 8];
             xu += du;
+            if (indexB) xptr[0] = ft_lightmap[indexB];
+            xptr++;
         }
 
         for (int32 x = 0; x < w; x++)
         {
-            uint8 indexA = xtile[xu >> 8];
+            ColorIndex indexA = xtile[xu >> 8];
             xu += du;
-            uint8 indexB = xtile[xu >> 8];
-            xu += du;
+            if (indexA) xptr[0] = ft_lightmap[indexA];
 
-            if (indexA | indexB)
-            {
-                indexA = (indexA) ? ft_lightmap[indexA] : xptr[0];
-                indexB = (indexB) ? ft_lightmap[indexB] : xptr[1];
-            #ifdef CPU_BIG_ENDIAN
-                *(uint16*)xptr = indexB | (indexA << 8);
-            #else
-                *(uint16*)xptr = indexA | (indexB << 8);
-            #endif
-            }
+            ColorIndex indexB = xtile[xu >> 8];
+            xu += du;
+            if (indexB) xptr[1] = ft_lightmap[indexB];
 
             xptr += 2;
         }
 
         if (alignR)
         {
-            uint8 indexA = xtile[xu >> 8];
-            if (indexA) {
-                *xptr = ft_lightmap[indexA];
-            }
+            ColorIndex indexA = xtile[xu >> 8];
+            if (indexA) xptr[0] = ft_lightmap[indexA];
         }
 
         v += dv;

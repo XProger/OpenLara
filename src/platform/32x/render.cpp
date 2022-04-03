@@ -49,8 +49,8 @@ enum FaceType {
     FACE_TYPE_MAX
 };
 
-#define FACE_TRIANGLE   (1 << 19)
-#define FACE_CLIPPED    (1 << 18)
+#define FACE_TRIANGLE   (1 << 31)
+#define FACE_CLIPPED    (1 << 30)
 #define FACE_TYPE_SHIFT 14
 #define FACE_TYPE_MASK  15
 #define FACE_GOURAUD    (2 << FACE_TYPE_SHIFT)
@@ -60,7 +60,7 @@ enum FaceType {
 
 extern Level level;
 
-const uint8* gTile;
+const ColorIndex* gTile;
 
 ViewportRel viewportRel;
 Vertex* gVerticesBase;
@@ -72,13 +72,14 @@ EWRAM_DATA ALIGN16 Face gFaces[MAX_FACES];                        // EWRAM 30k
 Face* gOT[OT_SIZE];                                               // IWRAM 2.5k
 
 enum ClipFlags {
-    CLIP_LEFT     = 1 << 0,
-    CLIP_RIGHT    = 1 << 1,
-    CLIP_TOP      = 1 << 2,
-    CLIP_BOTTOM   = 1 << 3,
-    CLIP_FAR      = 1 << 4,
-    CLIP_NEAR     = 1 << 5,
-    CLIP_MASK_VP  = (CLIP_LEFT | CLIP_RIGHT | CLIP_TOP | CLIP_BOTTOM),
+    CLIP_FRAME   = 1 << 0,
+    CLIP_LEFT    = 1 << 1,
+    CLIP_RIGHT   = 1 << 2,
+    CLIP_TOP     = 1 << 3,
+    CLIP_BOTTOM  = 1 << 4,
+    CLIP_FAR     = 1 << 5,
+    CLIP_NEAR    = 1 << 6,
+    CLIP_DISCARD = (CLIP_LEFT | CLIP_RIGHT | CLIP_TOP | CLIP_BOTTOM | CLIP_FAR | CLIP_NEAR),
 };
 
 const MeshQuad gShadowQuads[] = {
@@ -142,8 +143,6 @@ extern "C" {
     #define faceAddMeshQuads        faceAddMeshQuads_asm
     #define faceAddMeshTriangles    faceAddMeshTriangles_asm
     #define rasterize               rasterize_asm
-
-
 #else
     #define transformRoom           transformRoom_c
     #define transformRoomUW         transformRoomUW_c
@@ -152,7 +151,7 @@ extern "C" {
     #define faceAddRoomTriangles    faceAddRoomTriangles_c
     #define faceAddMeshQuads        faceAddMeshQuads_c
     #define faceAddMeshTriangles    faceAddMeshTriangles_c
-    #define rasterize               rasterize_asm
+    #define rasterize               rasterize_c
 
 X_INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c)
 {
@@ -216,6 +215,10 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
 
         x += (FRAME_WIDTH  >> 1);
         y += (FRAME_HEIGHT >> 1);
+
+        if ((x < 0 || x > FRAME_WIDTH) || (y < 0 || y > FRAME_HEIGHT)) {
+            clip |= CLIP_FRAME;
+        }
 
         if (x < viewport.x0) clip |= CLIP_LEFT;
         if (x > viewport.x1) clip |= CLIP_RIGHT;
@@ -287,6 +290,10 @@ void transformRoomUW_c(const RoomVertex* vertices, int32 count)
         x += (FRAME_WIDTH  >> 1);
         y += (FRAME_HEIGHT >> 1);
 
+        if ((x < 0 || x > FRAME_WIDTH) || (y < 0 || y > FRAME_HEIGHT)) {
+            clip |= CLIP_FRAME;
+        }
+
         if (x < viewport.x0) clip |= CLIP_LEFT;
         if (x > viewport.x1) clip |= CLIP_RIGHT;
         if (y < viewport.y0) clip |= CLIP_TOP;
@@ -340,6 +347,10 @@ void transformMesh_c(const MeshVertex* vertices, int32 count, int32 intensity)
         x += (FRAME_WIDTH  >> 1);
         y += (FRAME_HEIGHT >> 1);
 
+        if ((x < 0 || x > FRAME_WIDTH) || (y < 0 || y > FRAME_HEIGHT)) {
+            clip |= CLIP_FRAME;
+        }
+
         if (x < viewport.x0) clip |= CLIP_LEFT;
         if (x > viewport.x1) clip |= CLIP_RIGHT;
         if (y < viewport.y0) clip |= CLIP_TOP;
@@ -370,10 +381,10 @@ void faceAddRoomQuads_c(const RoomQuad* polys, int32 count)
         uint32 c2 = v2->clip;
         uint32 c3 = v3->clip;
 
-        if (c0 & c1 & c2 & c3)
+        if (c0 & c1 & c2 & c3 & CLIP_DISCARD)
             continue;
 
-        if ((c0 | c1 | c2 | c3) & CLIP_MASK_VP) {
+        if ((c0 | c1 | c2 | c3) & CLIP_FRAME) {
             flags |= FACE_CLIPPED;
         }
 
@@ -415,10 +426,10 @@ void faceAddRoomTriangles_c(const RoomTriangle* polys, int32 count)
         uint32 c1 = v1->clip;
         uint32 c2 = v2->clip;
 
-        if (c0 & c1 & c2)
+        if (c0 & c1 & c2 & CLIP_DISCARD)
             continue;
 
-        if ((c0 | c1 | c2) & CLIP_MASK_VP) {
+        if ((c0 | c1 | c2) & CLIP_FRAME) {
             flags |= FACE_CLIPPED;
         }
 
@@ -464,10 +475,10 @@ void faceAddMeshQuads_c(const MeshQuad* polys, int32 count)
         uint32 c2 = v2->clip;
         uint32 c3 = v3->clip;
 
-        if (c0 & c1 & c2 & c3)
+        if (c0 & c1 & c2 & c3 & CLIP_DISCARD)
             continue;
 
-        if ((c0 | c1 | c2 | c3) & CLIP_MASK_VP) {
+        if ((c0 | c1 | c2 | c3) & CLIP_FRAME) {
             flags |= FACE_CLIPPED;
         }
 
@@ -500,10 +511,10 @@ void faceAddMeshTriangles_c(const MeshTriangle* polys, int32 count)
         uint32 c1 = v1->clip;
         uint32 c2 = v2->clip;
 
-        if (c0 & c1 & c2)
+        if (c0 & c1 & c2 & CLIP_DISCARD)
             continue;
 
-        if ((c0 | c1 | c2) & CLIP_MASK_VP) {
+        if ((c0 | c1 | c2) & CLIP_FRAME) {
             flags |= FACE_CLIPPED;
         }
         flags |= FACE_TRIANGLE;
@@ -696,7 +707,7 @@ void flush_c()
                 if (type > FACE_TYPE_F)
                 {
                     const Texture &tex = level.textures[flags & FACE_TEXTURE];
-                    gTile = (uint8*)tex.tile;
+                    gTile = (ColorIndex*)tex.tile;
 
                     v[0].t.t = 0xFF00FF00 & (tex.uv01);
                     v[1].t.t = 0xFF00FF00 & (tex.uv01 << 8);
@@ -730,7 +741,7 @@ void flush_c()
                 if (type == FACE_TYPE_SPRITE)
                 {
                     const Sprite &sprite = level.sprites[flags & FACE_TEXTURE];
-                    gTile = (uint8*)sprite.tile;
+                    gTile = (ColorIndex*)sprite.tile;
                     v[0].t.t = (sprite.uwvh) & (0xFF00FF00);
                     v[1].t.t = (sprite.uwvh) & (0xFF00FF00 >> 8);
                 }

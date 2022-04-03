@@ -2739,12 +2739,12 @@ struct Lara : ItemObj
         }
     #elif defined(__32X__)
         // 6 buttons
-        if (keys & IK_A) input |= IN_WEAPON;
-        if (keys & IK_B) input |= IN_ACTION;
-        if (keys & IK_C) input |= IN_JUMP;
-        if (keys & IK_X) input |= IN_LOOK;
+        if (keys & IK_A) input |= IN_ACTION;
+        if (keys & IK_B) input |= IN_JUMP;
+        if (keys & IK_C) input |= IN_WEAPON;
+        if (keys & IK_X) input |= IN_WALK;
         if (keys & IK_Y) input |= IN_UP | IN_DOWN;
-        if (keys & IK_Z) input |= IN_WALK;
+        if (keys & IK_Z) input |= IN_LOOK;
     #elif defined(__GBA__) || defined(_WIN32)
         int32 ikA, ikB;
 

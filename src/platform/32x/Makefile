@@ -88,4 +88,4 @@ $(BUILD)/%.o: ../../fixed/%.cpp
 	$(SHXX) $(SHCCFLAGS) $(INCPATH) -o $@ $<
 
 clean:
-	$(RM) $(BUILD)/* *.32x *.elf
+	$(RM) $(BUILD)/* $(TARGET).32x $(TARGET).elf
