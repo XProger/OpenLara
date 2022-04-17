@@ -14,6 +14,8 @@ RoomTriangle roomTri[64];
 
 void drawInit()
 {
+    renderInit();
+
     for (int32 i = 0; i < MAX_RAND_TABLE; i++)
     {
         gRandTable[i] = (rand_draw() >> 5) - 511;
@@ -40,7 +42,17 @@ void drawInit()
 
 void drawFree()
 {
-    //
+    renderFree();
+}
+
+void drawLevelInit()
+{
+    renderLevelInit();
+}
+
+void drawLevelFree()
+{
+    renderLevelFree();
 }
 
 void calcLightingDynamic(const Room* room, const vec3i &point)

@@ -2745,7 +2745,7 @@ struct Lara : ItemObj
         if (keys & IK_X) input |= IN_WALK;
         if (keys & IK_Y) input |= IN_UP | IN_DOWN;
         if (keys & IK_Z) input |= IN_LOOK;
-    #elif defined(__GBA__) || defined(_WIN32)
+    #elif defined(__GBA__) || defined(__GBA_WIN__) || defined(__WIN32__)
         int32 ikA, ikB;
 
         if (gSettings.controls_swap) {

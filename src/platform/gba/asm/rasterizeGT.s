@@ -289,7 +289,14 @@ rasterizeGT_asm:
 
 .scanline_end:
     ldmfd sp!, {Lx, Lg, Lt}
-
+/* TEST FIQ
+    mrs r1, cpsr        // save current program status reg
+    msr cpsr, #0x11     // switch to FIQ mode with extra r8-r14 regs
+    mov r8, #0          // trash FIQ regs and
+    mov r10, #0         // it shouldn't affect normal mode regs
+//    mov r11, r11
+    msr cpsr, r1        // restore current program status reg
+*/
     ldmia sp, {sLdx, sLdg, sLdt, sRdx, sRdg}
 
     add Lx, sLdx

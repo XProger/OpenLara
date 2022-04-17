@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="..\..\fixed\common.cpp" />
+    <ClCompile Include="..\..\fixed\render\gl1.cpp" />
+    <ClCompile Include="sound.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="OpenLara.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="icon.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\fixed\camera.h" />
+    <ClInclude Include="..\..\fixed\common.h" />
+    <ClInclude Include="..\..\fixed\draw.h" />
+    <ClInclude Include="..\..\fixed\enemy.h" />
+    <ClInclude Include="..\..\fixed\game.h" />
+    <ClInclude Include="..\..\fixed\inventory.h" />
+    <ClInclude Include="..\..\fixed\item.h" />
+    <ClInclude Include="..\..\fixed\lara.h" />
+    <ClInclude Include="..\..\fixed\level.h" />
+    <ClInclude Include="..\..\fixed\nav.h" />
+    <ClInclude Include="..\..\fixed\object.h" />
+    <ClInclude Include="..\..\fixed\room.h" />
+    <ClInclude Include="..\..\fixed\lang\en.h">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\fixed\fmt\pkd.h">
+      <Filter>fmt</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\fixed\fmt\phd.h">
+      <Filter>fmt</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="lang">
+      <UniqueIdentifier>{1d3e6f64-05d8-42b8-b2c6-c5bba7798936}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="fmt">
+      <UniqueIdentifier>{f297223e-368f-46b9-9f41-3e8075cbc5c2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

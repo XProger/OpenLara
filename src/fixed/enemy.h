@@ -695,7 +695,7 @@ struct Enemy : ItemObj
         sg->vSpeed = vSpeed;
         sg->hSpeed = hSpeed;
         sg->health = health;
-        sg->mood = mood;
+        sg->mood = uint8(mood);
         sg->waterState = waterState;
 
         return data + sizeof(EnemySave);

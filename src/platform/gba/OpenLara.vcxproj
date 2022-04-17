@@ -22,6 +22,7 @@
     <ClCompile Include="..\..\fixed\common.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="render.iwram.cpp" />
+    <ClCompile Include="render_span.cpp" />
     <ClCompile Include="sound.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -8,12 +8,46 @@
 //    #define PROFILE_SOUNDTIME
 #endif
 
-#if defined(_WIN32)
+// supported formats
+// level
+#define LVL_FMT_PHD     (1 << 0)
+#define LVL_FMT_PSX     (1 << 1)
+#define LVL_FMT_SAT     (1 << 2)
+#define LVL_FMT_TR2     (1 << 3)
+#define LVL_FMT_TR4     (1 << 4)
+#define LVL_FMT_PKD     (1 << 5)
+// video
+#define FMV_FMT_RPL     (1 << 6)
+#define FMV_FMT_STR     (1 << 7)
+#define FMV_FMT_MP1     (1 << 8)
+// audio
+#define SND_FMT_PCM     (1 << 9)
+#define SND_FMT_ADPCM   (1 << 10)
+#define SND_FMT_IMA     (1 << 11)
+#define SND_FMT_VAG     (1 << 12)
+#define SND_FMT_XA      (1 << 13)
+#define SND_FMT_OGG     (1 << 14)
+#define SND_FMT_MP3     (1 << 15)
+
+#if defined(__WIN32__)
+    #define USE_DIV_TABLE
+    #define MODEHW
+
+    extern int FRAME_WIDTH;
+    extern int FRAME_HEIGHT;
+
+    #define USE_FMT     (LVL_FMT_PHD)
+
+    #define _CRT_SECURE_NO_WARNINGS
+    #include <windows.h>
+#elif defined(__GBA_WIN__)
     #define USE_DIV_TABLE
 
     #define MODE4
     #define FRAME_WIDTH  240
     #define FRAME_HEIGHT 160
+
+    #define USE_FMT     (LVL_FMT_PKD)
 
     #define _CRT_SECURE_NO_WARNINGS
     #include <windows.h>
@@ -27,7 +61,9 @@
     #define FRAME_WIDTH  240
     #define FRAME_HEIGHT 160
 
-    #include <tonc.h>
+    #define USE_FMT     (LVL_FMT_PKD)
+
+#include <tonc.h>
 #elif defined(__NDS__)
     #define USE_DIV_TABLE
 
@@ -35,7 +71,9 @@
     #define FRAME_WIDTH  256
     #define FRAME_HEIGHT 192
 
-    #include <nds.h>
+    #define USE_FMT     (LVL_FMT_PSX)
+
+#include <nds.h>
     #include <fat.h>
     #include <filesystem.h>
 #elif defined(__TNS__)
@@ -45,6 +83,8 @@
     #define FRAME_WIDTH  320
     #define FRAME_HEIGHT 240
 
+    #define USE_FMT     (LVL_FMT_PKD)
+
     #include <os.h>
 #elif defined(__DOS__)
     #define USE_DIV_TABLE
@@ -52,6 +92,8 @@
     #define MODE13
     #define FRAME_WIDTH  320
     #define FRAME_HEIGHT 200
+
+    #define USE_FMT     (LVL_FMT_PKD)
 
     #include <stdlib.h>
     #include <stddef.h>
@@ -67,6 +109,8 @@
     #define MODEHW
     #define FRAME_WIDTH  320
     #define FRAME_HEIGHT 240
+
+    #define USE_FMT     (LVL_FMT_PKD)
 
     #include <displayutils.h>
     #include <debug.h>
@@ -100,9 +144,17 @@
     #define FRAME_WIDTH  320
     #define FRAME_HEIGHT 224
 
+    #define USE_FMT     (LVL_FMT_PKD)
+
     #include "32x.h"
 #else
     #error unsupported platform
+#endif
+
+#ifdef _DEBUG
+    #define LOG(...)    printf(__VA_ARGS__)
+#else
+    #define LOG(...)
 #endif
 
 #if !defined(__3DO__)
@@ -115,6 +167,10 @@
 #include <limits.h>
 
 #define VRAM_WIDTH   (FRAME_WIDTH/2)    // in shorts
+
+#ifndef USE_FMT
+    #define USE_FMT (LVL_FMT_PHD | LVL_FMT_PSX | LVL_FMT_SAT | LVL_FMT_TR2 | LVL_FMT_TR4)
+#endif
 
 // Optimization flags =========================================================
 #ifdef __GBA__
@@ -257,7 +313,7 @@ X_INLINE int32 abs(int32 x) {
     #define EWRAM_CODE
 #endif
 
-#if defined(_WIN32)
+#if defined(__WIN32__) || defined(__GBA_WIN__)
     #define ASSERT(x) { if (!(x)) { DebugBreak(); } }
 #else
     #define ASSERT(x)
@@ -271,7 +327,7 @@ X_INLINE int32 abs(int32 x) {
     #define IME_ENABLE()
 #endif
 
-#if defined(_WIN32)
+#if defined(__GBA__WIN__)
     extern uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
 #elif defined(__GBA__)
     extern uint32 fb;
@@ -342,7 +398,7 @@ extern void* osLoadLevel(const char* name);
         #define PROFILE_STOP(value) {\
             value += (osGetSystemTimeMS() - g_timer);\
         }
-    #elif defined(_WIN32)
+    #elif defined(__WIN32__) || defined(__GBA_WIN__)
         extern LARGE_INTEGER g_timer;
         extern LARGE_INTEGER g_current;
 
@@ -352,7 +408,7 @@ extern void* osLoadLevel(const char* name);
 
         #define PROFILE_STOP(value) {\
             QueryPerformanceCounter(&g_current);\
-            value += (g_current.QuadPart - g_timer.QuadPart);\
+            value += uint32(g_current.QuadPart - g_timer.QuadPart);\
         }
     #elif defined(__GBA__)
         #ifdef PROFILE_SOUNDTIME
@@ -431,7 +487,15 @@ extern int32 fps;
 #define SND_VOL_SHIFT   6
 #define SND_PITCH_SHIFT 7
 
-#if defined(_WIN32)
+#if defined(__WIN32__)
+    #define SND_SAMPLES      1024
+    #define SND_OUTPUT_FREQ  22050
+    #define SND_SAMPLE_FREQ  22050
+    #define SND_ENCODE(x)    ((x) + 128)
+    #define SND_DECODE(x)    ((x) - 128)
+    #define SND_MIN          -128
+    #define SND_MAX          127
+#elif defined(__GBA_WIN__)
     #define SND_SAMPLES      1024
     #define SND_OUTPUT_FREQ  22050
     #define SND_SAMPLE_FREQ  22050
@@ -831,8 +895,11 @@ struct RoomVertex
 {
 #if defined(__3DO__)
     uint16 xyz565;
-#else
+#elif defined(__GBA__) || defined(__32X__)
     uint8 x, y, z, g;
+#else
+    uint8 x, y, z;
+    uint8 cR, cG, cB;
 #endif
 };
 
@@ -2063,9 +2130,17 @@ struct CameraFrame
     int16  roll;
 };
 
+enum Version
+{
+    VER_TR1_GBA,
+    VER_TR1_3DO,
+    VER_TR1_32X,
+    VER_TR1_PC
+};
+
 struct Level
 {
-    uint32 magic;
+    uint32 version;
 
     uint16 tilesCount;
     uint16 roomsCount;
@@ -2788,6 +2863,10 @@ void matrixFrameLerp(const void* pos, const void* anglesA, const void* anglesB, 
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY);
 
 void renderInit();
+void renderFree();
+void renderSwap();
+void renderLevelInit();
+void renderLevelFree();
 void setViewport(const RectMinMax &vp);
 void setPaletteIndex(int32 index);
 void clear();
@@ -2805,6 +2884,8 @@ int32 getTextWidth(const char* text);
 
 void drawInit();
 void drawFree();
+void drawLevelInit();
+void drawLevelFree();
 void drawText(int32 x, int32 y, const char* text, TextAlign align);
 void drawModel(const ItemObj* item);
 void drawItem(const ItemObj* item);
@@ -2851,5 +2932,25 @@ void updateFading(int32 frames);
 
 void dmaFill(void* dst, uint8 value, uint32 count);
 void dmaCopy(const void* src, void* dst, uint32 size);
+
+struct Stream
+{
+    const uint8* data;
+    int32 size;
+    int32 pos;
+    bool bigEndian;
+
+    Stream(const uint8* data, int32 size);
+
+    const void* getPtr();
+
+    uint8 read8u();
+    uint16 read16u();
+    uint32 read32u();
+
+    int8 read8s();
+    int16 read16s();
+    int32 read32s();
+};
 
 #endif

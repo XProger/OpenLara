@@ -85,7 +85,7 @@ bool gameLoad()
 
 void gameInit(const char* name)
 {
-    renderInit();
+    drawInit();
 
     gSaveGame.dataSize = 0;
 
@@ -102,6 +102,12 @@ void gameInit(const char* name)
     inventory.init();
 
     startLevel(name);
+}
+
+void gameFree()
+{
+    drawLevelFree();
+    drawFree();
 }
 
 void resetLara(int32 index, int32 roomIndex, const vec3i &pos, int32 angleY)
@@ -123,7 +129,7 @@ void resetLara(int32 index, int32 roomIndex, const vec3i &pos, int32 angleY)
 
 void gameLoadLevel(const void* data)
 {
-    drawFree();
+    drawLevelFree();
 
     memset(&gSaveGame, 0, sizeof(gSaveGame));
     memset(enemiesExtra, 0, sizeof(enemiesExtra));
@@ -217,7 +223,7 @@ void gameLoadLevel(const void* data)
         //resetLara(0, 44, _vec3i(73798, 2304, 9819), ANGLE_90); // uw gears
     }
 
-    drawInit();
+    drawLevelInit();
 }
 
 void startLevel(const char* name)
