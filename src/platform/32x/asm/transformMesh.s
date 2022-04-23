@@ -110,7 +110,7 @@ _transformMesh_asm:
         add     #CLIP_NEAR, vg
 .clip_z_far:
         bf/s    .project
-        mov     z, dz           // dz = z (delay slot)
+        mov     z, dz           // [delay slot] dz = z
         mov     maxZ, z
         add     #CLIP_FAR, vg
 
@@ -121,19 +121,17 @@ _transformMesh_asm:
         shll    dz
         mov.w   @(dz, divLUT), dz
 
-        add     #-M03, m        // reset matrix ptr
-
-        // x = x * dz >> (16 - PROJ_SHIFT)
+        // x = x * dz >> 12
+        // y = y * dz >> 12
         muls.w  dz, x
         sts     MACL, x
-        shll2   x
-        shll2   x
-        shlr16  x
-        exts.w  x, x
-
-        // y = y * dz >> (16 - PROJ_SHIFT)
+          add     #-M03, m        // reset matrix ptr
         muls.w  dz, y
+          shll2   x
+          shll2   x
+          shlr16  x
         sts     MACL, y
+          exts.w  x, x
         shll2   y
         shll2   y
         shlr16  y
@@ -151,7 +149,7 @@ _transformMesh_asm:
         shll2   tmp             // tmp = 80 * 4 = 320 = FRAME_WIDTH
         cmp/hi  tmp, x
         bt/s    .clip_frame
-        add     #-96, tmp       // tmp = 320 - 96 = 224 = FRAME_HEIGHT (delay slot)
+        add     #-96, tmp       // [delay slot] tmp = 320 - 96 = 224 = FRAME_HEIGHT
 .clip_frame_y:  // 0 < y > FRAME_HEIGHT
         cmp/hi  tmp, y
 .clip_frame:

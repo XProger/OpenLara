@@ -29,17 +29,6 @@ SEG_TRANS
 
 #define SP_SIZE         (18 + 6)        // mat3x3 + vec3
 
-.macro transform v, offset
-        lds     \offset, MACL
-        mac.w   @stackVtx+, @stackMtx+
-        mac.w   @stackVtx+, @stackMtx+
-        mac.w   @stackVtx+, @stackMtx+
-        add     #-6, stackVtx
-        sts     MACL, \v
-        shlr8   \v
-        exts.w  \v, \v
-.endm
-
 .align 4
 .global _transformRoom_asm
 _transformRoom_asm:
@@ -82,13 +71,14 @@ _transformRoom_asm:
         shll8   mz
 
         add     #8, res         // extra offset for @-Rn
+        nop
 
 .loop:
         // unpack vertex
         mov.b   @vertices+, x
         mov.b   @vertices+, y
         mov.b   @vertices+, z
-        
+
         shll2   x
         shll2   y
         shll2   z
@@ -98,19 +88,19 @@ _transformRoom_asm:
         add     #6, stackVtx
         mov     stackVtx, stackMtx
 
+        //shll16  x
+        //xtrct   y, x
         mov.w   x, @-stackVtx
         mov.w   y, @-stackVtx
         mov.w   z, @-stackVtx
 
-        // transform to view space
-        //transform z, mz
-
+        //transform z
         lds     mz, MACL
         mac.w   @stackVtx+, @stackMtx+
         mac.w   @stackVtx+, @stackMtx+
         mac.w   @stackVtx+, @stackMtx+
-          add     #-6, stackVtx
         sts     MACL, z
+          add     #-6, stackVtx
         shlr8   z
         exts.w  z, z
 
@@ -126,7 +116,7 @@ _transformRoom_asm:
         // check if z in [-VIEW_OFF..VIEW_MAX + VIEW_OFF]
         cmp/hi  maxZ, tmp
         bf/s    .visible
-        mov     #40, maxZ       // maxZ = 40 (delay slot)
+        mov     #40, maxZ       // [delay slot] maxZ = 40
         mov     #(CLIP_NEAR + CLIP_FAR), vg
         mov.w   vg, @-res
         add     #1, vertices
@@ -137,24 +127,23 @@ _transformRoom_asm:
         nop
 
 .visible:
-        //transform y, my
+        //transform y
         lds     my, MACL
         mac.w   @stackVtx+, @stackMtx+
         mac.w   @stackVtx+, @stackMtx+
         mac.w   @stackVtx+, @stackMtx+
-          add     #-6, stackVtx
         sts     MACL, y
+          add     #-6, stackVtx
         shlr8   y
         exts.w  y, y
 
-
-        //transform x, mx
+        //transform x
         lds     mx, MACL
         mac.w   @stackVtx+, @stackMtx+
         mac.w   @stackVtx+, @stackMtx+
         mac.w   @stackVtx+, @stackMtx+
-          shll8   maxZ  // maxZ = VIEW_MAX = (1024 * 10) = (40 << 8)
         sts     MACL, x
+          shll8   maxZ  // maxZ = VIEW_MAX = (1024 * 10) = (40 << 8)
         shlr8   x
         exts.w  x, x
 
@@ -183,7 +172,7 @@ _transformRoom_asm:
         mov     #VIEW_MIN, minZ // minZ = VIEW_MIN = 64
         cmp/gt  z, minZ
         bf/s    .clip_z_far
-        shll8   vg              // clear lower 8-bits of vg for clipping flags (delay slot)
+        shll8   vg              // [delay slot] clear lower 8-bits of vg for clipping flags
         mov     minZ, z
         add     #CLIP_NEAR, vg
 .clip_z_far:
@@ -205,8 +194,9 @@ _transformRoom_asm:
 
 .proj_y: // y = y * dz >> 12
         muls.w  dz, y
-        shar12  x, tmp          // do it here to hide muls.w latency
         sts     MACL, y
+
+        shar12  x, tmp
         shar12  y, tmp
 
         // portal rect clipping
@@ -229,7 +219,7 @@ _transformRoom_asm:
 .clip_vp_maxY:
         cmp/ge  maxY, y
         bf/s    .apply_offset
-        mov     #80, tmp        // tmp = 80 (delay slot)
+        mov     #80, tmp        // [delay slot] tmp = 80
         add     #CLIP_BOTTOM, vg
 
 .apply_offset:
@@ -244,7 +234,7 @@ _transformRoom_asm:
         shll2   tmp             // tmp = 80 * 4 = 320 = FRAME_WIDTH
         cmp/hi  tmp, x
         bt/s    .clip_frame
-        add     #-96, tmp       // tmp = 320 - 96 = 224 = FRAME_HEIGHT (delay slot)
+        add     #-96, tmp       // [delay slot] tmp = 320 - 96 = 224 = FRAME_HEIGHT
 .clip_frame_y:  // 0 < y > FRAME_HEIGHT
         cmp/hi  tmp, y
 .clip_frame:
