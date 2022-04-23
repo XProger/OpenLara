@@ -57,6 +57,9 @@ SP_R   = 24
 SP_SIZE = 28
 
 .align 4
+.global _rasterizeFT_asm_start
+_rasterizeFT_asm_start:
+
 .exit:
         // pop
         add     #SP_SIZE, sp
@@ -317,3 +320,7 @@ var_divTable:
         .long   _divTable
 var_gTile:
         .long   _gTile
+
+.align 2
+.global _rasterizeFT_asm_end
+_rasterizeFT_asm_end:

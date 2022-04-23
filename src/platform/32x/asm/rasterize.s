@@ -44,6 +44,14 @@ var_fb:
         // write per but allow transparent write for byte & word
         .long 0x24020200
 var_table:
+/* 2k on-chip test
+        .long 0xC0000000 + 516 + 416 + 256 + 18 //_rasterizeS_asm
+        .long 0xC0000000 + 516 + 416 + 18 //_rasterizeF_asm
+        .long 0xC0000000 + 516 + 18 //_rasterizeFT_asm
+        .long 0xC0000000 + 516 + 18 //_rasterizeFT_asm
+        .long 0xC0000000 + 20 //_rasterizeGT_asm
+        .long 0xC0000000 + 20 //_rasterizeGT_asm
+*/
         .long _rasterizeS_asm
         .long _rasterizeF_asm
         .long _rasterizeFT_asm

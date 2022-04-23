@@ -151,4 +151,8 @@ extern "C"
     void CacheClearLine(void* ptr);
 }
 
+#define CacheClear()\
+    CacheControl(0);\
+    CacheControl(SH2_CCTL_CP | SH2_CCTL_CE);
+
 #endif

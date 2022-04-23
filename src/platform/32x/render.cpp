@@ -685,6 +685,37 @@ void flush_c()
         return;
 
     gFacesBase = gFaces;
+/*
+    CacheControl(0);
+    CacheControl(SH2_CCTL_CP | SH2_CCTL_CE | SH2_CCTL_TW);
+
+    extern int32 rasterizeGT_asm_start;
+    extern int32 rasterizeGT_asm_end;
+
+    int32 size = intptr_t(&rasterizeGT_asm_end) - intptr_t(&rasterizeGT_asm_start);
+    fast_memcpy((void*)(0xC0000000 + 0), &rasterizeGT_asm_start, size >> 2); // 516
+
+    extern int32 rasterizeFT_asm_start;
+    extern int32 rasterizeFT_asm_end;
+
+    size = intptr_t(&rasterizeFT_asm_end) - intptr_t(&rasterizeFT_asm_start);
+    fast_memcpy((void*)(0xC0000000 + 516), &rasterizeFT_asm_start, size >> 2); // 416
+
+    extern int32 rasterizeF_asm_start;
+    extern int32 rasterizeF_asm_end;
+
+    size = intptr_t(&rasterizeF_asm_end) - intptr_t(&rasterizeF_asm_start);
+    fast_memcpy((void*)(0xC0000000 + 516 + 416), &rasterizeF_asm_start, size >> 2); // 256
+
+    extern int32 rasterizeS_asm_start;
+    extern int32 rasterizeS_asm_end;
+
+    size = intptr_t(&rasterizeS_asm_end) - intptr_t(&rasterizeS_asm_start);
+    fast_memcpy((void*)(0xC0000000 + 516 + 416 + 256), &rasterizeS_asm_start, size >> 2); // 224
+
+    //extern int32 fps;
+    //fps = size;
+*/
 
     PROFILE(CNT_FLUSH);
 
@@ -753,6 +784,10 @@ void flush_c()
 
         } while (face);
     }
+/*
+    CacheControl(0);
+    CacheControl(SH2_CCTL_CP | SH2_CCTL_CE);
+*/
 }
 #endif
 
@@ -841,6 +876,18 @@ void renderInit()
 {
     gVerticesBase = gVertices;
     gFacesBase = gFaces;
+}
+
+void renderFree()
+{
+}
+
+void renderLevelInit()
+{
+}
+
+void renderLevelFree()
+{
 }
 
 extern "C" X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v)

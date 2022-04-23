@@ -29,6 +29,9 @@ SEG_RASTER
 #define ih      inv
 
 .align 4
+.global _rasterizeS_asm_start
+_rasterizeS_asm_start:
+
 .exit:
         // pop
         mov.l   @sp+, r14
@@ -188,3 +191,7 @@ var_LMAP_ADDR:
         .long   _gLightmap_base
 var_divTable:
         .long   _divTable
+
+.align 2
+.global _rasterizeS_asm_end
+_rasterizeS_asm_end:

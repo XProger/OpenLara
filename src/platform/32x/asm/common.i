@@ -9,12 +9,6 @@
 // int16 e10, e11, e12  // rotation
 // int16 e20, e21, e22  // rotation
 // int16 e03, e13, e23  // translation
-//
-// word [ N Z Z ]  // rot
-//      [ Z N Z ]  // rot
-//      [ Z Z N ]  // rot
-//      [ Z Z Z ]  // trans
-// long [ NZ ZZ NZ ZZ NZ ZZ ]
 
 // row[0] rotation
 #define M00     0

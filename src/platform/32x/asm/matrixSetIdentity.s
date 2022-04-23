@@ -5,6 +5,12 @@ SEG_MATH
 #define ZZ      r1
 #define NZ      r2
 
+// word [ N Z Z ]  // rot
+//      [ Z N Z ]  // rot
+//      [ Z Z N ]  // rot
+//      [ Z Z Z ]  // trans
+// long [ NZ ZZ NZ ZZ NZ ZZ ]
+
 .align 4
 .global _matrixSetIdentity_asm
 _matrixSetIdentity_asm:
