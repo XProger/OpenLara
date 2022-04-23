@@ -18,17 +18,18 @@
     mov \x, \x, asr #FIXED_SHIFT
 .endm
 
-angle   .req r0
-e0      .req r1
-e1      .req r2
-s       .req r3
-c       .req r12
-v       .req lr
+angle   .req r0     // arg
+s       .req r1
+c       .req r2
+v       .req r3
+// FIQ regs
+e0      .req r8
+e1      .req r9
 m       .req angle
 
 .global matrixRotateX_asm
 matrixRotateX_asm:
-    stmfd sp!, {lr}
+    fiq_on
 
     mov angle, angle, lsl #16
     mov angle, angle, lsr #20
@@ -53,12 +54,12 @@ matrixRotateX_asm:
     rotxy e1, e0, s, c, v
     stmia m, {e0, e1}
 
-    ldmfd sp!, {lr}
+    fiq_off
     bx lr
 
 .global matrixRotateY_asm
 matrixRotateY_asm:
-    stmfd sp!, {lr}
+    fiq_on
 
     mov angle, angle, lsl #16
     mov angle, angle, lsr #20
@@ -86,12 +87,12 @@ matrixRotateY_asm:
     str e0, [m], #8
     str e1, [m], #8
 
-    ldmfd sp!, {lr}
+    fiq_off
     bx lr
 
 .global matrixRotateZ_asm
 matrixRotateZ_asm:
-    stmfd sp!, {lr}
+    fiq_on
 
     mov angle, angle, lsl #16
     mov angle, angle, lsr #20
@@ -115,23 +116,24 @@ matrixRotateZ_asm:
     rotxy e1, e0, s, c, v
     stmia m, {e0, e1}
 
-    ldmfd sp!, {lr}
+    fiq_off
     bx lr
 
-angleX  .req r0
-angleY  .req r1
-angleZ  .req r2
+angleX  .req r0     // arg
+angleY  .req r1     // arg
+angleZ  .req r2     // arg
 e00     .req r3
 e01     .req r4
 e02     .req r5
 e10     .req r6
-e11     .req r7
-e12     .req r8
-e20     .req r9
-e21     .req r10
-e22     .req r11
+// FIQ regs
+e11     .req r8
+e12     .req r9
+e20     .req r10
+e21     .req r11
 tmp     .req r12
-sinX    .req lr
+e22     .req r13
+sinX    .req r14
 sinY    .req sinX
 sinZ    .req sinX
 cosX    .req angleX
@@ -153,7 +155,8 @@ matrixRotateYXZ_asm:
     orrs mask, mask, angleZ
     bxeq lr
 
-    stmfd sp!, {r4-r11, lr}
+    stmfd sp!, {r4-r6}
+    fiq_on
 
     ldr mm, =gMatrixPtr
     ldr mm, [mm]
@@ -203,10 +206,11 @@ matrixRotateYXZ_asm:
     add mm, #(4 * 4)
     stmia mm, {e20, e21, e22}
 
-    ldmfd sp!, {r4-r11, lr}
+    fiq_off
+    ldmfd sp!, {r4-r6}
     bx lr
 
-q   .req r0
+q   .req r0     // arg
 n   .req r1
 mx  .req r3
 my  .req q

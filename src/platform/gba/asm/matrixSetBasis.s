@@ -1,7 +1,7 @@
 #include "common_asm.inc"
 
-dst .req r0
-src .req r1
+dst .req r0     // arg
+src .req r1     // arg
 
 e0  .req r2
 e1  .req r3

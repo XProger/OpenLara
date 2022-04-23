@@ -1,8 +1,8 @@
 #include "common_asm.inc"
 
-pixel   .req r0
-L       .req r1
-R       .req r2
+pixel   .req r0   // arg
+L       .req r1   // arg
+R       .req r2   // arg
 tmp     .req r12
 index   .req L
 height  .req R

@@ -1,38 +1,36 @@
 #include "common_asm.inc"
 
-pixel   .req r0
-L       .req r1
-R       .req r2
+arg_pixel .req r0   // arg
+arg_L     .req r1   // arg
+arg_R     .req r2   // arg
 
-Lh      .req r3
-Rh      .req r4
+N       .req r0
+tmp     .req r1
+Lx      .req r2
+Rx      .req r3
+Lg      .req r4
+Rg      .req r5
+Lt      .req r6
+Rt      .req r7
 
-Lx      .req r5
-Rx      .req r6
-
-Lg      .req r7
-Rg      .req r8
-
-Lt      .req r9
-Rt      .req r10
-
-tmp     .req r11
-N       .req r12
-
+L       .req r8
+R       .req r9
+Lh      .req r10
+Rh      .req r11
+pixel   .req r12
 TILE    .req lr
+
+// FIQ regs
+Ldx     .req r8
+Rdx     .req r9
+Ldg     .req r10
+Rdg     .req r11
+Ldt     .req r12
+Rdt     .req r13
 
 h       .req N
 
 LMAP    .req tmp
-
-Ldx     .req h
-Rdx     .req h
-
-Ldg     .req h
-Rdg     .req h
-
-Ldt     .req h
-Rdt     .req h
 
 indexA  .req Lh
 indexB  .req tmp
@@ -52,57 +50,37 @@ dgdx    .req L
 
 t       .req Lt
 dtdx    .req R
-du      .req L
-dv      .req R
+dtmp    .req L
 
-Ldu     .req TILE
-Ldv     .req N
-
-Rdu     .req TILE
-Rdv     .req N
+Ltmp    .req N
+Rtmp    .req N
 
 Rti     .req tmp
 Rgi     .req tmp
 
-sLdx    .req L
-sLdg    .req R
-sLdt    .req Lh
-sRdx    .req Rh
-sRdg    .req tmp
-sRdt    .req tmp  // not enough regs for one ldmia
-
-SP_LDX = 0
-SP_LDG = 4
-SP_LDT = 8
-SP_RDX = 12
-SP_RDG = 16
-SP_RDT = 20
-SP_L   = 24
-SP_R   = 28
-SP_LH  = 32
-SP_RH  = 36
-SP_SIZE = 40
-SP_TILE = SP_SIZE
+SP_TILE = 0
+SP_SIZE = 4
 
 .macro PUT_PIXELS
     bic LMAP, g, #255
-    add g, dgdx
 
     tex indexA, t
     lit indexA
-
-    add t, dtdx, lsl #1
-    //orr indexA, indexA, lsl #8
     strb indexA, [ptr], #2  // writing a byte to GBA VRAM will write a half word for free
+
+    add g, dgdx, lsl #1
+    add t, dtdx, lsl #1
 .endm
 
 .global rasterizeGT_asm
 rasterizeGT_asm:
     ldr r3, =gTile
     ldr r3, [r3]
-
     stmfd sp!, {r3-r11, lr}
-    sub sp, #SP_SIZE                // reserve stack space for [Ldx, Ldg, Ldt, Rdx, Rdg, Rdt]
+
+    mov pixel, arg_pixel
+    mov L, arg_L
+    mov R, arg_R
 
     mov Lh, #0                      // Lh = 0
     mov Rh, #0                      // Rh = 0
@@ -132,21 +110,20 @@ rasterizeGT_asm:
 
         divLUT tmp, Lh              // tmp = FixedInvU(Lh)
 
-        ldrsh Ldx, [L, #VERTEX_X]
+        fiq_on
+        ldrsh Ldx, [N, #VERTEX_X]
         sub Ldx, Lx, asr #16
         mul Ldx, tmp                // Ldx = tmp * (N->v.x - Lx)
-        str Ldx, [sp, #SP_LDX]      // store Ldx to stack
 
-        ldrb Ldg, [L, #VERTEX_G]
+        ldrb Ldg, [N, #VERTEX_G]
         sub Ldg, Lg, lsr #8
         mul Ldg, tmp                // Ldg = tmp * (N->v.g - Lg)
         asr Ldg, #8                 // 8-bit for fractional part
-        str Ldg, [sp, #SP_LDG]      // store Ldg to stack
 
-        ldr Ldt, [L, #VERTEX_T]
+        ldr Ldt, [N, #VERTEX_T]
         sub Ldt, Lt                 // Ldt = N->v.t - Lt
-        scaleUV Ldt, Ldu, Ldv, tmp
-        str Ldt, [sp, #SP_LDT]      // store Ldt to stack
+        scaleUV Ldt, Ltmp, tmp
+        fiq_off
     .calc_left_end:
 
     cmp Rh, #0
@@ -172,21 +149,20 @@ rasterizeGT_asm:
 
         divLUT tmp, Rh              // tmp = FixedInvU(Rh)
 
-        ldrsh Rdx, [R, #VERTEX_X]
+        fiq_on
+        ldrsh Rdx, [N, #VERTEX_X]
         sub Rdx, Rx, asr #16
         mul Rdx, tmp                // Rdx = tmp * (N->v.x - Rx)
-        str Rdx, [sp, #SP_RDX]      // store Rdx to stack
 
-        ldrb Rdg, [R, #VERTEX_G]
+        ldrb Rdg, [N, #VERTEX_G]
         sub Rdg, Rg, lsr #8
         mul Rdg, tmp                // Rdg = tmp * (N->v.g - Rg)
         asr Rdg, #8                 // 8-bit for fractional part
-        str Rdg, [sp, #SP_RDG]      // store Ldg to stack
 
-        ldr Rdt, [R, #VERTEX_T]
+        ldr Rdt, [N, #VERTEX_T]
         sub Rdt, Rt                 // Rdt = N->v.t - Rt
-        scaleUV Rdt, Rdu, Rdv, tmp
-        str Rdt, [sp, #SP_RDT]      // store Rdt to stack
+        scaleUV Rdt, Rtmp, tmp
+        fiq_off
     .calc_right_end:
 
     orr Lg, #LMAP_ADDR
@@ -200,27 +176,26 @@ rasterizeGT_asm:
 
     ldr TILE, [sp, #SP_TILE]
 
-    add tmp, sp, #SP_L
-    stmia tmp, {L, R, Lh, Rh}
+    stmfd sp!, {L, R, Lh, Rh}
 
 .scanline_start:
+    asr Lh, Lx, #16                 // x1 = (Lx >> 16)
+    rsbs width, Lh, Rx, asr #16     // width = (Rx >> 16) - x1
+      ble .scanline_end_fast        // if (width <= 0) go next scanline
+
     stmfd sp!, {Lx, Lg, Lt}
 
-    asr Lx, Lx, #16                 // x1 = (Lx >> 16)
-    rsbs width, Lx, Rx, asr #16     // width = (Rx >> 16) - x1
-      ble .scanline_end             // if (width <= 0) go next scanline
-
-    add ptr, pixel, Lx              // ptr = pixel + x1
+    add ptr, pixel, Lx, asr #16     // ptr = pixel + x1
 
     divLUT inv, width               // inv = FixedInvU(width)
 
     sub dtdx, Rt, Lt                // dtdx = Rt - Lt
-    scaleUV dtdx, du, dv, inv
+    scaleUV dtdx, dtmp, inv
     // t == Lt (alias)
 
     sub dgdx, Rg, Lg                // dgdx = Rg - Lg
     mul dgdx, inv                   // dgdx *= FixedInvU(width)
-    asr dgdx, #15                   // dgdx >>= 15
+    asr dgdx, #16                   // dgdx >>= 16
     // g == Lg (alias)
 
     // 2 bytes alignment (VRAM write requirement)
@@ -229,17 +204,18 @@ rasterizeGT_asm:
       beq .align_right
 
     bic LMAP, g, #255
-    add g, dgdx, asr #1
     tex indexA, t
     lit indexA
 
     ldrb indexB, [ptr, #-1]!      // read pal index from VRAM (byte)
     orr indexB, indexA, lsl #8
     strh indexB, [ptr], #2
-    add t, dtdx
 
     subs width, #1              // width--
       beq .scanline_end         // if (width == 0)
+
+    add g, dgdx
+    add t, dtdx
 
 .align_right:
     tst width, #1
@@ -248,7 +224,7 @@ rasterizeGT_asm:
     sub Rti, Rt, dtdx
     tex indexA, Rti
 
-    sub Rgi, Rg, dgdx, asr #1
+    sub Rgi, Rg, dgdx
     bic LMAP, Rgi, #255
     lit indexA
 
@@ -289,34 +265,25 @@ rasterizeGT_asm:
 
 .scanline_end:
     ldmfd sp!, {Lx, Lg, Lt}
-/* TEST FIQ
-    mrs r1, cpsr        // save current program status reg
-    msr cpsr, #0x11     // switch to FIQ mode with extra r8-r14 regs
-    mov r8, #0          // trash FIQ regs and
-    mov r10, #0         // it shouldn't affect normal mode regs
-//    mov r11, r11
-    msr cpsr, r1        // restore current program status reg
-*/
-    ldmia sp, {sLdx, sLdg, sLdt, sRdx, sRdg}
 
-    add Lx, sLdx
-    add Lg, sLdg
-    add Lt, sLdt
-    add Rx, sRdx
-    add Rg, sRdg
-
-    ldr sRdt, [sp, #SP_RDT]
-    add Rt, sRdt
+.scanline_end_fast:
+    fiq_on
+    add Lx, Ldx
+    add Rx, Rdx
+    add Lg, Ldg
+    add Rg, Rdg
+    add Lt, Ldt
+    add Rt, Rdt
+    fiq_off
 
     add pixel, #FRAME_WIDTH         // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start
 
-    add tmp, sp, #SP_L
-    ldmia tmp, {L, R, Lh, Rh}
+    ldmfd sp!, {L, R, Lh, Rh}
     b .loop
 
 .exit:
-    add sp, #(SP_SIZE + 4)          // revert reserved space for [Ldx, Ldg, Ldt, Rdx, Rdg, Rdt, TILE]
+    add sp, #SP_SIZE                // revert reserved space for [TILE]
     ldmfd sp!, {r4-r11, pc}

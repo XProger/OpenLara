@@ -1,8 +1,8 @@
 #include "common_asm.inc"
 
-this      .req r0
-x         .req r1
-z         .req r2
+this      .req r0       // arg
+x         .req r1       // arg
+z         .req r2       // arg
 info      .req r3
 roomX     .req r12
 roomZ     .req roomX

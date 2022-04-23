@@ -120,15 +120,17 @@
     ble \skip
 .endm
 
-.macro scaleUV uv, u, v, f
-    asr \u, \uv, #16
-    mul \u, \f                // u = f * int16(uv >> 16)
-    lsl \v, \uv, #16
-    asr \v, #16
-    mul \v, \f                // v = f * int16(uv)
-    lsr \u, #16
-    lsl \u, #16
-    orr \uv, \u, \v, lsr #16  // uv = (u & 0xFFFF0000) | (v >> 16)
+.macro scaleUV uv, tmp, f
+    asr \tmp, \uv, #16
+    mul \tmp, \f                    // u = f * int16(uv >> 16)
+
+    lsl \uv, \uv, #16
+    asr \uv, #16
+    mul \uv, \f                     // v = f * int16(uv)
+
+    lsr \tmp, #16
+    lsl \tmp, #16
+    orr \uv, \tmp, \uv, lsr #16     // uv = (u & 0xFFFF0000) | (v >> 16)
 .endm
 
 .macro tex index, uv
@@ -139,4 +141,20 @@
 
 .macro lit index
     ldrb \index, [LMAP, \index]
+.endm
+
+.macro fiq_on
+    msr cpsr, #0x11     // switch r8-r14 to FIQ (IRQ enabled)
+.endm
+
+.macro fiq_off
+    msr cpsr, #0x1F     // restore r8-r14
+.endm
+
+.macro fiq_on_ne
+    msrne cpsr, #0x11   // switch r8-r14 to FIQ (IRQ enabled)
+.endm
+
+.macro fiq_off_ne
+    msrne cpsr, #0x1F   // restore r8-r14
 .endm

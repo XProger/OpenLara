@@ -1,16 +1,17 @@
 #include "common_asm.inc"
 
-x       .req r0
-y       .req r1
-z       .req r2
-r       .req r3
-mx      .req r4
-my      .req r5
-mz      .req r6
-vx      .req r7
-vy      .req r8
-vz      .req r12
-m       .req lr
+x       .req r0     // arg
+y       .req r1     // arg
+z       .req r2     // arg
+r       .req r3     // arg
+// FIQ regs
+mx      .req r8
+my      .req r9
+mz      .req r10
+vx      .req r11
+vy      .req r12
+vz      .req r13
+m       .req r14
 tmp     .req m
 vp      .req m
 vMinXY  .req z
@@ -23,7 +24,7 @@ rMaxY   .req y
 
 .global sphereIsVisible_asm
 sphereIsVisible_asm:
-    stmfd sp!, {r4-r8, lr}
+    fiq_on
 
     ldr m, =gMatrixPtr
     ldr m, [m]
@@ -75,10 +76,10 @@ sphereIsVisible_asm:
     bgt .fail
 
     mov r0, #1
-    ldmfd sp!, {r4-r8, lr}
+    fiq_off
     bx lr
 
 .fail:
     mov r0, #0
-    ldmfd sp!, {r4-r8, lr}
+    fiq_off
     bx lr

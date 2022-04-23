@@ -1,19 +1,20 @@
 #include "common_asm.inc"
 
-aabb    .req r0
-x       .req r1
-y       .req r2
-z       .req r3
-minX    .req r4
-maxX    .req r5
-minY    .req r6
-maxY    .req r7
+aabb    .req r0     // arg
+x       .req r1     // arg
+y       .req r2     // arg
+z       .req r3     // arg
+// FIQ regs
+minX    .req r8
+maxX    .req r9
+minY    .req r10
+maxY    .req r11
 minZ    .req r12
-maxZ    .req lr
+maxZ    .req r13
 
 .global boxTranslate_asm
 boxTranslate_asm:
-    stmfd sp!, {r4-r7, lr}
+    fiq_on
 
     ldmia aabb, {minX, maxX, minY, maxY, minZ, maxZ}
     add minX, minX, x
@@ -24,5 +25,5 @@ boxTranslate_asm:
     add maxZ, maxZ, z
     stmia aabb, {minX, maxX, minY, maxY, minZ, maxZ}
 
-    ldmfd sp!, {r4-r7, lr}
+    fiq_off
     bx lr

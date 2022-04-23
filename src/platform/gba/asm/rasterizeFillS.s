@@ -1,20 +1,22 @@
 #include "common_asm.inc"
 
-pixel   .req r0
-L       .req r1
-R       .req r2
-p       .req r4
-w       .req r5
-indexA  .req r6
-indexB  .req r12
-shade   .req lr
+pixel   .req r0   // arg
+L       .req r1   // arg
+R       .req r2   // arg
+p       .req r3
+// FIQ regs
+w       .req r8
+indexA  .req r9
+indexB  .req r10
+shade   .req r11
+
 width   .req L
 height  .req R
 LMAP    .req shade
 
 .global rasterizeFillS_asm
 rasterizeFillS_asm:
-    stmfd sp!, {r4-r6, lr}
+    fiq_on
 
     add R, #VERTEX_SIZEOF
     ldrsh p, [L, #VERTEX_X]
@@ -68,4 +70,5 @@ rasterizeFillS_asm:
     subs height, #1
       bne .loop
 
-    ldmfd sp!, {r4-r6, pc}
+    fiq_off
+    bx lr

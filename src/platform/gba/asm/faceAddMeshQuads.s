@@ -1,19 +1,21 @@
 #include "common_asm.inc"
 
-polys       .req r0
-count       .req r1
+polys       .req r0     // arg
+count       .req r1     // arg
 vp          .req r2
 vg0         .req r3
 vg1         .req r4
 vg2         .req r5
 vg3         .req r6
 flags       .req r7
+// FIQ regs
 vp0         .req r8
 vp1         .req r9
 vp2         .req r10
 vp3         .req r11
 ot          .req r12
-face        .req lr
+face        .req r13
+vertices    .req r14
 
 vx0         .req vg0
 vy0         .req vg1
@@ -29,21 +31,18 @@ vz3         .req vg3
 depth       .req vg0
 
 tmp         .req flags
-vertices    .req vg2
 next        .req vp0
-
-SP_SIZE = 4
 
 .global faceAddMeshQuads_asm
 faceAddMeshQuads_asm:
-    stmfd sp!, {r4-r11, lr}
+    stmfd sp!, {r4-r7}
+    fiq_on
 
     ldr vp, =gVerticesBase
     ldr vp, [vp]
 
     ldr vertices, =gVertices
     lsr vertices, #3
-    stmfd sp!, {vertices}
 
     ldr face, =gFacesBase
     ldr face, [face]
@@ -97,7 +96,6 @@ faceAddMeshQuads_asm:
     lsr depth, #(2 + OT_SHIFT)
 
     // faceAdd
-    ldr vertices, [sp]
     rsb vp0, vertices, vp0, lsr #3
     rsb vp1, vertices, vp1, lsr #3
     rsb vp2, vertices, vp2, lsr #3
@@ -116,5 +114,6 @@ faceAddMeshQuads_asm:
     ldr tmp, =gFacesBase
     str face, [tmp]
 
-    add sp, #SP_SIZE
-    ldmfd sp!, {r4-r11, pc}
+    fiq_off
+    ldmfd sp!, {r4-r7}
+    bx lr

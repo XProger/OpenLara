@@ -1,19 +1,20 @@
 #include "common_asm.inc"
 
-polys       .req r0
-count       .req r1
+polys       .req r0     // arg
+count       .req r1     // arg
 vp          .req r2
 vg0         .req r3
 vg1         .req r4
 vg2         .req r5
 vg3         .req r6
-flags       .req r7
-vp0         .req r8
-vp1         .req r9
-vp2         .req r10
-vertices    .req r11
-ot          .req r12
-face        .req lr
+// FIQ regs
+flags       .req r8
+vp0         .req r9
+vp1         .req r10
+vp2         .req r11
+vertices    .req r12
+ot          .req r13
+face        .req r14
 
 vx0         .req vg0
 vy0         .req vg1
@@ -32,7 +33,8 @@ next        .req vp0
 
 .global faceAddRoomTriangles_asm
 faceAddRoomTriangles_asm:
-    stmfd sp!, {r4-r11, lr}
+    stmfd sp!, {r4-r6}
+    fiq_on
 
     ldr vp, =gVerticesBase
     ldr vp, [vp]
@@ -110,4 +112,6 @@ faceAddRoomTriangles_asm:
     ldr tmp, =gFacesBase
     str face, [tmp]
 
-    ldmfd sp!, {r4-r11, pc}
+    fiq_off
+    ldmfd sp!, {r4-r6}
+    bx lr

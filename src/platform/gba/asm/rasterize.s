@@ -1,7 +1,7 @@
 #include "common_asm.inc"
 
-flags  .req r0
-L      .req r1
+flags  .req r0      // arg
+L      .req r1      // arg
 R      .req r2
 y      .req r3
 type   .req r12

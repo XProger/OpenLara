@@ -1,7 +1,7 @@
 #include "common_asm.inc"
 
-v       .req r0
-q       .req r1
+v       .req r0     // arg
+q       .req r1     // arg
 
 min     .req q
 max     .req r2

@@ -1,68 +1,54 @@
 #include "common_asm.inc"
 
-pixel   .req r0
-L       .req r1
-R       .req r2
-LMAP    .req r3
+arg_pixel .req r0   // arg
+arg_L     .req r1   // arg
+arg_R     .req r2   // arg
 
-TILE    .req r4
-tmp     .req r5
-N       .req r6
-Lh      .req r7
-Rh      .req r8
+N       .req r0
+tmp     .req r1
+Lx      .req r2
+Rx      .req r3
+Lt      .req r4
+Rt      .req r5
+t       .req r6
+dtdx    .req r7
 
-Lx      .req r9
-Rx      .req r10
-Lt      .req r11
-Rt      .req r12
-h       .req lr
+indexA  .req r8
+indexB  .req r9
+LMAP    .req r10
+TILE    .req r11
+pixel   .req r12
+width   .req lr
+
+// FIQ regs
+Ldx     .req r8
+Rdx     .req r9
+Ldt     .req r10
+Rdt     .req r11
+LRh     .req r12
+L       .req r13
+R       .req r14
+
+Rh      .req LRh
+Lh      .req t
+
+h       .req N
 
 ptr     .req tmp
 
-Ldx     .req h
-Rdx     .req h
-
-Ldt     .req h
-Rdt     .req h
-
-indexA  .req Lh
-indexB  .req Rh
 Rxy     .req tmp
 Ry2     .req Rh
 Lxy     .req tmp
 Ly2     .req Lh
 
-inv     .req Lh
-width   .req N
-t       .req L
-dtdx    .req R
+inv     .req indexA
+duv     .req indexB
+dtmp    .req t
 
-duv     .req R
-du      .req L
-dv      .req R
-
-Ldu     .req N
-Ldv     .req h
-
-Rdu     .req N
-Rdv     .req h
+Ltmp    .req N
+Rtmp    .req N
 
 Rti     .req indexB
-
-sLdx    .req tmp
-sLdt    .req N
-sRdx    .req Lh
-sRdt    .req Rh
-
-SP_LDX = 0
-SP_LDT = 4
-SP_RDX = 8
-SP_RDT = 12
-SP_L   = 16
-SP_R   = 20
-SP_LH  = 24
-SP_RH  = 28
-SP_SIZE = 32
 
 .macro PUT_PIXELS
     tex indexA, t
@@ -76,22 +62,28 @@ SP_SIZE = 32
 .global rasterizeFTA_asm
 rasterizeFTA_asm:
     stmfd sp!, {r4-r11, lr}
-    sub sp, #SP_SIZE                // reserve stack space for [Ldx, Ldt, Rdx, Rdt]
+
+    mov pixel, arg_pixel
 
     mov LMAP, #LMAP_ADDR
-    ldrb tmp, [L, #VERTEX_G]
-    add LMAP, tmp, lsl #8           // tmp = (L->v.g << 8)
+    ldrb t, [arg_L, #VERTEX_G]
+    add LMAP, t, lsl #8             // LMAP = (L->v.g << 8)
 
     ldr TILE, =gTile
     ldr TILE, [TILE]
 
-    mov Lh, #0                      // Lh = 0
-    mov Rh, #0                      // Rh = 0
+    fiq_on
+    mov L, arg_L
+    mov R, arg_R
+    mov LRh, #0                     // Lh = 0
 
 .loop:
+    lsr Lh, LRh, #16
+    lsl Rh, LRh, #16
+    lsr Rh, Rh, #16
 
     cmp Lh, #0
-      bne .calc_left_end        // if (Lh != 0) end with left
+      bgt .calc_left_end        // if (Lh != 0) end with left
 
     .calc_left_start:
         ldrsb N, [L, #VERTEX_PREV]  // N = L + L->prev
@@ -114,16 +106,14 @@ rasterizeFTA_asm:
         ldrsh Ldx, [L, #VERTEX_X]
         sub Ldx, Lx, asr #16
         mul Ldx, tmp                // Ldx = tmp * (N->v.x - Lx)
-        str Ldx, [sp, #SP_LDX]      // store Ldx to stack
 
         ldr Ldt, [L, #VERTEX_T]
         sub Ldt, Lt                 // Ldt = N->v.t - Lt
-        scaleUV Ldt, Ldu, Ldv, tmp
-        str Ldt, [sp, #SP_LDT]      // store Ldt to stack
+        scaleUV Ldt, Ltmp, tmp
     .calc_left_end:
 
     cmp Rh, #0
-      bne .calc_right_end       // if (Rh != 0) end with right
+      bgt .calc_right_end       // if (Rh != 0) end with right
 
     .calc_right_start:
         ldrsb N, [R, #VERTEX_NEXT]  // N = R + R->next
@@ -131,7 +121,7 @@ rasterizeFTA_asm:
         ldr Rxy, [R, #VERTEX_X]     // Rxy = (R->v.y << 16) | (R->v.x)
         ldrsh Ry2, [N, #VERTEX_Y]   // Ry2 = N->v.y
 
-        subs Rh, Ry2, Rxy, asr #16  // Rh = N->v.y - R->v.y
+        subs Rh, Ry2, Rxy, asr #16  // Rh = Ry2 - Rxy
           blt .exit                 // if (Rh < 0) return
           ldrne Rt, [R, #VERTEX_T]  // Rt = R->t
           mov R, N                  // R = N
@@ -146,12 +136,10 @@ rasterizeFTA_asm:
         ldrsh Rdx, [R, #VERTEX_X]
         sub Rdx, Rx, asr #16
         mul Rdx, tmp                // Rdx = tmp * (N->v.x - Rx)
-        str Rdx, [sp, #SP_RDX]      // store Rdx to stack
 
         ldr Rdt, [R, #VERTEX_T]
         sub Rdt, Rt                 // Rdt = N->v.t - Rt
-        scaleUV Rdt, Rdu, Rdv, tmp
-        str Rdt, [sp, #SP_RDT]      // store Rdt to stack
+        scaleUV Rdt, Rtmp, tmp
     .calc_right_end:
 
     cmp Rh, Lh              // if (Rh < Lh)
@@ -160,8 +148,9 @@ rasterizeFTA_asm:
     sub Lh, h               // Lh -= h
     sub Rh, h               // Rh -= h
 
-    add tmp, sp, #SP_L
-    stmia tmp, {L, R, Lh, Rh}
+    orr LRh, Rh, Lh, lsl #16
+
+    fiq_off
 
 .scanline_start:
     asr tmp, Lx, #16                // x1 = (Lx >> 16)
@@ -173,7 +162,7 @@ rasterizeFTA_asm:
     divLUT inv, width               // inv = FixedInvU(width)
 
     sub dtdx, Rt, Lt                // duv = Rt - Lt
-    scaleUV dtdx, du, dv, inv
+    scaleUV dtdx, dtmp, inv
 
     mov t, Lt                       // t = Lt
 
@@ -241,21 +230,20 @@ rasterizeFTA_asm:
       bne .scanline_block_8px
 
 .scanline_end:
-    ldmia sp, {sLdx, sLdt, sRdx, sRdt}
-    add Lx, sLdx
-    add Lt, sLdt
-    add Rx, sRdx
-    add Rt, sRdt
+    add pixel, #FRAME_WIDTH     // pixel += FRAME_WIDTH (240)
 
-    add pixel, #FRAME_WIDTH         // pixel += FRAME_WIDTH (240)
+    fiq_on
+    add Lx, Ldx
+    add Rx, Rdx
+    add Lt, Ldt
+    add Rt, Rdt
 
     subs h, #1
+      fiq_off_ne
       bne .scanline_start
 
-    add tmp, sp, #SP_L
-    ldmia tmp, {L, R, Lh, Rh}
     b .loop
 
 .exit:
-    add sp, #SP_SIZE            // revert reserved space for [Ldx, Ldt, Rdx, Rdt]
+    fiq_off
     ldmfd sp!, {r4-r11, pc}

@@ -1,46 +1,57 @@
 #include "common_asm.inc"
 
-vertices    .req r0
-count       .req r1
-m           .req r2
-v           .req r3
-vx          .req r4
-vy          .req r5
-vz          .req r6
-vg          .req v
-mx          .req r7
-my          .req r8
-mz          .req r9
-x           .req r10
-y           .req r11
-z           .req r12
-res         .req lr
-t           .req y
+vertices    .req r0     // arg
+count       .req r1     // arg
+vx          .req r2
+vy          .req r3
+vz          .req r4
+x           .req vx
+y           .req r5
+z           .req r6
+mx0         .req r7
 
-spMinXY     .req mx
-spMaxXY     .req my
-spFrame     .req mz
-spCaustLUT  .req x
-spRandLUT   .req y
+mx2         .req r8
+my2         .req r9
+mz2         .req r10
+mw2         .req r11
+res         .req r12
+vg          .req lr
 
-mask        .req x
-vp          .req vx
-minXY       .req vx
-maxXY       .req vy
+// FIQ regs
+my0         .req r8
+mz0         .req r9
+mw0         .req r10
+mx1         .req r11
+my1         .req r12
+mz1         .req r13
+mw1         .req r14
 
-dz          .req mz
-fog         .req mz
+m           .req vx
+v           .req vg
+mask        .req y
 
-frame       .req vx
+minXY       .req vy
+maxXY       .req vz
+
+tmp         .req vy
+dz          .req vz
+fog         .req vz
+
+frame       .req vy
 caust       .req vy
 rand        .req vz
-tmp         .req mx
+
+spMinXY     .req vx
+spMaxXY     .req vy
+spRandLUT   .req vz
+spFrame     .req y
+spCaustLUT  .req z
 
 SP_MINXY    = 0
 SP_MAXXY    = 4
-SP_FRAME    = 8
-SP_CAUST    = 12
-SP_RAND     = 16
+SP_RAND     = 8
+SP_FRAME    = 12
+SP_CAUST    = 16
 SP_SIZE     = 20
 
 .global transformRoomUW_asm
@@ -51,11 +62,8 @@ transformRoomUW_asm:
     ldr res, [res]
     add res, #VERTEX_G
 
-    ldr m, =gMatrixPtr
-    ldr m, [m]
-
-    ldr vp, =viewportRel
-    ldmia vp, {spMinXY, spMaxXY}
+    ldr tmp, =viewportRel
+    ldmia tmp, {spMinXY, spMaxXY}
 
     ldr spFrame, =gCausticsFrame
     ldr spFrame, [spFrame]
@@ -63,12 +71,16 @@ transformRoomUW_asm:
     ldr spCaustLUT, =gCaustics
     ldr spRandLUT, =gRandTable
 
-    stmfd sp!, {spMinXY, spMaxXY, spFrame, spCaustLUT, spRandLUT}
+    stmfd sp!, {spMinXY, spMaxXY, spRandLUT, spFrame, spCaustLUT}
 
-    // preload mask, matrix and z-row
     mov mask, #(0xFF << 10)
-    add m, #(12 * 4)
-    ldmdb m!, {mx, my, mz, z}
+
+    ldr m, =gMatrixPtr
+    ldr m, [m]
+    fiq_on
+    ldmia m!, {mx0, my0, mz0, mw0,  mx1, my1, mz1, mw1}
+    ldmia m, {mx2, my2, mz2, mw2}^
+    fiq_off
 
 .loop:
     // unpack vertex
@@ -79,41 +91,42 @@ transformRoomUW_asm:
     and vx, mask, v, lsl #10
 
     // transform z
-    mla t, mx, vx, z
-    mla t, my, vy, t
-    mla t, mz, vz, t
-    asr t, #FIXED_SHIFT
+    mla z, mx2, vx, mw2
+    mla z, my2, vy, z
+    mla z, mz2, vz, z
+    asr z, #FIXED_SHIFT
 
     // skip if vertex is out of z-range
-    add t, #VIEW_OFF
-    cmp t, #(VIEW_OFF + VIEW_OFF + VIEW_MAX)
+    add z, #VIEW_OFF
+    cmp z, #(VIEW_OFF + VIEW_OFF + VIEW_MAX)
     movhi vg, #(CLIP_NEAR + CLIP_FAR)
     bhi .skip
 
     and vg, mask, v, lsr #14
-    sub z, t, #VIEW_OFF
+    sub z, #VIEW_OFF
 
+    fiq_on
     // transform y
-    ldmdb m!, {mx, my, mz, y}
-    mla y, mx, vx, y
-    mla y, my, vy, y
-    mla y, mz, vz, y
+    mla y, mx1, vx, mw1
+    mla y, my1, vy, y
+    mla y, mz1, vz, y
     asr y, #FIXED_SHIFT
 
     // transform x
-    ldmdb m!, {mx, my, mz, x}
-    mla x, mx, vx, x
-    mla x, my, vy, x
-    mla x, mz, vz, x
+    mla x, mx0, vx, mw0
+    mla x, my0, vy, x
+    mla x, mz0, vz, x
     asr x, #FIXED_SHIFT
+    fiq_off
 
     // caustics
-    add tmp, sp, #SP_FRAME
-    ldmia tmp, {frame, caust, rand}
+    ldr rand, [sp, #SP_RAND]
     and tmp, count, #(MAX_RAND_TABLE - 1)
     ldr rand, [rand, tmp, lsl #2]
+    ldr frame, [sp, #SP_FRAME]
     add rand, frame
     and rand, #(MAX_CAUSTICS - 1)
+    ldr caust, [sp, #SP_CAUST]
     ldr caust, [caust, rand, lsl #2]
     add vg, caust, lsl #5
 
@@ -171,11 +184,7 @@ transformRoomUW_asm:
     strh y, [res, #-4]
     strh z, [res, #-2]
 
-    // preload mask, matrix and z-row
     mov mask, #(0xFF << 10)
-    add m, #(12 * 4)
-    ldmdb m!, {mx, my, mz, z}
-
 .skip:
     strh vg, [res], #8
 

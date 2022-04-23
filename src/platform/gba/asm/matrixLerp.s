@@ -1,15 +1,16 @@
 #include "common_asm.inc"
 
-n       .req r0
-pmul    .req r1
-pdiv    .req r2
-m0      .req r3
-m1      .req r4
-m2      .req r5
-n0      .req r6
-n1      .req r7
-n2      .req r12
-m       .req lr
+n       .req r0     // arg
+pmul    .req r1     // arg
+pdiv    .req r2     // arg
+// FIQ regs
+m0      .req r8
+m1      .req r9
+m2      .req r10
+n0      .req r11
+n1      .req r12
+n2      .req r13
+m       .req r14
 tmp     .req m0
 
 .macro load
@@ -83,7 +84,7 @@ tmp     .req m0
 
 .global matrixLerp_asm
 matrixLerp_asm:
-    stmfd sp!, {r4-r7, lr}
+    fiq_on
     ldr m, =gMatrixPtr
     ldr m, [m]
 .check_2:
@@ -111,5 +112,5 @@ matrixLerp_asm:
     mov pmul, tmp, asr #8
     lerp _X_Y
 .done:
-    ldmfd sp!, {r4-r7, lr}
+    fiq_off
     bx lr

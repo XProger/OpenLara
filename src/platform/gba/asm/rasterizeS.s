@@ -1,30 +1,33 @@
 #include "common_asm.inc"
 
-pixel   .req r0
-L       .req r1
-R       .req r2
+pixel   .req r0   // arg
+L       .req r1   // arg
+R       .req r2   // arg
 LMAP    .req r3
 Lh      .req r4
 Rh      .req r5
 Lx      .req r6
 Rx      .req r7
+// FIQ regs
 Ldx     .req r8
 Rdx     .req r9
 N       .req r10
 tmp     .req r11
 pair    .req r12
-width   .req lr
+width   .req r13
+indexA  .req r14
+
 h       .req N
 Rxy     .req tmp
 Ry2     .req Rh
 Lxy     .req tmp
 Ly2     .req Lh
-indexA  .req Lh
 indexB  .req pair
 
 .global rasterizeS_asm
 rasterizeS_asm:
-    stmfd sp!, {r4-r11, lr}
+    stmfd sp!, {r4-r7}
+    fiq_on
 
     mov LMAP, #LMAP_ADDR
     add LMAP, #0x1A00
@@ -88,8 +91,6 @@ rasterizeS_asm:
     sub Lh, h               // Lh -= h
     sub Rh, h               // Rh -= h
 
-  stmfd sp!, {Lh}
-
 .scanline_start:
     asr tmp, Lx, #16                // x1 = (Lx >> 16)
     rsbs width, tmp, Rx, asr #16    // width = (Rx >> 16) - x1
@@ -142,8 +143,9 @@ rasterizeS_asm:
     subs h, #1
       bne .scanline_start
 
-    ldmfd sp!, {Lh}
     b .loop
 
 .exit:
-    ldmfd sp!, {r4-r11, pc}
+    fiq_off
+    ldmfd sp!, {r4-r7}
+    bx lr

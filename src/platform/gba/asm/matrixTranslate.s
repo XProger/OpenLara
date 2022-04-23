@@ -1,17 +1,18 @@
 #include "common_asm.inc"
 
-x   .req r0
-y   .req r1
-z   .req r2
-e0  .req r3
-e1  .req r4
-e2  .req r5
-v   .req r12
-m   .req lr
+x   .req r0     // arg
+y   .req r1     // arg
+z   .req r2     // arg
+m   .req r3
+// FIQ regs
+e0  .req r8
+e1  .req r9
+e2  .req r10
+v   .req r11
 
 .global matrixTranslateRel_asm
 matrixTranslateRel_asm:
-    stmfd sp!, {r4-r5, lr}
+    fiq_on
 
     ldr m, =gMatrixPtr
     ldr m, [m]
@@ -37,12 +38,12 @@ matrixTranslateRel_asm:
     mla v, e2, z, v
     stmdb m, {v}
 
-    ldmfd sp!, {r4-r5, lr}
+    fiq_off
     bx lr
 
 .global matrixTranslateAbs_asm
 matrixTranslateAbs_asm:
-    stmfd sp!, {r4-r5, lr}
+    fiq_on
 
     ldr v, =gCameraViewPos
     ldmia v, {e0, e1, e2}
@@ -74,12 +75,12 @@ matrixTranslateAbs_asm:
     mla v, e2, z, v
     stmia m!, {v}
 
-    ldmfd sp!, {r4-r5, lr}
+    fiq_off
     bx lr
 
 .global matrixTranslateSet_asm
 matrixTranslateSet_asm:
-    stmfd sp!, {r4-r5, lr}
+    fiq_on
 
     ldr m, =gMatrixPtr
     ldr m, [m]
@@ -105,5 +106,5 @@ matrixTranslateSet_asm:
     mla v, e2, z, v
     stmia m!, {v}
 
-    ldmfd sp!, {r4-r5, lr}
+    fiq_off
     bx lr

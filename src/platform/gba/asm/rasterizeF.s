@@ -1,19 +1,20 @@
 #include "common_asm.inc"
 
-pixel   .req r0
-L       .req r1
-color   .req r2
+pixel   .req r0   // arg
+L       .req r1   // arg
+color   .req r2   // arg
 index   .req r3
 Lh      .req r4
 Rh      .req r5
 Lx      .req r6
-Rx      .req r7
-Ldx     .req r8
-Rdx     .req r9
-N       .req r10
-tmp     .req r11
-pair    .req r12
-width   .req lr
+// FIQ regs
+Rx      .req r8
+Ldx     .req r9
+Rdx     .req r10
+N       .req r11
+tmp     .req r12
+pair    .req r13
+width   .req r14
 
 R       .req color
 h       .req N
@@ -26,7 +27,8 @@ ptr     .req tmp
 
 .global rasterizeF_asm
 rasterizeF_asm:
-    stmfd sp!, {r4-r11, lr}
+    stmfd sp!, {r4-r6}
+    fiq_on
 
     add LMAP, color, #LMAP_ADDR
     ldrb tmp, [L, #VERTEX_G]
@@ -133,4 +135,6 @@ rasterizeF_asm:
     b .loop
 
 .exit:
-    ldmfd sp!, {r4-r11, pc}
+    fiq_off
+    ldmfd sp!, {r4-r6}
+    bx lr
