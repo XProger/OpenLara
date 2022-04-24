@@ -55,17 +55,17 @@ dtmp    .req L
 Ltmp    .req N
 Rtmp    .req N
 
-Rti     .req tmp
-Rgi     .req tmp
-
 SP_TILE = 0
 SP_SIZE = 4
 
-.macro PUT_PIXELS
-    bic LMAP, g, #255
+G_EXTRA = 5   // extra bits of precision for gouraud shading (8 + G_EXTRA)
 
+.macro PUT_PIXELS
     tex indexA, t
-    lit indexA
+
+    mov LMAP, g, lsr #(8 + G_EXTRA)
+    ldrb indexA, [indexA, LMAP, lsl #8]
+
     strb indexA, [ptr], #2  // writing a byte to GBA VRAM will write a half word for free
 
     add g, dgdx, lsl #1
@@ -104,7 +104,7 @@ rasterizeGT_asm:
           beq .calc_left_start
 
         lsl Lx, Lxy, #16            // Lx = L->v.x << 16
-        lsl Lg, #8                  // Lg <<= 8
+        lsl Lg, #(8 + G_EXTRA)      // Lg <<= 8 + G_EXTRA
         cmp Lh, #1                  // if (Lh <= 1) skip Ldx calc
           beq .calc_left_end
 
@@ -116,9 +116,9 @@ rasterizeGT_asm:
         mul Ldx, tmp                // Ldx = tmp * (N->v.x - Lx)
 
         ldrb Ldg, [N, #VERTEX_G]
-        sub Ldg, Lg, lsr #8
+        sub Ldg, Lg, lsr #(8 + G_EXTRA)
         mul Ldg, tmp                // Ldg = tmp * (N->v.g - Lg)
-        asr Ldg, #8                 // 8-bit for fractional part
+        asr Ldg, #(8 - G_EXTRA)     // (8 + G_EXTRA)-bit for fractional part
 
         ldr Ldt, [N, #VERTEX_T]
         sub Ldt, Lt                 // Ldt = N->v.t - Lt
@@ -143,7 +143,7 @@ rasterizeGT_asm:
           beq .calc_right_start
 
         lsl Rx, Rxy, #16            // Rx = R->v.x << 16
-        lsl Rg, #8                  // Rg <<= 8
+        lsl Rg, #(8 + G_EXTRA)      // Rg <<= 8 + G_EXTRA
         cmp Rh, #1                  // if (Rh <= 1) skip Rdx calc
           beq .calc_right_end
 
@@ -155,9 +155,9 @@ rasterizeGT_asm:
         mul Rdx, tmp                // Rdx = tmp * (N->v.x - Rx)
 
         ldrb Rdg, [N, #VERTEX_G]
-        sub Rdg, Rg, lsr #8
+        sub Rdg, Rg, lsr #(8 + G_EXTRA)
         mul Rdg, tmp                // Rdg = tmp * (N->v.g - Rg)
-        asr Rdg, #8                 // 8-bit for fractional part
+        asr Rdg, #(8 - G_EXTRA)     // (8 + G_EXTRA)-bit for fractional part
 
         ldr Rdt, [N, #VERTEX_T]
         sub Rdt, Rt                 // Rdt = N->v.t - Rt
@@ -165,8 +165,8 @@ rasterizeGT_asm:
         fiq_off
     .calc_right_end:
 
-    orr Lg, #LMAP_ADDR
-    orr Rg, #LMAP_ADDR
+    orr Lg, #(LMAP_ADDR << G_EXTRA)
+    orr Rg, #(LMAP_ADDR << G_EXTRA)
 
     cmp Rh, Lh              // if (Rh < Lh)
       movlt h, Rh           //      h = Rh
@@ -203,9 +203,9 @@ rasterizeGT_asm:
     tst ptr, #1                   // if (ptr & 1)
       beq .align_right
 
-    bic LMAP, g, #255
     tex indexA, t
-    lit indexA
+    mov LMAP, g, lsr #(8 + G_EXTRA)
+    ldrb indexA, [indexA, LMAP, lsl #8]
 
     ldrb indexB, [ptr, #-1]!      // read pal index from VRAM (byte)
     orr indexB, indexA, lsl #8
@@ -221,12 +221,9 @@ rasterizeGT_asm:
     tst width, #1
       beq .align_block_4px
 
-    sub Rti, Rt, dtdx
-    tex indexA, Rti
-
-    sub Rgi, Rg, dgdx
-    bic LMAP, Rgi, #255
-    lit indexA
+    tex indexA, Rt
+    mov LMAP, Rg, lsr #(8 + G_EXTRA)
+    ldrb indexA, [indexA, LMAP, lsl #8]
 
     ldrb indexB, [ptr, width]
     subs width, #1              // width--

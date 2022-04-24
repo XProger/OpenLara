@@ -55,9 +55,6 @@ dtmp    .req L
 Ltmp    .req N
 Rtmp    .req N
 
-Rti     .req tmp
-Rgi     .req tmp
-
 SP_TILE = 0
 SP_SIZE = 4
 
@@ -229,15 +226,13 @@ rasterizeGTA_asm:
     tst width, #1
       beq .align_block_4px
 
-    sub Rti, Rt, dtdx
-    tex indexA, Rti
+    tex indexA, Rt
 
     cmp indexA, #0
       subeq width, #1
       beq .skip_right
 
-    sub Rgi, Rg, dgdx, asr #1
-    bic LMAP, Rgi, #255
+    bic LMAP, Rg, #255
     lit indexA
 
     ldrb indexB, [ptr, width]

@@ -48,8 +48,6 @@ dtmp    .req t
 Ltmp    .req N
 Rtmp    .req N
 
-Rti     .req indexB
-
 .macro PUT_PIXELS
     tex indexA, t
     add t, dtdx, lsl #1
@@ -179,17 +177,17 @@ rasterizeFTA_asm:
     orrne indexB, indexA, lsl #8
     strneh indexB, [ptr], #2
     addeq ptr, #1
-    add t, dtdx
 
     subs width, #1              // width--
       beq .scanline_end         // if (width == 0)
+
+    add t, dtdx
 
 .align_right:
     tst width, #1
       beq .align_block_4px
 
-    sub Rti, Rt, dtdx
-    tex indexA, Rti
+    tex indexA, Rt
 
     cmp indexA, #0
     ldrneb indexA, [LMAP, indexA]
