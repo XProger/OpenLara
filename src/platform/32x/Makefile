@@ -88,4 +88,5 @@ $(BUILD)/%.o: ../../fixed/%.cpp
 	$(SHXX) $(SHCCFLAGS) $(INCPATH) -o $@ $<
 
 clean:
+	make clean -C src-md
 	$(RM) $(BUILD)/* $(TARGET).32x $(TARGET).elf
