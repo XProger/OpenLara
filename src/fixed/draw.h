@@ -8,8 +8,8 @@
 
 #ifdef TEST_ROOM_CACHE
 RoomVertex roomVert[512];
-RoomQuad roomQuads[512];
-RoomTriangle roomTri[64];
+EWRAM_DATA RoomQuad roomQuads[512];
+EWRAM_DATA RoomTriangle roomTri[64];
 #endif
 
 void drawInit()
@@ -26,6 +26,16 @@ void drawInit()
         int16 rot = i * (ANGLE_90 * 4) / MAX_CAUSTICS;
         gCaustics[i] = sin(rot) * 768 >> FIXED_SHIFT;
     }
+}
+
+void drawFree()
+{
+    renderFree();
+}
+
+void drawLevelInit()
+{
+    renderLevelInit();
 
 #ifdef TEST_ROOM_CACHE
     Room &room = rooms[14];
@@ -38,16 +48,6 @@ void drawInit()
     room.data.quads = roomQuads;
     room.data.triangles = roomTri;
 #endif
-}
-
-void drawFree()
-{
-    renderFree();
-}
-
-void drawLevelInit()
-{
-    renderLevelInit();
 }
 
 void drawLevelFree()
@@ -622,35 +622,81 @@ void drawModel(const ItemObj* item)
     frameDelta = 0;
 #endif
 
+    int32 sx, sy, sz, sr, smin, smax;
+    smin = frameA->box.minX;
+    smax = frameA->box.maxX;
+    sx = (smax + smin) >> 1;
+    sr = (smax - smin);
+
+    smin = frameA->box.minY;
+    smax = frameA->box.maxY;
+    sy = (smax + smin) >> 1;
+    sr = X_MAX(sr, (smax - smin));
+
+    smin = frameA->box.minZ;
+    smax = frameA->box.maxZ;
+    sz = (smax + smin) >> 1;
+    sr = X_MAX(sr, (smax - smin));
+
+    // approx. radius (TODO more precise)
+    sr = (sr >> 1) + (sr >> 2);
+
+    // rotate sphere center by quadrant
+    uint16 quadrant = uint16(item->angle.y + ANGLE_45) >> ANGLE_SHIFT_90;
+
+    if (quadrant != 0)
+    {
+        int32 ix = sx;
+        int32 iz = sz;
+
+        switch (quadrant)
+        {
+            case 1:
+                sx = iz;
+                sz = -ix;
+                break;
+            case 2:
+                sx = -ix;
+                sz = -iz;
+                break;
+            case 3: 
+                sx = -iz;
+                sz = ix;
+                break;
+        }
+    }
+
+    sx += item->pos.x - gCameraViewPos.x;
+    sy += item->pos.y - gCameraViewPos.y;
+    sz += item->pos.z - gCameraViewPos.z;
+
+    if (!sphereIsVisible(sx, sy, sz, sr))
+        return;
+
     matrixPush();
     matrixTranslateAbs(item->pos.x, item->pos.y, item->pos.z);
     matrixRotateYXZ(item->angle.x, item->angle.y, item->angle.z);
 
-    int32 vis = boxIsVisible(&frameA->box);
+    int32 intensity = item->intensity << 5;
 
-    if (vis)
-    {
-        int32 intensity = item->intensity << 5;
+    if (intensity == 0) {
+        vec3i point = item->getRelative(frameA->box.getCenter());
+        calcLightingDynamic(item->room, point);
+    } else {
+        calcLightingStatic(intensity);
+    }
 
-        if (intensity == 0) {
-            vec3i point = item->getRelative(frameA->box.getCenter());
-            calcLightingDynamic(item->room, point);
-        } else {
-            calcLightingStatic(intensity);
-        }
-
-        // skip rooms portal clipping for objects
-        if (item->type == ITEM_LARA) {
-            drawLaraNodesLerp(item, frameA, frameB, frameDelta, frameRate);
-        } else {
-            drawNodesLerp(item, frameA, frameB, frameDelta, frameRate);
-        }
+    // skip rooms portal clipping for objects
+    if (item->type == ITEM_LARA) {
+        drawLaraNodesLerp(item, frameA, frameB, frameDelta, frameRate);
+    } else {
+        drawNodesLerp(item, frameA, frameB, frameDelta, frameRate);
     }
 
     matrixPop();
 
 // shadow
-    if (vis && (item->flags & ITEM_FLAG_SHADOW)) {
+    if (item->flags & ITEM_FLAG_SHADOW) {
         drawShadow(item, 160);  // TODO per item shadow size
     }
 }
@@ -741,11 +787,8 @@ void drawRoom(const Room* room)
         matrixTranslateSet(px, py, pz);
         matrixRotateYQ(q);
 
-        int32 vis = boxIsVisible(&staticMesh->vbox);
-        if (vis) {
-            calcLightingStatic(STATIC_MESH_INTENSITY(mesh->zf));
-            drawMesh(staticMesh->meshIndex);
-        }
+        calcLightingStatic(STATIC_MESH_INTENSITY(mesh->zf));
+        drawMesh(staticMesh->meshIndex);
 
         matrixPop();
     }

@@ -25,7 +25,7 @@ struct ViewportRel {
 
 ViewportRel viewportRel;
 
-#if defined(_WIN32)
+#if defined(__GBA_WIN__)
     uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
 #elif defined(__GBA__)
     uint32 fb = MEM_VRAM;
@@ -508,79 +508,6 @@ void faceAddMeshTriangles_c(const MeshTriangle* polys, int32 count)
     }
 }
 
-bool transformBoxRect(const AABBs* box, RectMinMax* rect)
-{
-    const Matrix &m = matrixGet();
-
-    if ((m.e23 < (VIEW_MIN_F >> MATRIX_FIXED_SHIFT)) || (m.e23 >= (VIEW_MAX_F >> MATRIX_FIXED_SHIFT)))
-        return false;
-
-    vec3i v[8];
-    v[0] = _vec3i( box->minX, box->minY, box->minZ ),
-    v[1] = _vec3i( box->maxX, box->minY, box->minZ ),
-    v[2] = _vec3i( box->minX, box->maxY, box->minZ ),
-    v[3] = _vec3i( box->maxX, box->maxY, box->minZ ),
-    v[4] = _vec3i( box->minX, box->minY, box->maxZ ),
-    v[5] = _vec3i( box->maxX, box->minY, box->maxZ ),
-    v[6] = _vec3i( box->minX, box->maxY, box->maxZ ),
-    v[7] = _vec3i( box->maxX, box->maxY, box->maxZ );
-
-    *rect = RectMinMax( INT_MAX, INT_MAX, INT_MIN, INT_MIN );
-
-    for (int32 i = 0; i < 8; i++)
-    {
-        int32 z = DP43(m.e20, m.e21, m.e22, m.e23, v[i].x, v[i].y, v[i].z);
-
-        if (z < VIEW_MIN_F || z >= VIEW_MAX_F)
-            continue;
-
-        int32 x = DP43(m.e00, m.e01, m.e02, m.e03, v[i].x, v[i].y, v[i].z);
-        int32 y = DP43(m.e10, m.e11, m.e12, m.e13, v[i].x, v[i].y, v[i].z);
-
-        x >>= FIXED_SHIFT;
-        y >>= FIXED_SHIFT;
-        z >>= FIXED_SHIFT;
-
-        PERSPECTIVE(x, y, z);
-
-        if (x < rect->x0) rect->x0 = x;
-        if (x > rect->x1) rect->x1 = x;
-        if (y < rect->y0) rect->y0 = y;
-        if (y > rect->y1) rect->y1 = y;
-    }
-
-    rect->x0 += (FRAME_WIDTH  / 2);
-    rect->y0 += (FRAME_HEIGHT / 2);
-    rect->x1 += (FRAME_WIDTH  / 2);
-    rect->y1 += (FRAME_HEIGHT / 2);
-
-    return true;
-}
-
-int32 rectIsVisible(const RectMinMax* rect)
-{
-    if (rect->x0 > rect->x1 ||
-        rect->x0 > viewport.x1 ||
-        rect->x1 < viewport.x0 ||
-        rect->y0 > viewport.y1 ||
-        rect->y1 < viewport.y0) return 0; // not visible
-
-    if (rect->x0 < viewport.x0 ||
-        rect->x1 > viewport.x1 ||
-        rect->y0 < viewport.y0 ||
-        rect->y1 > viewport.y1) return -1; // clipped
-
-    return 1; // fully visible
-}
-
-int32 boxIsVisible_c(const AABBs* box)
-{
-    RectMinMax rect;
-    if (!transformBoxRect(box, &rect))
-        return 0; // not visible
-    return rectIsVisible(&rect);
-}
-
 int32 sphereIsVisible_c(int32 sx, int32 sy, int32 sz, int32 r)
 {
     Matrix &m = matrixGet();
@@ -800,6 +727,18 @@ void renderInit()
 {
     gVerticesBase = gVertices;
     gFacesBase = gFaces;
+}
+
+void renderFree()
+{
+}
+
+void renderLevelInit()
+{
+}
+
+void renderLevelFree()
+{
 }
 
 extern "C" X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v)

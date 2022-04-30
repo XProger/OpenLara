@@ -63,7 +63,7 @@
 
     #define USE_FMT     (LVL_FMT_PKD)
 
-#include <tonc.h>
+    #include <tonc.h>
 #elif defined(__NDS__)
     #define USE_DIV_TABLE
 
@@ -73,7 +73,7 @@
 
     #define USE_FMT     (LVL_FMT_PSX)
 
-#include <nds.h>
+    #include <nds.h>
     #include <fat.h>
     #include <filesystem.h>
 #elif defined(__TNS__)
@@ -279,6 +279,8 @@ typedef uint16             divTableInt;
     typedef uint8 ColorIndex;
 #endif
 
+#define ADDR_ALIGN4(x)  ((uint8*)x += ((intptr_t(x) + 3) & ~3) - intptr_t(x))
+
 //#include <new>
 inline void* operator new(size_t, void *ptr)
 {
@@ -319,15 +321,7 @@ X_INLINE int32 abs(int32 x) {
     #define ASSERT(x)
 #endif
 
-#if defined(__GBA__)
-    #define IME_DISABLE() u16 origIME = REG_IME; REG_IME = 0
-    #define IME_ENABLE()  REG_IME = origIME;
-#else
-    #define IME_DISABLE()
-    #define IME_ENABLE()
-#endif
-
-#if defined(__GBA__WIN__)
+#if defined(__GBA_WIN__)
     extern uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
 #elif defined(__GBA__)
     extern uint32 fb;
@@ -895,11 +889,10 @@ struct RoomVertex
 {
 #if defined(__3DO__)
     uint16 xyz565;
-#elif defined(__GBA__) || defined(__32X__)
+#elif defined(__GBA__) || defined(__GBA_WIN__) || defined(__32X__)
     uint8 x, y, z, g;
 #else
-    uint8 x, y, z;
-    uint8 cR, cG, cB;
+    uint8 x, y, z, g;
 #endif
 };
 
@@ -2653,6 +2646,15 @@ X_INLINE void swap(T &a, T &b) {
     b = tmp;
 }
 
+X_INLINE uint16 swap16(uint16 x) {
+    return ((x & 0x00FF) << 8) | ((x & 0xFF00) >> 8);
+}
+
+X_INLINE uint32 swap32(uint32 x) {
+    return ((x & 0x000000FF) << 24) | ((x & 0x0000FF00) << 8) | ((x & 0x00FF0000) >> 8) | ((x & 0xFF000000) >> 24);
+}
+
+
 extern int32 gRandSeedLogic;
 extern int32 gRandSeedDraw;
 
@@ -2731,7 +2733,6 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
         void matrixRotateYXZ_asm(int32 angleX, int32 angleY, int32 angleZ);
         void boxTranslate_asm(AABBi &box, int32 x, int32 y, int32 z);
         void boxRotateYQ_asm(AABBi &box, int32 quadrant);
-        int32 boxIsVisible_asm(const AABBs* box);
         int32 sphereIsVisible_asm(int32 x, int32 y, int32 z, int32 r);
         void flush_asm();
     }
@@ -2750,7 +2751,6 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define matrixRotateYQ          matrixRotateYQ_asm
     #define boxTranslate            boxTranslate_asm
     #define boxRotateYQ             boxRotateYQ_asm
-    #define boxIsVisible            boxIsVisible_asm
     #define sphereIsVisible         sphereIsVisible_asm
     #define flush                   flush_asm
 #else
@@ -2768,7 +2768,6 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define matrixRotateYQ          matrixRotateYQ_c
     #define boxTranslate            boxTranslate_c
     #define boxRotateYQ             boxRotateYQ_c
-    #define boxIsVisible            boxIsVisible_c
     #define sphereIsVisible         sphereIsVisible_c
     #define flush                   flush_c
 
@@ -2787,7 +2786,6 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
 
     void boxTranslate_c(AABBi &box, int32 x, int32 y, int32 z);
     void boxRotateYQ_c(AABBi &box, int32 quadrant);
-    int32 boxIsVisible_c(const AABBs* box);
     int32 sphereIsVisible_c(int32 x, int32 y, int32 z, int32 r);
     void flush_c();
 #endif
@@ -2807,7 +2805,6 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #undef matrixRotateYQ
     //#undef boxTranslate
     //#undef boxRotateYQ
-    //#undef boxIsVisible
     //#undef sphereIsVisible
     //#undef flush
 
@@ -2825,7 +2822,6 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define matrixRotateYQ          matrixRotateYQ_asm
     //#define boxTranslate            boxTranslate_asm
     //#define boxRotateYQ             boxRotateYQ_asm
-    //#define boxIsVisible            boxIsVisible_asm
     //#define sphereIsVisible         sphereIsVisible_asm
     //#define flush                   flush_asm
 
@@ -2845,7 +2841,6 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
         void matrixRotateYXZ_asm(int32 angleX, int32 angleY, int32 angleZ);
         void boxTranslate_asm(AABBi &box, int32 x, int32 y, int32 z);
         void boxRotateYQ_asm(AABBi &box, int32 quadrant);
-        int32 boxIsVisible_asm(const AABBs* box);
         int32 sphereIsVisible_asm(int32 x, int32 y, int32 z, int32 r);
         void flush_asm();
     }

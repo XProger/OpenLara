@@ -5,7 +5,7 @@ EWRAM_DATA int32 frameIndex = 0;
 EWRAM_DATA int32 fpsCounter = 0;
 EWRAM_DATA uint32 curSoundBuffer = 0;
 
-#ifdef _WIN32
+#ifdef __GBA_WIN__
 const void* TRACKS_IMA;
 const void* TITLE_SCR;
 const void* levelData;

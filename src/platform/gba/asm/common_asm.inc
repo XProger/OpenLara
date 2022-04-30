@@ -72,7 +72,7 @@
 .equ PROJ_SHIFT,    4
 .equ OT_SHIFT,      4
 
-.equ VIEW_DIST,     (1024 * 10)   // max = DIV_TABLE_END << PROJ_SHIFT
+.equ VIEW_DIST,     (1024 * 10)
 .equ FOG_SHIFT,     1
 .equ FOG_MAX,       VIEW_DIST
 .equ FOG_MIN,       (FOG_MAX - (8192 >> FOG_SHIFT))
@@ -124,7 +124,7 @@
     asr \tmp, \uv, #16
     mul \tmp, \f                    // u = f * int16(uv >> 16)
 
-    lsl \uv, \uv, #16
+    lsl \uv, #16
     asr \uv, #16
     mul \uv, \f                     // v = f * int16(uv)
 
