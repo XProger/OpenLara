@@ -2928,24 +2928,4 @@ void updateFading(int32 frames);
 void dmaFill(void* dst, uint8 value, uint32 count);
 void dmaCopy(const void* src, void* dst, uint32 size);
 
-struct Stream
-{
-    const uint8* data;
-    int32 size;
-    int32 pos;
-    bool bigEndian;
-
-    Stream(const uint8* data, int32 size);
-
-    const void* getPtr();
-
-    uint8 read8u();
-    uint16 read16u();
-    uint32 read32u();
-
-    int8 read8s();
-    int16 read16s();
-    int32 read32s();
-};
-
 #endif

@@ -2,9 +2,12 @@
 #define H_PKD
 
 #include "common.h"
+#include "stream.h"
 
-bool read_PKD(const uint8* data)
+bool read_PKD(Stream &f)
 {
+    const uint8* data = f.getPtr();
+
     memcpy(&level, data, sizeof(level));
 
     { // fix level data offsets

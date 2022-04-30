@@ -2,6 +2,7 @@
 #define H_LEVEL
 
 #include "common.h"
+#include "stream.h"
 
 Level level;
 
@@ -58,18 +59,24 @@ void readLevel(const uint8* data)
 
     gAnimTexFrame = 0;
 
+    Stream f(data, 0);
+
+#ifdef CPU_BIG_ENDIAN
+    f.bigEndian = true;
+#endif
+
 #if (USE_FMT & LVL_FMT_PKD)
-    if (read_PKD(data))
+    if (read_PKD(f))
         return;
 #endif
 
 #if (USE_FMT & LVL_FMT_PHD)
-    if (read_PHD(data))
+    if (read_PHD(f))
         return;
 #endif
 
 #if (USE_FMT & LVL_FMT_PSX)
-    if (read_PSX(data))
+    if (read_PSX(f))
         return;
 #endif
 
