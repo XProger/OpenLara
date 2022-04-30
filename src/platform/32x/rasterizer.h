@@ -107,7 +107,7 @@ extern "C" void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLin
 
             if (width > 0)
             {
-                volatile ColorIndex* ptr = (uint8*)pixel + x1;
+                volatile ColorIndex* ptr = (ColorIndex*)pixel + x1;
 
                 if (x1 & 1)
                 {
