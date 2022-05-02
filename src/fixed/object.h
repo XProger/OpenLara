@@ -758,6 +758,7 @@ struct TrapFloor : Object
         }
     }
 
+#ifdef LOD_TRAP_FLOOR
     virtual void draw()
     {
         int32 oldAnimIndex = animIndex;
@@ -769,6 +770,7 @@ struct TrapFloor : Object
         type = ITEM_TRAP_FLOOR;
         animIndex = oldAnimIndex;
     }
+#endif
 };
 
 

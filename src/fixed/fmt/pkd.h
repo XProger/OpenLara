@@ -43,47 +43,6 @@ bool read_PKD(Stream &f)
     memcpy(gLightmap, level.lightmap, sizeof(gLightmap));
 #endif
 
-    // prepare models // TODO prerocess
-    memset(models, 0, sizeof(models));
-    for (int32 i = 0; i < level.modelsCount; i++)
-    {
-        const Model* model = level.models + i;
-        ASSERT(model->type < MAX_MODELS);
-        models[model->type] = *model;
-    }
-    level.models = models;
-
-    // prepare meshes
-    for (int32 i = 0; i < level.meshesCount; i++)
-    {
-        meshes[i] = (Mesh*)((uint8*)level.meshes + level.meshOffsets[i]);
-    }
-    level.meshes = meshes;
-
-    //  prepare static meshes // TODO preprocess
-    memset(staticMeshes, 0, sizeof(staticMeshes));
-    for (int32 i = 0; i < level.staticMeshesCount; i++)
-    {
-        const StaticMesh* staticMesh = level.staticMeshes + i;
-
-        ASSERT(staticMesh->id < MAX_STATIC_MESHES);
-        staticMeshes[staticMesh->id] = *staticMesh;
-    }
-    level.staticMeshes = staticMeshes;
-
-    // prepare sprites // TODO preprocess
-    for (int32 i = 0; i < level.spriteSequencesCount; i++)
-    {
-        const SpriteSeq* spriteSeq = level.spriteSequences + i;
-
-        if (spriteSeq->type >= TR1_ITEM_MAX) // WTF?
-            continue;
-
-        Model* m = models + spriteSeq->type;
-        m->count = int8(spriteSeq->count);
-        m->start = spriteSeq->start;
-    }
-
 #ifdef ROM_READ
     // prepare textures (required by anim tex logic)
     memcpy(textures, level.textures, level.texturesCount * sizeof(Texture));

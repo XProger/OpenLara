@@ -34,7 +34,7 @@ EWRAM_DATA ItemObj* ItemObj::sFirstFree;
 EWRAM_DATA int32 gBrightness;
 
 #if (USE_FMT & (LVL_FMT_PHD | LVL_FMT_PSX))
-    uint8 gLevelData[1024 * 1024];
+    uint8 gLevelData[2 * 1024 * 1024];
 #endif
 
 #if (USE_FMT & LVL_FMT_PKD)
@@ -49,6 +49,33 @@ EWRAM_DATA int32 gBrightness;
     #include "fmt/psx.h"
 #endif
 
+bool readLevelStream(Stream& f)
+{
+#ifdef CPU_BIG_ENDIAN
+    f.bigEndian = true;
+#endif
+
+#if (USE_FMT & LVL_FMT_PKD)
+    if (read_PKD(f))
+        return true;
+#endif
+
+#if (USE_FMT & LVL_FMT_PHD)
+    if (read_PHD(f))
+        return true;
+#endif
+
+#if (USE_FMT & LVL_FMT_PSX)
+    if (read_PSX(f))
+        return true;
+#endif
+
+    LOG("Unsupported level format\n");
+    ASSERT(false);
+
+    return false;
+}
+
 void readLevel(const uint8* data)
 {
 //#ifdef ROM_READ
@@ -60,39 +87,59 @@ void readLevel(const uint8* data)
     gAnimTexFrame = 0;
 
     Stream f(data, 0);
+    readLevelStream(f);
 
-#ifdef CPU_BIG_ENDIAN
-    f.bigEndian = true;
-#endif
+    // prepare models // TODO prerocess
+    memset(models, 0, sizeof(models));
+    for (int32 i = 0; i < level.modelsCount; i++)
+    {
+        const Model* model = level.models + i;
+        ASSERT(model->type < MAX_MODELS);
+        models[model->type] = *model;
+    }
+    level.models = models;
 
-#if (USE_FMT & LVL_FMT_PKD)
-    if (read_PKD(f))
-        return;
-#endif
+    // prepare meshes
+    for (int32 i = 0; i < level.meshesCount; i++)
+    {
+        meshes[i] = (Mesh*)((uint8*)level.meshes + level.meshOffsets[i]);
+    }
+    level.meshes = meshes;
 
-#if (USE_FMT & LVL_FMT_PHD)
-    if (read_PHD(f))
-        return;
-#endif
+    //  prepare static meshes // TODO preprocess
+    memset(staticMeshes, 0, sizeof(staticMeshes));
+    for (int32 i = 0; i < level.staticMeshesCount; i++)
+    {
+        const StaticMesh* staticMesh = level.staticMeshes + i;
 
-#if (USE_FMT & LVL_FMT_PSX)
-    if (read_PSX(f))
-        return;
-#endif
+        ASSERT(staticMesh->id < MAX_STATIC_MESHES);
+        staticMeshes[staticMesh->id] = *staticMesh;
+    }
+    level.staticMeshes = staticMeshes;
 
-    LOG("Unsupported level format\n");
-    ASSERT(false);
+    // prepare sprites // TODO preprocess
+    for (int32 i = 0; i < level.spriteSequencesCount; i++)
+    {
+        const SpriteSeq* spriteSeq = level.spriteSequences + i;
+
+        if (spriteSeq->type >= TR1_ITEM_MAX) // WTF?
+            continue;
+
+        Model* m = models + spriteSeq->type;
+        m->count = int8(spriteSeq->count);
+        m->start = spriteSeq->start;
+    }
 }
 
 void animTexturesShift()
 {
-    const int16* data = level.animTexData;
+    const uint16* data = level.animTexData;
 
-    int16 texRangesCount = *data++;
+    int32 texRangesCount = *data++;
 
     for (int32 i = 0; i < texRangesCount; i++)
     {
-        int16 count = *data++;
+        int32 count = *data++;
 
         Texture tmp = level.textures[*data];
         while (count > 0)

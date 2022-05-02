@@ -280,7 +280,7 @@ struct TR1_PC
         uint16 type;
         uint16 unused;
         int16 count;
-        int16 start;
+        uint16 start;
 
         void write(FileStream &f) const
         {

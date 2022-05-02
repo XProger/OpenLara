@@ -32,9 +32,11 @@
 #if defined(__WIN32__)
     #define USE_DIV_TABLE
     #define MODEHW
+    #define GAPI_GL1
 
     extern int FRAME_WIDTH;
     extern int FRAME_HEIGHT;
+    extern float FRAME_PERSP;
 
     #define USE_FMT     (LVL_FMT_PHD)
 
@@ -180,8 +182,6 @@
     #define LOD_TRAP_FLOOR
 // disable some plants environment to reduce overdraw of transparent geometry
     #define NO_STATIC_MESH_PLANTS
-// use IWRAM_CODE section that faster for matrix interpolation (GBA only)
-    #define IWRAM_MATRIX_LERP
 // the maximum of active enemies
     #define MAX_ENEMIES 3
 // visibility distance
@@ -216,8 +216,6 @@
     #define LOD_TRAP_FLOOR
 // disable some plants environment to reduce overdraw of transparent geometry
     #define NO_STATIC_MESH_PLANTS
-// use IWRAM_CODE section that faster for matrix interpolation (GBA only)
-    #define IWRAM_MATRIX_LERP
 // the maximum of active enemies
     #define MAX_ENEMIES 3
 // visibility distance
@@ -1052,7 +1050,8 @@ struct Mesh {
     vec3s center;
     int16 radius;
     uint16 intensity;
-    int16 vCount;
+    uint8 vCount;
+    uint8 hasNormals;
     int16 rCount;
     int16 tCount;
     int16 crCount;
@@ -1085,6 +1084,13 @@ struct SoundInfo
     uint16 index;
     uint16 volume;
     uint16 chance;
+    uint16 flags;
+};
+
+struct SoundSource
+{
+    vec3i pos;
+    uint16 id;
     uint16 flags;
 };
 
@@ -2169,11 +2175,11 @@ struct Level
     Sprite* sprites;
     const SpriteSeq* spriteSequences;
     FixedCamera* cameras;
-    uint32 soundSources;
+    const SoundSource* soundSources;
     Box* boxes;
     const uint16* overlaps;
     const uint16* zones[2][ZONE_MAX];
-    const int16* animTexData;
+    const uint16* animTexData;
     const ItemObjInfo* itemsInfo;
     const CameraFrame* cameraFrames;
     const uint16* soundMap;
@@ -2211,7 +2217,15 @@ struct IMA_STATE
     int32 idx;
 };
 
-#if defined(MODEHW) || defined(MODE13)
+#if defined(GAPI_GL1)
+    #define PERSPECTIVE_DZ(z) z
+
+    #define PERSPECTIVE(x, y, z) {\
+        float invZ = FRAME_PERSP / PERSPECTIVE_DZ(z);\
+        x = int32(x * (FRAME_HEIGHT >> 1) * invZ);\
+        y = int32(y * (FRAME_HEIGHT >> 1) * invZ);\
+    }
+#elif defined(MODEHW) || defined(MODE13)
     #define PROJ_SHIFT 4
 
     #define PERSPECTIVE_DZ(z) (z >> PROJ_SHIFT)
@@ -2846,7 +2860,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     }
 #endif
 
-#define matrixPop()     gMatrixPtr--
+#define matrixPop()     gMatrixPtr--; ASSERT(gMatrixPtr >= gMatrixStack);
 
 X_INLINE vec3i matrixGetDir(const Matrix &m)
 {

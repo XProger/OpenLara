@@ -99,7 +99,8 @@ WAVEFORMATEX waveFmt = { WAVE_FORMAT_PCM, 1, SND_OUTPUT_FREQ, SND_OUTPUT_FREQ, 1
 WAVEHDR waveBuf[2];
 
 void soundInit()
-{return;
+{
+#if 0
     sndInit();
 
     if (waveOutOpen(&waveOut, WAVE_MAPPER, &waveFmt, (INT_PTR)hWnd, 0, CALLBACK_WINDOW) != MMSYSERR_NOERROR)
@@ -114,16 +115,19 @@ void soundInit()
         waveOutPrepareHeader(waveOut, waveHdr, sizeof(WAVEHDR));
         waveOutWrite(waveOut, waveHdr, sizeof(WAVEHDR));
     }
+#endif
 }
 
 void soundFill()
-{return;
+{
+#if 0
     WAVEHDR *waveHdr = waveBuf + curSoundBuffer;
     waveOutUnprepareHeader(waveOut, waveHdr, sizeof(WAVEHDR));
     sndFill((uint8*)waveHdr->lpData, SND_SAMPLES);
     waveOutPrepareHeader(waveOut, waveHdr, sizeof(WAVEHDR));
     waveOutWrite(waveOut, waveHdr, sizeof(WAVEHDR));
     curSoundBuffer ^= 1;
+#endif
 }
 
 LRESULT CALLBACK wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -200,67 +204,47 @@ void* osLoadLevel(const char* name)
 
     delete[] levelData;
 
-    sprintf(buf, "data/%s.PKD", name);
+    sprintf(buf, "data/%s.PHD", name);
 
     FILE *f = fopen(buf, "rb");
 
-    if (!f)
+    if (!f) {
+        LOG("level file not found!");
         return NULL;
-
-    {
-        fseek(f, 0, SEEK_END);
-        int32 size = ftell(f);
-        fseek(f, 0, SEEK_SET);
-        uint8* data = new uint8[size];
-        fread(data, 1, size, f);
-        fclose(f);
-
-        levelData = data;
     }
 
-// tracks
-    if (!TRACKS_IMA)
-    {
-        FILE *f = fopen("data/TRACKS.IMA", "rb");
-        if (!f)
-            return NULL;
+    fseek(f, 0, SEEK_END);
+    int32 size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8* data = new uint8[size];
+    fread(data, 1, size, f);
+    fclose(f);
 
-        fseek(f, 0, SEEK_END);
-        int32 size = ftell(f);
-        fseek(f, 0, SEEK_SET);
-        uint8* data = new uint8[size];
-        fread(data, 1, size, f);
-        fclose(f);
+    levelData = data;
 
-        TRACKS_IMA = data;
-    }
-
-    if (!TITLE_SCR)
-    {
-        FILE *f = fopen("data/TITLE.SCR", "rb");
-        if (!f)
-            return NULL;
-
-        fseek(f, 0, SEEK_END);
-        int32 size = ftell(f);
-        fseek(f, 0, SEEK_SET);
-        uint8* data = new uint8[size];
-        fread(data, 1, size, f);
-        fclose(f);
-
-        TITLE_SCR = data;
-    }
-    
     return (void*)levelData;
 }
 
-int main(void)
-{
+#ifdef _DEBUG
+int main(void) {
+#else
+int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    int argc = (lpCmdLine && strlen(lpCmdLine)) ? 2 : 1;
+    const char* argv[] = { "", lpCmdLine };
+#endif
+
     RECT r = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
 
+    int sw = GetSystemMetrics(SM_CXSCREEN);
+    int sh = GetSystemMetrics(SM_CYSCREEN);
+    if (sw <= r.right + 128 || sh <= r.bottom + 128) {
+        r.right /= 2;
+        r.bottom /= 2;
+    }
+
     AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, false);
-    int wx = (GetSystemMetrics(SM_CXSCREEN) - (r.right - r.left)) / 2;
-    int wy = (GetSystemMetrics(SM_CYSCREEN) - (r.bottom - r.top)) / 2;
+    int wx = (sw - (r.right - r.left)) / 2;
+    int wy = (sh - (r.bottom - r.top)) / 2;
 
     hWnd = CreateWindow("static", "OpenLara", WS_OVERLAPPEDWINDOW, wx + r.left, wy + r.top, r.right - r.left, r.bottom - r.top, 0, 0, 0, 0);
     hDC = GetDC(hWnd);
@@ -282,6 +266,9 @@ int main(void)
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         } else {
+        #ifdef _DEBUG
+            Sleep(4);
+        #endif
             int32 frame = (GetTickCount() - startTime) / 33;
             if (GetAsyncKeyState('R')) frame /= 10;
 

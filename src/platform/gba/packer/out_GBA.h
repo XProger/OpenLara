@@ -541,7 +541,8 @@ struct out_GBA
         vec3s center;
         int16 radius;
         uint16 intensity;
-        int16 vCount;
+        uint8 vCount;
+        uint8 hasNormals;
         int16 rCount;
         int16 crCount;
         int16 tCount;
@@ -572,10 +573,14 @@ struct out_GBA
             if (nCount > 0) { // normals
                 vNormal = (vec3s*)ptr;
                 ptr += nCount * 3 * sizeof(int16);
+                hasNormals = 1;
             } else { // intensity
                 vIntensity = (uint16*)ptr;
                 ptr += vCount * sizeof(uint16);
+                hasNormals = 0;
             }
+
+            hasNormals = 0; // don't use dynamic per-vertex lighting on GBA
 
             rCount = *(int16*)ptr; ptr += 2;
             rFaces = (TR1_PC::Quad*)ptr; ptr += rCount * sizeof(TR1_PC::Quad);
@@ -612,6 +617,7 @@ struct out_GBA
             f.write(radius);
             f.write(intensity);
             f.write(vCount);
+            f.write(hasNormals);
             f.write(int16(rCount + crCount));
             f.write(int16(tCount + ctCount));
             f.write(int16(0));
