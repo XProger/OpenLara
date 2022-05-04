@@ -4,8 +4,10 @@
 #include "common.h"
 #include "item.h"
 
-#define ENEMY_TURN_FAST   ANGLE(5)
-#define ENEMY_TURN_SLOW   ANGLE(2)
+#define ENEMY_TURN_1    ANGLE(1)
+#define ENEMY_TURN_2    ANGLE(2)
+#define ENEMY_TURN_4    ANGLE(4)
+#define ENEMY_TURN_5    ANGLE(5)
 
 EWRAM_DATA ExtraInfoEnemy enemiesExtra[MAX_ENEMIES];
 
@@ -126,20 +128,32 @@ struct Enemy : ItemObj
     {
         tinfo.target = getLara(pos);
 
-        if (tinfo.target->health <= 0) {
-            hitMask = 0;
-        }
-
         tinfo.tilt = 0;
         tinfo.turn = 0;
         tinfo.pos = pos;
 
+        tinfo.dist = 16 * 1024;
+        tinfo.angle = 0;
+        tinfo.aim = false;
+        tinfo.canAttack = false;
+        tinfo.rotHead = 0;
+
         if (health <= 0)
+            return;
+
+        // update navigation target
+        const uint16* zones = getZones();
+
+        tinfo.boxIndex = room->getSector(pos.x, pos.z)->boxIndex;
+        tinfo.boxIndexTarget = tinfo.target->room->getSector(tinfo.target->pos.x, tinfo.target->pos.z)->boxIndex;
+        tinfo.zoneIndex = zones[tinfo.boxIndex];
+        tinfo.zoneIndexTarget = zones[tinfo.boxIndexTarget];
+
+        //@TODO blocking
+
+        if (tinfo.target->health <= 0)
         {
-            tinfo.angle = 0;
-            tinfo.rotHead = 0;
-            tinfo.aim = false;
-            tinfo.rotHead = 0;
+            hitMask = 0;
             return;
         }
 
@@ -161,16 +175,6 @@ struct Enemy : ItemObj
         tinfo.aim = (tinfo.angle > -ANGLE_90) && (tinfo.angle < ANGLE_90);
         tinfo.canAttack = tinfo.aim && (abs(tinfo.target->pos.y - pos.y) < 256);
         tinfo.rotHead = (tinfo.aim && mood != MOOD_SLEEP) ? tinfo.angle : 0;
-
-        // update navigation target
-        const uint16* zones = getZones();
-
-        tinfo.boxIndex = room->getSector(pos.x, pos.z)->boxIndex;
-        tinfo.boxIndexTarget = tinfo.target->room->getSector(tinfo.target->pos.x, tinfo.target->pos.z)->boxIndex;
-        tinfo.zoneIndex = zones[tinfo.boxIndex];
-        tinfo.zoneIndexTarget = zones[tinfo.boxIndexTarget];
-
-        //@TODO blocking
     }
 
     void updateMood()
@@ -780,7 +784,7 @@ struct Wolf : Enemy
                 return (nextState != STATE_NONE) ? nextState : STATE_WALK;
             }
             case STATE_WALK: {
-                extraE->maxTurn = ENEMY_TURN_SLOW;
+                extraE->maxTurn = ENEMY_TURN_2;
                 tinfo.tilt = tinfo.turn >> 1;
 
                 if (mood != MOOD_SLEEP) {
@@ -794,7 +798,7 @@ struct Wolf : Enemy
                 break;
             }
             case STATE_RUN: {
-                extraE->maxTurn = ENEMY_TURN_FAST;
+                extraE->maxTurn = ENEMY_TURN_5;
                 tinfo.tilt = tinfo.turn;
 
                 if (tinfo.aim && tinfo.dist < DIST_ATTACK)
@@ -817,7 +821,7 @@ struct Wolf : Enemy
                 break;
             }
             case STATE_STALK: {
-                extraE->maxTurn = ENEMY_TURN_SLOW;
+                extraE->maxTurn = ENEMY_TURN_2;
 
                 if (mood == MOOD_ESCAPE)
                     return STATE_RUN;
@@ -861,14 +865,14 @@ struct Wolf : Enemy
             case STATE_ATTACK: {
                 tinfo.tilt = tinfo.turn;
 
-                if (nextState == STATE_NONE && (hitMask & HIT_MASK)) {
+                if ((nextState == STATE_NONE) && (hitMask & HIT_MASK)) {
                     bite(6, _vec3i(0, -14, 174), 50);
                     nextState = STATE_RUN;
                 }
                 return STATE_RUN;
             }
             case STATE_BITE: {
-                if (nextState == STATE_NONE && (hitMask & HIT_MASK)) {
+                if ((nextState == STATE_NONE) && (hitMask & HIT_MASK)) {
                     bite(6, _vec3i(0, -14, 174), 100);
                     nextState = STATE_GROWL;
                 }
@@ -958,7 +962,7 @@ struct Bear : Enemy
         switch (state)
         {
             case STATE_WALK: {
-                extraE->maxTurn = ENEMY_TURN_SLOW;
+                extraE->maxTurn = ENEMY_TURN_2;
 
                 if (tinfo.target->health <= 0 && tinfo.aim && (hitMask & HIT_MASK))
                     return nextState = STATE_STOP; // eat lara! >:E
@@ -1007,7 +1011,7 @@ struct Bear : Enemy
                 return STATE_HOWL;
             }
             case STATE_RUN: {
-                extraE->maxTurn = ENEMY_TURN_FAST;
+                extraE->maxTurn = ENEMY_TURN_5;
 
                 if (hitMask & HIT_MASK) {
                     tinfo.target->hit(3, pos, 0);
@@ -1209,7 +1213,111 @@ struct Rex : Enemy
 
 struct Raptor : Enemy
 {
+    enum {
+        HIT_MASK = 0xFF7C00,  // hands and head
+        DIST_BITE = 680,
+        DIST_ATTACK = 1536
+    };
+
+    enum {
+        ANIM_DEATH_1 = 9,
+        ANIM_DEATH_2 = 10
+    };
+
+    enum {
+        STATE_NONE = 0,
+        STATE_DEATH = 0,
+        STATE_STOP,
+        STATE_WALK,
+        STATE_RUN,
+        STATE_ATTACK_1,
+        STATE_UNUSED,
+        STATE_ROAR,
+        STATE_ATTACK_2,
+        STATE_BITE
+    };
+
     Raptor(Room* room) : Enemy(room, 20, 341, 400, AGGRESSION_LVL_3) {}
+
+    virtual void hit(int32 damage, const vec3i& point, int32 soundId)
+    {
+        Enemy::hit(damage, point, 0);
+
+        if (health <= 0) {
+            animSet(level.models[type].animIndex + ANIM_DEATH_1 + RAND_LOGIC(2), true);
+        }
+    }
+
+    virtual int32 updateState()
+    {
+        if (health <= 0)
+            return goalState;
+
+        switch (state)
+        {
+            case STATE_STOP: {
+                if (nextState != STATE_NONE)
+                    return nextState;
+                if ((hitMask & HIT_MASK) || (tinfo.canAttack && tinfo.dist < DIST_BITE))
+                    return STATE_BITE;
+                if (tinfo.canAttack && tinfo.dist < DIST_ATTACK)
+                    return STATE_ATTACK_1;
+                if (mood == MOOD_SLEEP)
+                    return STATE_WALK;
+                return STATE_RUN;
+            }
+            case STATE_WALK: {
+                extraE->maxTurn = ENEMY_TURN_1;
+                tinfo.tilt = tinfo.turn >> 1;
+
+                if (mood != MOOD_SLEEP)
+                    return STATE_STOP;
+
+                if (rand_logic() < 0x100) {
+                    nextState = STATE_ROAR;
+                    return STATE_STOP;
+                }
+                break;
+            }
+            case STATE_RUN: {
+                extraE->maxTurn = ENEMY_TURN_4;
+                tinfo.tilt = tinfo.turn;
+
+                if (hitMask & HIT_MASK)
+                    return STATE_STOP;
+
+                if (tinfo.canAttack && tinfo.dist < DIST_ATTACK)
+                {
+                    if (goalState != STATE_RUN)
+                        break;
+                    return (rand_logic() < 0x2000) ? STATE_STOP : STATE_ATTACK_2;
+                }
+
+                if (tinfo.aim && (mood != MOOD_ESCAPE) && (rand_logic() < 0x100))
+                {
+                    nextState = STATE_ROAR;
+                    return STATE_STOP;
+                }
+
+                if (mood == MOOD_SLEEP)
+                    return STATE_STOP;
+                break;
+            }
+            case STATE_ATTACK_1:
+            case STATE_ATTACK_2:
+            case STATE_BITE:
+            {
+                tinfo.tilt = tinfo.turn;
+                if ((nextState == STATE_NONE) && tinfo.aim && (hitMask & HIT_MASK)) {
+                    bite(22, _vec3i(0, 66, 318), 100);
+                    nextState = (state == STATE_ATTACK_2) ? STATE_RUN : STATE_STOP;
+                }
+                break;
+            }
+        }
+
+        return goalState;
+    }
 };
 
 

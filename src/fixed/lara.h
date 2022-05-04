@@ -2807,7 +2807,7 @@ struct Lara : ItemObj
 
         if (keys & IK_START)   input |= IN_START;
 
-        if (isKeyHit(IN_START))
+        if (isKeyHit(IN_START) && (inventory.state == INV_STATE_NONE))
         {
             if (extraL->camera.mode != CAMERA_MODE_FREE) {
                 extraL->camera.mode = CAMERA_MODE_FREE;
