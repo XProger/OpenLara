@@ -221,6 +221,7 @@ void gameLoadLevel(const void* data)
         //resetLara(0, 44, _vec3i(27868, -1024, 29191), -ANGLE_90); // swing blades
     // level 3a
         //resetLara(0, 44, _vec3i(73798, 2304, 9819), ANGLE_90); // uw gears
+        //resetLara(0, 51, _vec3i(41015, 3584, 34494), ANGLE_180); // valley
     }
 
     drawLevelInit();

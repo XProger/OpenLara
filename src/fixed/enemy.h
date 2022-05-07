@@ -134,7 +134,8 @@ struct Enemy : ItemObj
 
         tinfo.dist = 16 * 1024;
         tinfo.angle = 0;
-        tinfo.aim = false;
+        tinfo.front = false;
+        tinfo.behind = false;
         tinfo.canAttack = false;
         tinfo.rotHead = 0;
 
@@ -172,9 +173,10 @@ struct Enemy : ItemObj
 
         tinfo.dist = fastLength(dx, dz);
         tinfo.angle = rot - angle.y;
-        tinfo.aim = (tinfo.angle > -ANGLE_90) && (tinfo.angle < ANGLE_90);
-        tinfo.canAttack = tinfo.aim && (abs(tinfo.target->pos.y - pos.y) < 256);
-        tinfo.rotHead = (tinfo.aim && mood != MOOD_SLEEP) ? tinfo.angle : 0;
+        tinfo.front = abs(tinfo.angle) < ANGLE_90;
+        tinfo.behind = abs(rot - tinfo.target->angle.y - ANGLE_180) < ANGLE_90;
+        tinfo.canAttack = tinfo.front && (abs(tinfo.target->pos.y - pos.y) < 256);
+        tinfo.rotHead = (tinfo.front && mood != MOOD_SLEEP) ? tinfo.angle : 0;
     }
 
     void updateMood()
@@ -438,7 +440,7 @@ struct Enemy : ItemObj
         return level.zones[gSaveGame.flipped][extraE->nav.zoneType];
     }
 
-    void bite(int32 joint, const vec3i &offset, int32 damage)
+    void bite(int32 damage, const vec3i &offset, int32 joint)
     {
         if (!tinfo.target)
             return;
@@ -731,16 +733,18 @@ struct Doppelganger : Enemy
 struct Wolf : Enemy
 {
     enum {
-        HIT_MASK    = 0x774F,  // body, head, front legs
-        DIST_STALK  = 1023 * 3,
-        DIST_BITE   = 345,
-        DIST_ATTACK = 1024 + 512
-    };
+        HIT_MASK = 0x774F,  // body, head, front legs
 
-    enum {
+        DIST_STALK = 1023 * 3,
+        DIST_BITE = 345,
+        DIST_ATTACK = 1024 + 512,
+
+        DAMAGE_BITE = 100,
+        DAMAGE_ATTACK = 50,
+
         ANIM_DEATH = 20,
-        ANIM_DEATH_RUN,
-        ANIM_DEATH_JUMP
+        ANIM_DEATH_RUN = 21,
+        ANIM_DEATH_JUMP = 22
     };
 
     enum {
@@ -780,10 +784,15 @@ struct Wolf : Enemy
 
         switch (state)
         {
-            case STATE_STOP: {
-                return (nextState != STATE_NONE) ? nextState : STATE_WALK;
+            case STATE_STOP:
+            {
+                if (nextState)
+                    nextState;
+                return STATE_WALK;
             }
-            case STATE_WALK: {
+
+            case STATE_WALK:
+            {
                 extraE->maxTurn = ENEMY_TURN_2;
                 tinfo.tilt = tinfo.turn >> 1;
 
@@ -797,13 +806,15 @@ struct Wolf : Enemy
                 }
                 break;
             }
-            case STATE_RUN: {
+
+            case STATE_RUN:
+            {
                 extraE->maxTurn = ENEMY_TURN_5;
                 tinfo.tilt = tinfo.turn;
 
-                if (tinfo.aim && tinfo.dist < DIST_ATTACK)
+                if (tinfo.front && tinfo.dist < DIST_ATTACK)
                 {
-                    if (tinfo.dist <= (DIST_ATTACK >> 1))
+                    if (tinfo.dist <= (DIST_ATTACK >> 1) && !tinfo.behind)
                     {
                         nextState = STATE_NONE;
                         return STATE_ATTACK;
@@ -820,17 +831,23 @@ struct Wolf : Enemy
                     return STATE_GROWL;
                 break;
             }
-            case STATE_STALK: {
+
+            case STATE_STALK:
+            {
                 extraE->maxTurn = ENEMY_TURN_2;
 
                 if (mood == MOOD_ESCAPE)
                     return STATE_RUN;
-                if (tinfo.dist < DIST_BITE && tinfo.canAttack && (tinfo.target->health > 0))
+                if ((tinfo.dist < DIST_BITE) && tinfo.canAttack && (tinfo.target->health > 0))
                     return STATE_BITE;
                 if (tinfo.dist > DIST_STALK)
                     return STATE_RUN;
-                if (mood == MOOD_ATTACK && (!tinfo.aim || tinfo.dist > DIST_ATTACK))
-                    return STATE_RUN;
+                if (mood == MOOD_ATTACK)
+                {
+                    if (!tinfo.front || (tinfo.dist > DIST_ATTACK) || tinfo.behind)
+                        return STATE_RUN;
+                    break;
+                }
                 if (rand_logic() < 0x180)
                 {
                     nextState = STATE_HOWL;
@@ -840,7 +857,9 @@ struct Wolf : Enemy
                     return STATE_GROWL;
                 break;
             }
-            case STATE_SLEEP: {
+
+            case STATE_SLEEP:
+            {
                 if ((mood == MOOD_ESCAPE) || checkZone())
                     nextState = STATE_GROWL;
                 else if (rand_logic() < 0x20)
@@ -849,8 +868,10 @@ struct Wolf : Enemy
                     break;
                 return STATE_STOP;
             }
-            case STATE_GROWL: {
-                if (nextState != STATE_NONE)
+
+            case STATE_GROWL:
+            {
+                if (nextState)
                     return nextState;
                 if (mood == MOOD_ESCAPE)
                     return STATE_RUN;
@@ -862,18 +883,22 @@ struct Wolf : Enemy
                     return STATE_STOP;
                 return STATE_RUN;
             }
-            case STATE_ATTACK: {
+
+            case STATE_ATTACK:
+            {
                 tinfo.tilt = tinfo.turn;
 
-                if ((nextState == STATE_NONE) && (hitMask & HIT_MASK)) {
-                    bite(6, _vec3i(0, -14, 174), 50);
+                if (!nextState && (hitMask & HIT_MASK)) {
+                    bite(DAMAGE_ATTACK, _vec3i(0, -14, 174), 6);
                     nextState = STATE_RUN;
                 }
                 return STATE_RUN;
             }
-            case STATE_BITE: {
-                if ((nextState == STATE_NONE) && (hitMask & HIT_MASK)) {
-                    bite(6, _vec3i(0, -14, 174), 100);
+
+            case STATE_BITE:
+            {
+                if (!nextState && (hitMask & HIT_MASK)) {
+                    bite(DAMAGE_BITE, _vec3i(0, -14, 174), 6);
                     nextState = STATE_GROWL;
                 }
                 return STATE_RUN;
@@ -894,7 +919,11 @@ struct Wolf : Enemy
 struct Bear : Enemy
 {
     enum {
-        HIT_MASK = 0x2406C // front legs and head
+        HIT_MASK = 0x2406C, // front legs and head
+
+        DAMAGE_FALL = 200,
+        DAMAGE_BITE = 200,
+        DAMAGE_ATTACK = 400
     };
 
     enum {
@@ -941,7 +970,7 @@ struct Bear : Enemy
                 case STATE_DEATH:
                     if ((flags & ITEM_FLAG_REVERSE) && (hitMask & HIT_MASK) && tinfo.target) // fall on Lara 
                     {
-                        tinfo.target->hit(200, _vec3i(0, 0, 0), 0);
+                        tinfo.target->hit(DAMAGE_FALL, _vec3i(0, 0, 0), 0);
                         flags &= ~ITEM_FLAG_REVERSE;
                     }
                     return STATE_DEATH;
@@ -961,10 +990,11 @@ struct Bear : Enemy
 
         switch (state)
         {
-            case STATE_WALK: {
+            case STATE_WALK:
+            {
                 extraE->maxTurn = ENEMY_TURN_2;
 
-                if (tinfo.target->health <= 0 && tinfo.aim && (hitMask & HIT_MASK))
+                if (tinfo.target->health <= 0 && tinfo.front && (hitMask & HIT_MASK))
                     return nextState = STATE_STOP; // eat lara! >:E
 
                 if (mood != MOOD_SLEEP)
@@ -982,19 +1012,23 @@ struct Bear : Enemy
                 }
                 break;
             }
-            case STATE_STOP: {
+
+            case STATE_STOP:
+            {
                 if (tinfo.target->health <= 0)
                     return (tinfo.canAttack && tinfo.dist < 768) ? STATE_EAT : STATE_WALK;
-                if (nextState != STATE_NONE)
+                if (nextState)
                     return nextState;
                 return (mood == MOOD_SLEEP) ? STATE_WALK : STATE_RUN;
             }
-            case STATE_HIND: {
+
+            case STATE_HIND:
+            {
                 if (flags & ITEM_FLAG_INJURED) {
                     nextState = STATE_NONE;
                     return STATE_HOWL;
                 }
-                if (tinfo.aim && (hitMask & HIT_MASK))
+                if (tinfo.front && (hitMask & HIT_MASK))
                     return STATE_HOWL;
                 if (mood == MOOD_ESCAPE) {
                     nextState = STATE_NONE;
@@ -1010,7 +1044,9 @@ struct Bear : Enemy
                 }
                 return STATE_HOWL;
             }
-            case STATE_RUN: {
+
+            case STATE_RUN:
+            {
                 extraE->maxTurn = ENEMY_TURN_5;
 
                 if (hitMask & HIT_MASK) {
@@ -1023,7 +1059,7 @@ struct Bear : Enemy
                 if (tinfo.target->health <= 0 || mood == MOOD_SLEEP)
                     return STATE_STOP;
 
-                if (tinfo.aim && nextState == STATE_NONE)
+                if (!nextState && tinfo.front)
                 {
                     if (tinfo.dist < 2048)
                     {
@@ -1038,14 +1074,16 @@ struct Bear : Enemy
                 }
                 break;
             }
-            case STATE_HOWL: {
+
+            case STATE_HOWL:
+            {
                 if (flags & ITEM_FLAG_INJURED)
                 {
                     nextState = STATE_NONE;
                     return STATE_STOP;
                 }
 
-                if (nextState != STATE_NONE)
+                if (nextState)
                     return nextState;
 
                 if (mood == MOOD_SLEEP || mood == MOOD_ESCAPE)
@@ -1056,16 +1094,20 @@ struct Bear : Enemy
 
                 return STATE_HIND;
             }
-            case STATE_BITE: {
-                if ((nextState == STATE_NONE) && (hitMask & HIT_MASK)) {
-                    bite(14, _vec3i(0, 96, 335), 200);
+
+            case STATE_BITE:
+            {
+                if (!nextState && (hitMask & HIT_MASK)) {
+                    bite(DAMAGE_BITE, _vec3i(0, 96, 335), 14);
                     nextState = STATE_STOP;
                 }
                 break;
             }
-            case STATE_ATTACK: {
-                if ((nextState == STATE_NONE) && (hitMask & HIT_MASK) && tinfo.target) {
-                    tinfo.target->hit(400, _vec3i(0, 0, 0), 0);
+
+            case STATE_ATTACK:
+            {
+                if (!nextState && (hitMask & HIT_MASK) && tinfo.target) {
+                    tinfo.target->hit(DAMAGE_ATTACK, _vec3i(0, 0, 0), 0);
                     nextState = STATE_HOWL;
                 }
                 break;
@@ -1079,6 +1121,10 @@ struct Bear : Enemy
 
 struct Bat : Enemy
 {
+    enum {
+        DAMAGE_ATTACK = 2
+    };
+
     enum {
         STATE_NONE,
         STATE_AWAKE,
@@ -1101,9 +1147,8 @@ struct Bat : Enemy
                 flags &= ~ITEM_FLAG_GRAVITY;
             }
 
-            if (flags & ITEM_FLAG_GRAVITY) {
+            if (flags & ITEM_FLAG_GRAVITY)
                 return STATE_CIRCLING;
-            }
 
             pos.y = roomFloor;
             return STATE_DEATH;
@@ -1112,19 +1157,26 @@ struct Bat : Enemy
         switch (state)
         {
             case STATE_AWAKE:
+            {
                 return STATE_FLY;
+            }
+
             case STATE_FLY:
-                if (hitMask) {
+            {
+                if (hitMask)
                     return STATE_ATTACK;
-                }
                 break;
+            }
+
             case STATE_ATTACK:
+            {
                 if (!hitMask) {
                     mood = MOOD_SLEEP;
                     return STATE_FLY;
                 }
-                bite(4, _vec3i(0, 16, 45), 2);
+                bite(DAMAGE_ATTACK, _vec3i(0, 16, 45), 4);
                 break;
+            }
         }
 
         return goalState;
@@ -1207,7 +1259,116 @@ struct Rat : Enemy
 
 struct Rex : Enemy
 {
+    enum {
+        HIT_MASK = 0x00003000,  // head
+        DIST_BITE = 1500,
+        DIST_WALK = 4096,
+        DIST_RUN = 5120,
+        DAMAGE_RUN = 10,
+        DAMAGE_WALK = 1,
+        DAMAGE_FATAL = 1000
+    };
+
+    enum {
+        STATE_NONE,
+        STATE_STOP,
+        STATE_WALK,
+        STATE_RUN,
+        STATE_UNUSED,
+        STATE_DEATH,
+        STATE_ROAR,
+        STATE_BITE,
+        STATE_FATAL
+    };
+
     Rex(Room* room) : Enemy(room, 100, 341, 2000, AGGRESSION_LVL_MAX) {}
+
+    virtual int32 updateState()
+    {
+        if (health <= 0) {
+            return (state == STATE_STOP) ? STATE_DEATH : STATE_STOP;
+        }
+
+        extraE->rotNeck = (extraE->rotHead >>= 1);
+
+        if (hitMask)
+        {
+            tinfo.target->hit((state == STATE_RUN) ? DAMAGE_RUN : DAMAGE_WALK, _vec3i(0, 0, 0), 0);
+        }
+
+        bool walk = (tinfo.canAttack && (tinfo.dist > DIST_BITE) && (tinfo.dist < DIST_WALK)) ||
+                    (tinfo.behind && !tinfo.front && (mood != MOOD_ESCAPE));
+
+        switch (state)
+        {
+            case STATE_STOP:
+            {
+                if (nextState)
+                    return nextState;
+                if (tinfo.canAttack && (tinfo.dist < DIST_BITE))
+                    return STATE_BITE;
+                if ((mood == MOOD_SLEEP) || walk)
+                    return STATE_WALK;
+                return STATE_RUN;
+            }
+
+            case STATE_WALK:
+            {
+                extraE->maxTurn = ENEMY_TURN_2;
+                if ((mood != MOOD_SLEEP) && !walk)
+                    return STATE_STOP;
+                if (tinfo.front && (rand_logic() < 0x200))
+                {
+                    nextState = STATE_ROAR;
+                    return STATE_STOP;
+                }
+                break;
+            }
+
+            case STATE_RUN:
+            {
+                extraE->maxTurn = ENEMY_TURN_4;
+                if (((tinfo.dist < DIST_RUN) && tinfo.canAttack) || walk)
+                    return STATE_STOP;
+                if ((mood != MOOD_ESCAPE) && tinfo.front && (rand_logic() < 0x200))
+                {
+                    nextState = STATE_ROAR;
+                    return STATE_STOP;
+                }
+                if (mood == MOOD_SLEEP)
+                    return STATE_STOP;
+                break;
+            }
+
+            case STATE_BITE:
+            {
+                nextState = STATE_WALK;
+                if (hitMask & HIT_MASK)
+                {
+                    angle.x = 0;
+                    angle.z = 0;
+
+                    tinfo.target->pos = pos;
+                    tinfo.target->angle = angle;
+                    tinfo.target->flags &= ~ITEM_FLAG_GRAVITY;
+                    tinfo.target->hit(DAMAGE_FATAL, _vec3i(0, 0, 0), 0);
+                    tinfo.target->meshSwap(ITEM_LARA_SPEC, 0xFFFFFFFF);
+                    tinfo.target->animSet(level.models[ITEM_LARA_SPEC].animIndex + 1, true);
+
+                    if (tinfo.target->room != room)
+                    {
+                        tinfo.target->room->remove(tinfo.target);
+                        room->add(tinfo.target);
+                    }
+
+                    return STATE_FATAL;
+                }
+                break;
+            }
+        }
+
+        return goalState;
+    }
 };
 
 
@@ -1215,11 +1376,12 @@ struct Raptor : Enemy
 {
     enum {
         HIT_MASK = 0xFF7C00,  // hands and head
-        DIST_BITE = 680,
-        DIST_ATTACK = 1536
-    };
 
-    enum {
+        DIST_BITE = 680,
+        DIST_ATTACK = 1536,
+
+        DAMAGE_ATTACK = 100,
+
         ANIM_DEATH_1 = 9,
         ANIM_DEATH_2 = 10
     };
@@ -1256,7 +1418,7 @@ struct Raptor : Enemy
         switch (state)
         {
             case STATE_STOP: {
-                if (nextState != STATE_NONE)
+                if (nextState)
                     return nextState;
                 if ((hitMask & HIT_MASK) || (tinfo.canAttack && tinfo.dist < DIST_BITE))
                     return STATE_BITE;
@@ -1266,6 +1428,7 @@ struct Raptor : Enemy
                     return STATE_WALK;
                 return STATE_RUN;
             }
+
             case STATE_WALK: {
                 extraE->maxTurn = ENEMY_TURN_1;
                 tinfo.tilt = tinfo.turn >> 1;
@@ -1279,6 +1442,7 @@ struct Raptor : Enemy
                 }
                 break;
             }
+
             case STATE_RUN: {
                 extraE->maxTurn = ENEMY_TURN_4;
                 tinfo.tilt = tinfo.turn;
@@ -1293,7 +1457,7 @@ struct Raptor : Enemy
                     return (rand_logic() < 0x2000) ? STATE_STOP : STATE_ATTACK_2;
                 }
 
-                if (tinfo.aim && (mood != MOOD_ESCAPE) && (rand_logic() < 0x100))
+                if (tinfo.front && (mood != MOOD_ESCAPE) && (rand_logic() < 0x100))
                 {
                     nextState = STATE_ROAR;
                     return STATE_STOP;
@@ -1303,13 +1467,14 @@ struct Raptor : Enemy
                     return STATE_STOP;
                 break;
             }
+
             case STATE_ATTACK_1:
             case STATE_ATTACK_2:
             case STATE_BITE:
             {
                 tinfo.tilt = tinfo.turn;
-                if ((nextState == STATE_NONE) && tinfo.aim && (hitMask & HIT_MASK)) {
-                    bite(22, _vec3i(0, 66, 318), 100);
+                if (!nextState && tinfo.front && (hitMask & HIT_MASK)) {
+                    bite(DAMAGE_ATTACK, _vec3i(0, 66, 318), 22);
                     nextState = (state == STATE_ATTACK_2) ? STATE_RUN : STATE_STOP;
                 }
                 break;

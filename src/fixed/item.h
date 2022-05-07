@@ -1404,6 +1404,18 @@ uint32 ItemObj::updateHitMask(Lara* lara, CollisionInfo* cinfo)
     return hitMask;
 }
 
+void ItemObj::meshSwap(ItemType type, uint32 mask)
+{
+    int32 start = level.models[type].start;
+
+    for (int32 i = 0; i < JOINT_MAX && mask; i++, mask >>= 1)
+    {
+        if (mask & 1) {
+            extraL->meshes[i] = start + i;
+        }
+    }
+}
+
 ItemObj* ItemObj::init(Room* room)
 {
     #define INIT_ITEM(type, className) case ITEM_##type : return new (this) className(room)

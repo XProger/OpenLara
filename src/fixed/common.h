@@ -154,7 +154,20 @@
 #endif
 
 #ifdef _DEBUG
-    #define LOG(...)    printf(__VA_ARGS__)
+    #if defined(__WIN32__)
+        #include <stdio.h>
+        inline void LOG(const char* format, ...)
+        {
+            char str[1024];
+            va_list arglist;
+            va_start(arglist, format);
+            _vsnprintf(str, 1024, format, arglist);
+            va_end(arglist);
+            OutputDebugStringA(str);
+        }
+    #else
+        #define LOG(...)    printf(__VA_ARGS__)
+    #endif
 #else
     #define LOG(...)
 #endif
@@ -1776,6 +1789,8 @@ struct ItemObj
 
     uint32 updateHitMask(Lara* lara, CollisionInfo* cinfo);
 
+    void meshSwap(ItemType type, uint32 mask);
+
     ItemObj* init(Room* room);
 
     X_INLINE ItemObj() {}
@@ -2203,7 +2218,8 @@ struct TargetInfo
     uint16 boxIndexTarget;
     uint16 zoneIndex;
     uint16 zoneIndexTarget;
-    bool aim;
+    bool front;
+    bool behind;
     bool canAttack;
 };
 

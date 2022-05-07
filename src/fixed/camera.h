@@ -449,11 +449,14 @@ void Camera::update()
 
         if (center)
         {
-            int32 offset = (box.minZ + box.maxZ) >> 1;
+            int32 dx = (box.minX + box.maxX) >> 1;
+            int32 dz = (box.minZ + box.maxZ) >> 1;
             int32 s, c;
             sincos(item->angle.y, s, c);
-            target.pos.x += (s * offset) >> FIXED_SHIFT;
-            target.pos.z += (c * offset) >> FIXED_SHIFT;
+            X_ROTXY(dz, dx, s, c);
+
+            target.pos.x += dx;
+            target.pos.z += dz;
         }
 
         lastFixed = (int32(lastFixed) ^ int32(isFixed)) != 0; // armcpp 3DO compiler (lastFixed ^= isFixed)

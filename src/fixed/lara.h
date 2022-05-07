@@ -3933,18 +3933,6 @@ struct Lara : ItemObj
         }
     }
 
-    void meshSwap(ItemType type, uint32 mask)
-    {
-        int32 start = level.models[type].start;
-
-        for (int32 i = 0; i < JOINT_MAX && mask; i++, mask >>= 1)
-        {
-            if (mask & 1) {
-                extraL->meshes[i] = start + i;
-            }
-        }
-    }
-
     void meshSwapPistols(uint32 weaponMask, uint32 bodyMask)
     {
         const WeaponParams &params = weaponParams[extraL->weapon];
