@@ -1,8 +1,10 @@
-#define SEG_MATH    .text
-#define SEG_TRANS   .data
-#define SEG_FACE    .data
-#define SEG_RASTER  .data
+#ifndef H_COMMON_ASM
+#define H_COMMON_ASM
+
+#define SEG_MATH    .data
 #define SEG_PHYSICS .data
+
+//#define ON_CHIP_RENDER
 
 // Matrix:
 // int16 e00, e01, e02  // rotation
@@ -32,6 +34,10 @@
 #define FIXED_SHIFT     14
 
 #define FACE_TYPE_F     1
+#define FACE_TYPE_SHIFT 14
+#define FACE_CLIPPED    (1 << 30)
+#define FACE_TRIANGLE   (1 << 31)
+#define FACE_GOURAUD    (2 << FACE_TYPE_SHIFT)
 
 #define VERTEX_X                0
 #define VERTEX_Y                2
@@ -45,6 +51,8 @@
 
 #define VERTEX_SIZEOF_SHIFT     4
 #define VERTEX_SIZEOF           (1 << VERTEX_SIZEOF_SHIFT)
+
+#define FACE_SIZEOF             16
 
 #define VIEW_DIST       (1024 * 10)   // max = DIV_TABLE_END << PROJ_SHIFT
 #define FOG_SHIFT       1
@@ -61,6 +69,7 @@
 #define CLIP_BOTTOM     (1 << 4)
 #define CLIP_FAR        (1 << 5)
 #define CLIP_NEAR       (1 << 6)
+#define CLIP_DISCARD    (CLIP_LEFT + CLIP_RIGHT + CLIP_TOP + CLIP_BOTTOM + CLIP_FAR + CLIP_NEAR)
 
 #define VP_MINX         0
 #define VP_MINY         4
@@ -121,3 +130,26 @@
 .macro lit lightmap, index
         mov.b   @(\index, \lightmap), \index
 .endm
+
+// (vy1 - vy0) * (vx0 - vx2) <= (vx1 - vx0) * (vy0 - vy2)
+.macro ccw vp0, vp1, vp2, vx0, vy0, vx1, vy1, vx2, vy2
+        mov.w   @\vp0+, \vx0
+        mov.w   @\vp0+, \vy0
+        mov.w   @\vp1+, \vx1
+        mov.w   @\vp1+, \vy1
+        sub     \vx0, \vx1      // vx1 -= vx0
+        sub     \vy0, \vy1      // vy1 -= vy0
+        mov.w   @\vp2+, \vx2
+        sub     \vx2, \vx0      // vx0 -= vx2
+        mov.w   @\vp2+, \vy2
+        sub     \vy2, \vy0      // vy0 -= vy2
+
+        muls.w  \vy1, \vx0
+        sts     MACL, \vx0      // vx0 *= vy1
+        muls.w  \vx1, \vy0
+        sts     MACL, \vy0      // vy0 *= vx1
+
+        cmp/ge  \vx0, \vy0      // T = (vy0 >= vx0)
+.endm
+
+#endif // H_COMMON_ASM

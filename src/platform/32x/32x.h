@@ -155,4 +155,6 @@ extern "C"
     CacheControl(0);\
     CacheControl(SH2_CCTL_CP | SH2_CCTL_CE);
 
+#define MARS_WAIT() {while (MARS_SYS_COMM4);}
+
 #endif

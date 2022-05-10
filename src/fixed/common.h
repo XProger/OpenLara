@@ -149,6 +149,12 @@
     #define USE_FMT     (LVL_FMT_PKD)
 
     #include "32x.h"
+
+    enum MarsCmd {
+        MARS_CMD_NONE = 0,
+        MARS_CMD_CLEAR,
+        MARS_CMD_FLUSH
+    };
 #else
     #error unsupported platform
 #endif
@@ -2913,7 +2919,7 @@ void drawLevelInit();
 void drawLevelFree();
 void drawText(int32 x, int32 y, const char* text, TextAlign align);
 void drawModel(const ItemObj* item);
-void drawItem(const ItemObj* item);
+void drawSprite(const ItemObj* item);
 void drawRooms(Camera* camera);
 void drawCinematicRooms();
 void drawHUD(Lara* lara);

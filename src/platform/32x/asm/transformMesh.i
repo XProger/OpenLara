@@ -1,6 +1,3 @@
-#include "common.i"
-SEG_TRANS
-
 #define tmp             r0
 #define maxZ            r1
 #define divLUT          r2
@@ -63,13 +60,13 @@ _transformMesh_asm:
         exts.b  ambient, vg
 
         // vg = clamp(vg, 0, 31) + 1
-.vg_max:
+.vg_max_m:
         mov     #31, tmp
         cmp/gt  tmp, vg
-        bf/s    .vg_min
-        cmp/pz  vg              // T = vg >= 0
+        bf/s    .vg_min_m
+        cmp/pz  vg              // [delay slot] T = vg >= 0
         mov     tmp, vg
-.vg_min:
+.vg_min_m:
         subc    tmp, tmp        // tmp = -T
         and     tmp, vg
 
@@ -88,7 +85,7 @@ _transformMesh_asm:
         shll16  mz
         add     #-MATRIX_SIZEOF, m
 
-.loop:
+.loop_m:
         // clear clipping flags
         shlr8   vg
         shll8   vg
@@ -101,20 +98,20 @@ _transformMesh_asm:
         transform z, mz
 
         // z clipping
-.clip_z_near:
+.clip_z_near_m:
         mov     #VIEW_MIN, minZ // 64
         cmp/gt  z, minZ
-        bf/s    .clip_z_far
-        cmp/ge  maxZ, z
+        bf/s    .clip_z_far_m
+        cmp/ge  maxZ, z         // [delay slot]
         mov     minZ, z
         add     #CLIP_NEAR, vg
-.clip_z_far:
-        bf/s    .project
+.clip_z_far_m:
+        bf/s    .project_m
         mov     z, dz           // [delay slot] dz = z
         mov     maxZ, z
         add     #CLIP_FAR, vg
 
-.project:
+.project_m:
         // dz = divTable[z >> (PROJ_SHIFT = 4)]
         shlr2   dz
         shlr2   dz
@@ -137,34 +134,34 @@ _transformMesh_asm:
         shlr16  y
         exts.w  y, y
 
-.apply_offset:
+        // apply_offset
         // x += FRAME_WIDTH / 2 (160)
         add     #100, x         // x += 100
         add     #60, x          // x += 60
         // y += FRAME_HEIGHT / 2 (112)
         add     #112, y         // y += 112
 
-.clip_frame_x:  // 0 < x > FRAME_WIDTH
+        // 0 < x > FRAME_WIDTH
         mov     #80, tmp
         shll2   tmp             // tmp = 80 * 4 = 320 = FRAME_WIDTH
         cmp/hi  tmp, x
-        bt/s    .clip_frame
+        bt/s    .clip_frame_m
         add     #-96, tmp       // [delay slot] tmp = 320 - 96 = 224 = FRAME_HEIGHT
-.clip_frame_y:  // 0 < y > FRAME_HEIGHT
+        // 0 < y > FRAME_HEIGHT
         cmp/hi  tmp, y
-.clip_frame:
+.clip_frame_m:
         movt    tmp
         or      tmp, vg         // vg |= CLIP_FRAME
 
-.store_vertex:
+        // store_vertex
         mov.w   vg, @-res
         mov.w   z, @-res
         mov.w   y, @-res
         mov.w   x, @-res
 
         dt      count
-        bf/s    .loop
-        add     #16, res
+        bf/s    .loop_m
+        add     #16, res        // [delay slot]
 
         // pop
         mov.l   @sp+, r13
@@ -175,12 +172,21 @@ _transformMesh_asm:
         rts
         mov.l   @sp+, r8
 
-.align 2
-var_gVerticesBase:
-        .long   _gVerticesBase
-var_gMatrixPtr:
-        .long   _gMatrixPtr
-var_gLightAmbient:
-        .long   _gLightAmbient
-var_divTable:
-        .long   _divTable
+#undef tmp
+#undef maxZ
+#undef divLUT
+#undef res
+#undef vertices
+#undef count
+#undef intensity
+#undef m
+#undef x
+#undef y
+#undef z
+#undef mx
+#undef my
+#undef mz
+#undef vg
+#undef ambient
+#undef dz
+#undef minZ

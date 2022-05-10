@@ -1,21 +1,19 @@
-#include "common.i"
-SEG_RASTER
-
 #define tmp     r0
 #define Lh      r1
 #define Rh      r2
-#define dup     r3
+#define LMAP    r3      // const
 #define pixel   r4      // arg
 #define L       r5      // arg
 #define R       r6      // arg
-#define N       r7
+#define gtile   r7      // arg
+#define N       gtile
 #define Lx      r8
 #define Rx      r9
-#define Lg      r10
-#define Rg      r11
-#define Lt      r12
-#define Rt      r13
-#define TILE    r14     // const
+#define Lt      r10
+#define Rt      r11
+#define dup     r12
+#define TILE    r13     // const
+#define divLUT  r14
 
 #define h       N
 
@@ -31,49 +29,33 @@ SEG_RASTER
 #define Rv      Rx
 #define Lv      Lx
 
-#define Lptr    Lh
-#define Rptr    Rx
+#define Lptr    L
+#define Rptr    R
 
-#define g       Rg
-#define dgdx    R
-
-#define t       Rt
-#define dtdx    L
+#define t       Lh
+#define dtdx    Rh
 
 #define index   tmp
-#define LMAP    dup
 
-#define divLUT  dup
 #define iw      dup
 #define ih      dup
 
-#define dx      dgdx
-#define mask    Rh
-
 #define sLdx    L
 #define sRdx    R
-#define sLdt    L
-#define sRdt    R
-#define sLdg    L
-#define sRdg    R
+#define sLdt    Lh
+#define sRdt    Rh
 
-SP_LDX = 0
-SP_RDX = 4
-SP_LDT = 8
-SP_RDT = 12
-SP_LDG = 16
-SP_RDG = 18
-SP_H   = 20
-SP_L   = 24
-SP_R   = 28
-SP_SIZE = 32
+#define SP_LDX  0
+#define SP_RDX  4
+#define SP_LDT  8
+#define SP_RDT  12
+#define SP_H    16
+#define SP_L    20
+#define SP_R    24
+#define SP_SIZE 28
 
 .align 4
-
-.global _rasterizeGT_asm_start
-_rasterizeGT_asm_start:
-
-.exit:
+.exit_ft:
         // pop
         add     #SP_SIZE, sp
         mov.l   @sp+, r14
@@ -84,10 +66,9 @@ _rasterizeGT_asm_start:
         mov.l   @sp+, r9
         rts
         mov.l   @sp+, r8
-        nop
 
-.global _rasterizeGT_asm
-_rasterizeGT_asm:
+.global _rasterizeFT_asm
+_rasterizeFT_asm:
         // push
         mov.l   r8, @-sp
         mov.l   r9, @-sp
@@ -98,18 +79,24 @@ _rasterizeGT_asm:
         mov.l   r14, @-sp
         add     #-SP_SIZE, sp
 
-        mov.l   var_gTile, TILE
-        mov.l   @TILE, TILE
+        mov.l   var_LMAP_ADDR, LMAP
+        mov.b   @(VERTEX_G, L), tmp
+        shll8   tmp
+        or      tmp, LMAP
+
+        mov.l   var_divTable, divLUT
+
+        mov     gtile, TILE
+        nop
 
         mov     #0, Rh
-
-.loop:
+.loop_ft:
         extu.w  Rh, Lh  // Lh = int16(Rh)
 
         tst     Lh, Lh
-        bf/s    .calc_left_end
+        bf/s    .calc_left_end_ft
 
-.calc_left_start:
+.calc_left_start_ft:
         mov.b   @(VERTEX_PREV, L), tmp  // [delay slot]
         mov     tmp, N
 
@@ -121,26 +108,22 @@ _rasterizeGT_asm:
         mov.w   @(VERTEX_Y, N), tmp
         sub     Ly, tmp
         cmp/pz  tmp
-        bf/s    .exit
+        bf/s    .exit_ft
         tst     tmp, tmp
         mov     L, Lv           // Lv = L
-        bt/s    .calc_left_start        // if (Lh == 0) check next vertex
+        bt/s    .calc_left_start_ft      // if (Lh == 0) check next vertex
         mov     N, L            // [delay slot]
 
         mov     tmp, Lh
-        mov.b   @(VERTEX_G, Lv), tmp
         mov.l   @(VERTEX_T, Lv), Lt
-        mov     tmp, Lg
         mov.w   @(VERTEX_X, Lv), tmp
-          shll8   Lg
         swap.w  tmp, Lx         // Lx = L->v.x << 16
 
         mov     Lh, tmp
         cmp/eq  #1, tmp
-        bt/s    .calc_left_end
+        bt/s    .calc_left_end_ft
         shll    tmp             // [delay slot]
 
-        mov.l   var_divTable, divLUT
         mov.w   @(tmp, divLUT), ih
 
         // calc Ldx
@@ -148,30 +131,21 @@ _rasterizeGT_asm:
           swap.w  Lx, Ldx
         sub     Ldx, tmp
         muls.w  ih, tmp
-          mov.b   @(VERTEX_G, L), tmp
-        sts     MACL, Ldx
-          shll8   tmp
-        mov.l   Ldx, @(SP_LDX, sp)
-
-        // calc Ldg
-        sub     Lg, tmp
-        muls.w  ih, tmp
           mov.l   @(VERTEX_T, L), Ldt
         sts     MACL, tmp
           sub     Lt, Ldt
-        shlr16  tmp
-        mov.w   tmp, @(SP_LDG, sp)
+        mov.l   tmp, @(SP_LDX, sp)
 
         // calc Ldt
         scaleUV Ldt, tmp, ih
         mov.l   tmp, @(SP_LDT, sp)
-.calc_left_end:
+.calc_left_end_ft:
 
         shlr16  Rh              // Rh = (Rh >> 16)
         tst     Rh, Rh
-        bf/s    .calc_right_end
+        bf/s    .calc_right_end_ft
 
-.calc_right_start:
+.calc_right_start_ft:
         mov.b   @(VERTEX_NEXT, R), tmp  // [delay slot]
         mov     tmp, N
 
@@ -183,26 +157,22 @@ _rasterizeGT_asm:
         mov.w   @(VERTEX_Y, N), tmp
         sub     Ry, tmp
         cmp/pz  tmp
-        bf/s    .exit
+        bf/s    .exit_ft
         tst     tmp, tmp
         mov     R, Rv           // Rv = R
-        bt/s    .calc_right_start       // if (Rh == 0) check next vertex
+        bt/s    .calc_right_start_ft     // if (Rh == 0) check next vertex
         mov     N, R            // [delay slot]
 
         mov     tmp, Rh
-        mov.b   @(VERTEX_G, Rv), tmp
         mov.l   @(VERTEX_T, Rv), Rt
-        mov     tmp, Rg
         mov.w   @(VERTEX_X, Rv), tmp
-          shll8   Rg
         swap.w  tmp, Rx         // Rx = R->v.x << 16
 
         mov     Rh, tmp
         cmp/eq  #1, tmp
-        bt/s    .calc_right_end
+        bt/s    .calc_right_end_ft
         shll    tmp             // [delay slot]
 
-        mov.l   var_divTable, divLUT
         mov.w   @(tmp, divLUT), ih
 
         // calc Rdx
@@ -210,37 +180,23 @@ _rasterizeGT_asm:
           swap.w  Rx, Rdx
         sub     Rdx, tmp
         muls.w  ih, tmp
-          mov.b   @(VERTEX_G, R), tmp
-        sts     MACL, Rdx
-          shll8   tmp
-        mov.l   Rdx, @(SP_RDX, sp)
-
-        // calc Rdg
-        sub     Rg, tmp
-        muls.w  ih, tmp
           mov.l   @(VERTEX_T, R), Rdt
         sts     MACL, tmp
           sub     Rt, Rdt
-        shlr16  tmp
-        mov.w   tmp, @(SP_RDG, sp)
+        mov.l   tmp, @(SP_RDX, sp)
 
         // calc Rdt
         scaleUV Rdt, tmp, ih
         mov.l   tmp, @(SP_RDT, sp)
-.calc_right_end:
-
-        // bake gLightmap address into g value
-        mov.l   var_LMAP_ADDR, tmp
-        or      tmp, Lg
-        or      tmp, Rg
+.calc_right_end_ft:
 
         // h = min(Lh, Rh)
         cmp/gt  Rh, Lh
-        bf/s    .scanline_prepare
+        bf/s    .scanline_prepare_ft
         mov     Lh, h           // [delay slot]
         mov     Rh, h
 
-.scanline_prepare:
+.scanline_prepare_ft:
         sub     h, Lh
         sub     h, Rh
 
@@ -250,102 +206,74 @@ _rasterizeGT_asm:
         mov.l   tmp, @(SP_H, sp)
         mov.l   L, @(SP_L, sp)
         mov.l   R, @(SP_R, sp)
-
-        mov.l   var_mask, mask
         
-.scanline_start:
-        mov.l   Rx, @-sp        // alias Rptr
-
+.scanline_start_ft:
         mov     Lx, Lptr
+        mov     Rx, Rptr
         shlr16  Lptr            // Lptr = (Lx >> 16)
         shlr16  Rptr            // Rptr = (Rx >> 16)
         cmp/gt  Lptr, Rptr      // if (!(Rptr > Lptr)) skip zero length scanline
-        bf/s    .scanline_end_fast
+        bf/s    .scanline_end_ft
 
         // iw = divTable[Rptr - Lptr]
         mov     Rptr, tmp       // [delay slot]
         sub     Lptr, tmp
-        mov.l   var_divTable, divLUT
         shll    tmp
         mov.w   @(tmp, divLUT), iw
-
-        add     pixel, Lptr     // Lptr = pixel + (Lx >> 16)
-        add     pixel, Rptr     // Rptr = pixel + (Rx >> 16)
-
-        mov.l   Rt, @-sp        // alias t
-        mov.l   Rg, @-sp        // alias g
 
         // calc dtdx
         mov     Rt, tmp
         sub     Lt, tmp
         muls.w  tmp, iw
-          shlr16  tmp
+          add     pixel, Lptr   // Lptr = pixel + (Lx >> 16)
         sts     MACL, dtdx      // v = int16(uv) * f (16-bit shift)
+          shlr16  tmp
         muls.w  tmp, iw
-          mov     Rg, tmp
-        sts     MACL, dx        // u = int16(uv >> 16) * f (16-bit shift)
-          sub     Lg, tmp
-        shlr16  dx
-        xtrct   dx, dtdx        // out = uint16(v >> 16) | (u & 0xFFFF0000)
+          add     pixel, Rptr   // Rptr = pixel + (Rx >> 16)
+        sts     MACL, tmp       // u = int16(uv >> 16) * f (16-bit shift)
+          mov     Rt, t
+        shlr16  tmp
+        xtrct   tmp, dtdx       // out = uint16(v >> 16) | (u & 0xFFFF0000)
 
-        // calc dgdx
-        muls.w  tmp, iw
-          mov     #1, tmp
-        sts     MACL, dgdx
-          tst     tmp, Lptr
-        shlr16  dgdx
-        exts.w  dgdx, dgdx
-
-.align_left:
-        bt/s    .align_right
+.align_left_ft:
+        mov     #1, tmp
+        tst     tmp, Lptr
+        bt/s    .align_right_ft
         tst     tmp, Rptr       // [delay slot]
 
         getUV   Lt, index
         mov.b   @(index, TILE), index
-        mov     Lg, LMAP
-        and     mask, LMAP
         mov.b   @(index, LMAP), index
-
         mov.b   index, @Lptr
         add     #1, Lptr
 
         mov     #1, tmp         // tmp = 1 (for align_right)
         cmp/gt  Lptr, Rptr
-        bf/s    .scanline_end
+        bf/s    .scanline_end_ft
         tst     tmp, Rptr
 
-.align_right:
-        bt/s    .block_prepare
-        mov     g, LMAP
+.align_right_ft:
+        bt/s    .block_prepare_ft
 
         getUV   t, index
         mov.b   @(index, TILE), index
-        and     mask, LMAP
-        sub     dgdx, g
         mov.b   @(index, LMAP), index
-
         sub     dtdx, t
-
         mov.b   index, @-Rptr
 
         cmp/gt  Lptr, Rptr
-        bf/s    .scanline_end
+        bf/s    .scanline_end_ft
 
-.block_prepare:
+.block_prepare_ft:
         shll    dtdx            // [delay slot] optional
-        shll    dgdx
 
-.block_2px:
+.block_2px_ft:
         swap.b  t, index        // UUuuvvVV
         swap.w  index, index    // vvVVUUuu
         shll8   index           // VVUUuu00
         shlr16  index           // 0000VVUU
         mov.b   @(index, TILE), index
-
-        mov     g, LMAP
-        and     mask, LMAP      // LMAP = (g & 0xFFFFFF00)
         mov.b   @(index, LMAP), index
-        sub     dgdx, g         // g -= dgdx
 
         extu.b  index, index
         swap.b  index, dup
@@ -353,58 +281,74 @@ _rasterizeGT_asm:
         mov.w   dup, @-Rptr
 
         cmp/gt  Lptr, Rptr
-        bt/s    .block_2px
+        bt/s    .block_2px_ft
         sub     dtdx, t         // [delay slot] t -= dtdx
 
-.scanline_end:
-        mov.l   @sp+, Rg
-        mov.l   @sp+, Rt
-.scanline_end_fast:
-        mov.l   @sp+, Rx
-
-        mov     sp, tmp
-
-        mov.l   @tmp+, sLdx
-        mov.l   @tmp+, sRdx
+.scanline_end_ft:
+        mov.l   @(SP_LDX, sp), sLdx
+        mov.l   @(SP_RDX, sp), sRdx
+        mov.l   @(SP_LDT, sp), sLdt
+        mov.l   @(SP_RDT, sp), sRdt
 
         add     sLdx, Lx
         add     sRdx, Rx
-
-        mov.l   @tmp+, sLdt
-        mov.l   @tmp+, sRdt
-
         add     sLdt, Lt
         add     sRdt, Rt
 
-        mov.w   @tmp+, sLdg
-        mov.w   @tmp+, sRdg
-
-        add     sLdg, Lg
-        add     sRdg, Rg
-
         dt      h
 
-        mov.w   var_frameWidth, tmp
-        bf/s    .scanline_start
+        mov.w   var_frameWidth_ft, tmp
+        bf/s    .scanline_start_ft
         add     tmp, pixel      // [delay slot] pixel += 120 + 120 + 80
 
         mov.l   @(SP_L, sp), L
         mov.l   @(SP_R, sp), R
-        bra     .loop
+        bra     .loop_ft
         mov.l   @(SP_H, sp), Rh
 
-var_frameWidth:
+var_frameWidth_ft:
         .word   FRAME_WIDTH
-.align 2
-var_LMAP_ADDR:
-        .long   _gLightmap_base
-var_mask:
-        .long    0xFFFFFF00
-var_divTable:
-        .long   _divTable
-var_gTile:
-        .long   _gTile
 
-.align 2
-.global _rasterizeGT_asm_end
-_rasterizeGT_asm_end:
+#undef tmp
+#undef Lh
+#undef Rh
+#undef LMAP
+#undef pixel
+#undef L
+#undef R
+#undef N
+#undef Lx
+#undef Rx
+#undef Lt
+#undef Rt
+#undef dup
+#undef TILE
+#undef divLUT
+#undef h
+#undef Ldx
+#undef Rdx
+#undef Ldt
+#undef Rdt
+#undef Ry
+#undef Ly
+#undef Rv
+#undef Lv
+#undef Lptr
+#undef Rptr
+#undef t
+#undef dtdx
+#undef index
+#undef iw
+#undef ih
+#undef sLdx
+#undef sRdx
+#undef sLdt
+#undef sRdt
+#undef SP_LDX
+#undef SP_RDX
+#undef SP_LDT
+#undef SP_RDT
+#undef SP_H
+#undef SP_L
+#undef SP_R
+#undef SP_SIZE

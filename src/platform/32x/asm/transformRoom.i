@@ -1,6 +1,3 @@
-#include "common.i"
-SEG_TRANS
-
 #define tmp             r0
 #define maxZ            r1
 #define divLUT          r2
@@ -56,11 +53,11 @@ _transformRoom_asm:
 
         // copy 3x3 matrix rotation part
         mov     #9, cnt
-.copyMtx:
+.copyMtx_r:
         mov.w   @tmp+, mx
         dt      cnt
-        bf/s    .copyMtx
-        mov.w   mx, @-stackMtx
+        bf/s    .copyMtx_r
+        mov.w   mx, @-stackMtx  // [delay slot]
 
         // prepare offsets (const)
         mov.w   @tmp+, mx
@@ -73,7 +70,7 @@ _transformRoom_asm:
         add     #8, res         // extra offset for @-Rn
         nop
 
-.loop:
+.loop_r:
         // unpack vertex
         mov.b   @vertices+, x
         mov.b   @vertices+, y
@@ -105,7 +102,7 @@ _transformRoom_asm:
         exts.w  z, z
 
 
-.z_range_check: // check if z in [-VIEW_OFF..VIEW_MAX + VIEW_OFF]
+        // check if z in [-VIEW_OFF..VIEW_MAX + VIEW_OFF]
         // tmp = z + VIEW_OFF = z + 4096
         mov     #16, tmp
         shll8   tmp
@@ -115,18 +112,18 @@ _transformRoom_asm:
         shll8   maxZ
         // check if z in [-VIEW_OFF..VIEW_MAX + VIEW_OFF]
         cmp/hi  maxZ, tmp
-        bf/s    .visible
+        bf/s    .visible_r
         mov     #40, maxZ       // [delay slot] maxZ = 40
         mov     #(CLIP_NEAR + CLIP_FAR), vg
         mov.w   vg, @-res
         add     #1, vertices
         dt      count
-        bf/s    .loop
-        add     #10, res
-        bra     .done
+        bf/s    .loop_r
+        add     #10, res        // [delay slot]
+        bra     .done_r
         nop
 
-.visible:
+.visible_r:
         //transform y
         lds     my, MACL
         mac.w   @stackVtx+, @stackMtx+
@@ -154,8 +151,8 @@ _transformRoom_asm:
         shll8   tmp
         // if z <= FOG_MIN -> skip fog calc
         cmp/gt  tmp, z
-        bf/s    .clip_z_near
-        mov     z, fog
+        bf/s    .clip_z_near_r
+        mov     z, fog          // [delay slot]
         sub     tmp, fog        // fog = z - FOG_MIN
         shll    fog             // FOG_SHIFT
         shlr8   fog             // shift down to 0..31 range
@@ -163,36 +160,36 @@ _transformRoom_asm:
         // vg = min(vg, 31)
         mov     #31, tmp
         cmp/gt  tmp, vg
-        bf      .clip_z_near
+        bf      .clip_z_near_r
         mov     #31, vg
 
         // z clipping
-.clip_z_near:
+.clip_z_near_r:
         add     #1, vg          // +1 for signed lightmap fetch
         mov     #VIEW_MIN, minZ // minZ = VIEW_MIN = 64
         cmp/gt  z, minZ
-        bf/s    .clip_z_far
+        bf/s    .clip_z_far_r
         shll8   vg              // [delay slot] clear lower 8-bits of vg for clipping flags
         mov     minZ, z
         add     #CLIP_NEAR, vg
-.clip_z_far:
+.clip_z_far_r:
         cmp/ge  maxZ, z
-        bf/s    .project
-        mov     z, dz
+        bf/s    .project_r
+        mov     z, dz           // [delay slot]
         mov     maxZ, z
         add     #CLIP_FAR, vg
 
-.project: // dz = divTable[z >> (PROJ_SHIFT = 4)]
+.project_r: // dz = divTable[z >> (PROJ_SHIFT = 4)]
         shlr2   dz
         shlr2   dz
         shll    dz
         mov.w   @(dz, divLUT), dz
 
-.proj_x: // x = x * dz >> 12
+        // x = x * dz >> 12
         muls.w  dz, x
         sts     MACL, x
 
-.proj_y: // y = y * dz >> 12
+        // y = y * dz >> 12
         muls.w  dz, y
         sts     MACL, y
 
@@ -200,29 +197,29 @@ _transformRoom_asm:
         shar12  y, tmp
 
         // portal rect clipping
-.clip_vp_minX:
+.clip_vp_minX_r:
         mov.w   @(0, vp), minX
         cmp/gt  x, minX
-        bf/s    .clip_vp_minY
-        mov.w   @(2, vp), minY
+        bf/s    .clip_vp_minY_r
+        mov.w   @(2, vp), minY  // [delay slot]
         add     #CLIP_LEFT, vg
-.clip_vp_minY:
+.clip_vp_minY_r:
         cmp/ge  y, minY
-        bf/s    .clip_vp_maxX
-        mov.w   @(4, vp), maxX
+        bf/s    .clip_vp_maxX_r
+        mov.w   @(4, vp), maxX  // [delay slot]
         add     #CLIP_TOP, vg
-.clip_vp_maxX:
+.clip_vp_maxX_r:
         cmp/gt  maxX, x
-        bf/s    .clip_vp_maxY
-        mov.w   @(6, vp), maxY
+        bf/s    .clip_vp_maxY_r
+        mov.w   @(6, vp), maxY  // [delay slot]
         add     #CLIP_RIGHT, vg
-.clip_vp_maxY:
+.clip_vp_maxY_r:
         cmp/ge  maxY, y
-        bf/s    .apply_offset
+        bf/s    .apply_offset_r
         mov     #80, tmp        // [delay slot] tmp = 80
         add     #CLIP_BOTTOM, vg
 
-.apply_offset:
+.apply_offset_r:
         // x += FRAME_WIDTH / 2 (160)
         add     #100, x         // x += 100
         add     #60, x          // x += 60
@@ -230,27 +227,27 @@ _transformRoom_asm:
         add     #112, y         // y += 112
 
         // frame rect clipping
-.clip_frame_x:  // 0 < x > FRAME_WIDTH
+        // 0 < x > FRAME_WIDTH
         shll2   tmp             // tmp = 80 * 4 = 320 = FRAME_WIDTH
         cmp/hi  tmp, x
-        bt/s    .clip_frame
+        bt/s    .clip_frame_r
         add     #-96, tmp       // [delay slot] tmp = 320 - 96 = 224 = FRAME_HEIGHT
-.clip_frame_y:  // 0 < y > FRAME_HEIGHT
+        // 0 < y > FRAME_HEIGHT
         cmp/hi  tmp, y
-.clip_frame:
+.clip_frame_r:
         movt    tmp
         or      tmp, vg         // vg |= CLIP_FRAME
 
-.store_vertex:
+        // store_vertex
         mov.w   vg, @-res
         mov.w   z, @-res
         mov.w   y, @-res
         mov.w   x, @-res
 
         dt      count
-        bf/s    .loop
-        add     #16, res
-.done:
+        bf/s    .loop_r
+        add     #16, res        // [delay slot]
+.done_r:
         // pop
         add     #SP_SIZE, sp
         mov.l   @sp+, r14
@@ -262,12 +259,28 @@ _transformRoom_asm:
         rts
         mov.l   @sp+, r8
 
-.align 2
-var_viewportRel:
-        .long   _viewportRel
-var_gVerticesBase:
-        .long   _gVerticesBase
-var_divTable:
-        .long   _divTable
-var_gMatrixPtr:
-        .long   _gMatrixPtr
+#undef tmp
+#undef maxZ
+#undef divLUT
+#undef res
+#undef vertices
+#undef count
+#undef stackVtx
+#undef stackMtx
+#undef vp
+#undef x
+#undef y
+#undef z
+#undef mx
+#undef my
+#undef mz
+#undef minX
+#undef minY
+#undef maxX
+#undef maxY
+#undef minZ
+#undef dz
+#undef vg
+#undef fog
+#undef cnt
+#undef SP_SIZE
