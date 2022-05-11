@@ -902,10 +902,15 @@ static void init_get_bits(bitstream_t *s, const uint8 *buffer, int bit_size) {
         buffer_size = bit_size = 0;
         buffer = NULL;
     }
+    
     s->buffer= buffer;
     s->size_in_bits= bit_size;
-    s->buffer_end= buffer + buffer_size;
     s->index=0;
+
+    if (buffer != NULL)
+        s->buffer_end= buffer + buffer_size;
+    else
+        s->buffer_end= NULL;
 }
 
 static INLINE unsigned int get_bits(bitstream_t *s, int n){
