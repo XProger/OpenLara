@@ -102,10 +102,17 @@ void pageFlip()
     MARS_VDP_FBCTL = pageIndex;
 }
 
+void pageClear()
+{
+    dmaFill((uint8*)&MARS_FRAMEBUFFER + 0x200, 0, FRAME_WIDTH * FRAME_HEIGHT);
+}
+
 extern "C" void pri_vbi_handler()
 {
     gFrameIndex++;
 }
+
+extern void flush_ot(int32 bit);
 
 extern "C" void secondary()
 {
@@ -130,7 +137,15 @@ extern "C" void secondary()
         int cmd;
         while ((cmd = MARS_SYS_COMM4) == 0);
 
-        // TODO
+        switch (cmd)
+        {            
+            case MARS_CMD_CLEAR:
+                pageClear();
+                break;
+            case MARS_CMD_FLUSH:
+                flush_ot(1);
+                break;
+        }
 
         MARS_SYS_COMM4 = 0;
     }
@@ -164,7 +179,7 @@ int main()
             }
         }
 
-        clear();
+        pageClear();
     }
 
     SH2_WDT_VCR = (65<<8) | (SH2_WDT_VCR & 0x00FF); // set exception vector for WDT

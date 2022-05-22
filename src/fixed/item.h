@@ -1013,7 +1013,11 @@ void ItemObj::update()
 
 void ItemObj::draw()
 {
-    drawItem(this);
+    if (level.models[type].count > 0) {
+        drawModel(this);
+    } else {
+        drawSprite(this);
+    }
 }
 
 struct ItemSave {

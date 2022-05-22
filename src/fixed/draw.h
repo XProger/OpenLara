@@ -701,15 +701,6 @@ void drawModel(const ItemObj* item)
     }
 }
 
-void drawItem(const ItemObj* item)
-{
-    if (level.models[item->type].count > 0) {
-        drawModel(item);
-    } else {
-        drawSprite(item);
-    }
-}
-
 void drawRoom(const Room* room)
 {
     setViewport(room->clip);
@@ -811,7 +802,7 @@ void drawRooms(Camera* camera)
 
     Room** visRoom = camera->view.room->getVisibleRooms();
 
-    // draw Lara first
+#ifdef DRAW_LARA_FIRST
     for (int32 i = 0; i < MAX_PLAYERS; i++)
     {
         Lara* lara = players[i];
@@ -823,7 +814,7 @@ void drawRooms(Camera* camera)
             lara->flags |= ITEM_FLAG_STATUS_INVISIBLE; // skip drawing in the general pass
         }
     }
-
+#endif
     // draw rooms and objects
     while (*visRoom)
     {
@@ -832,6 +823,7 @@ void drawRooms(Camera* camera)
         room->reset();
     }
 
+#ifdef DRAW_LARA_FIRST
     // reset visibility flags for Lara
     for (int32 i = 0; i < MAX_PLAYERS; i++)
     {
@@ -841,6 +833,7 @@ void drawRooms(Camera* camera)
             lara->flags &= ~ITEM_FLAG_STATUS;
         }
     }
+#endif
 
     setPaletteIndex(0);
     setViewport(vp);

@@ -23,17 +23,7 @@ struct ViewportRel {
     int32 maxXY;
 };
 
-#if defined(_WIN32)
-    uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
-#elif defined(__GBA__)
-    uint32 fb = MEM_VRAM;
-#elif defined(__TNS__)
-    uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
-#elif defined(__DOS__)
-    uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
-#elif defined(__32X__)
-    #define fb ((uint8*)&MARS_FRAMEBUFFER + 0x200)
-#endif
+#define fb ((uint8*)&MARS_FRAMEBUFFER + 0x200)
 
 enum FaceType {
     FACE_TYPE_SHADOW,
@@ -60,8 +50,6 @@ enum FaceType {
 
 extern Level level;
 
-const ColorIndex* gTile;
-
 ViewportRel viewportRel;
 Vertex* gVerticesBase;
 Face* gFacesBase;
@@ -87,6 +75,15 @@ const MeshQuad gShadowQuads[] = {
     { (FACE_TYPE_SHADOW << FACE_TYPE_SHIFT), {7, 2, 3, 6} },
     { (FACE_TYPE_SHADOW << FACE_TYPE_SHIFT), {6, 3, 4, 5} }
 };
+
+
+// TODO: remove
+// just a dummy function to align functions below >_<
+uint16 test(uint16 g0, uint16 g1, uint16 g2, uint16 g3)
+{
+    return X_MAX(g0, X_MAX(g1, X_MAX(g2, g3)));
+}
+
 
 void setViewport(const RectMinMax &vp)
 {
@@ -118,9 +115,9 @@ X_INLINE Face* faceAdd(int32 depth)
 }
 
 extern "C" {
-    X_NOINLINE void drawPoly(uint32 flags, VertexLink* v);
-    X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v);
-    X_NOINLINE void drawQuad(uint32 flags, VertexLink* v);
+    X_NOINLINE void drawPoly(uint32 flags, VertexLink* v, const ColorIndex* tile);
+    X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v, const ColorIndex* tile);
+    X_NOINLINE void drawQuad(uint32 flags, VertexLink* v, const ColorIndex* tile);
 }
 
 extern "C" {
@@ -131,12 +128,12 @@ extern "C" {
     void faceAddRoomTriangles_asm(const RoomTriangle* polys, int32 count);
     void faceAddMeshQuads_asm(const MeshQuad* polys, int32 count);
     void faceAddMeshTriangles_asm(const MeshTriangle* polys, int32 count);
-    void rasterize_asm(uint32 flags, VertexLink* top);
+    void rasterize_asm(uint32 flags, VertexLink* top, const ColorIndex* tile);
 }
 
-#ifdef USE_ASM
+#if 1 //USE_ASM
     #define transformRoom           transformRoom_asm
-    #define transformRoomUW         transformRoomUW_asm
+    #define transformRoomUW         transformRoom_asm
     #define transformMesh           transformMesh_asm
     #define faceAddRoomQuads        faceAddRoomQuads_asm
     #define faceAddRoomTriangles    faceAddRoomTriangles_asm
@@ -366,15 +363,15 @@ void transformMesh_c(const MeshVertex* vertices, int32 count, int32 intensity)
 
 void faceAddRoomQuads_c(const RoomQuad* polys, int32 count)
 {
-    const Vertex* v = gVerticesBase;
+    const uint8* v = (uint8*)gVerticesBase;
 
     for (int32 i = 0; i < count; i++, polys++)
     {
         uint32 flags = polys->flags;
-        const Vertex* v0 = v + polys->indices[0];
-        const Vertex* v1 = v + polys->indices[1];
-        const Vertex* v2 = v + polys->indices[2];
-        const Vertex* v3 = v + polys->indices[3];
+        const Vertex* v0 = (Vertex*)(v + (polys->indices[0] << 2));
+        const Vertex* v1 = (Vertex*)(v + (polys->indices[1] << 2));
+        const Vertex* v2 = (Vertex*)(v + (polys->indices[2] << 2));
+        const Vertex* v3 = (Vertex*)(v + (polys->indices[3] << 2));
 
         uint32 c0 = v0->clip;
         uint32 c1 = v1->clip;
@@ -413,14 +410,14 @@ void faceAddRoomQuads_c(const RoomQuad* polys, int32 count)
 
 void faceAddRoomTriangles_c(const RoomTriangle* polys, int32 count)
 {
-    const Vertex* v = gVerticesBase;
+    const uint8* v = (uint8*)gVerticesBase;
 
     for (int32 i = 0; i < count; i++, polys++)
     {
         uint32 flags = polys->flags;
-        const Vertex* v0 = v + polys->indices[0];
-        const Vertex* v1 = v + polys->indices[1];
-        const Vertex* v2 = v + polys->indices[2];
+        const Vertex* v0 = (Vertex*)(v + (polys->indices[0] << 2));
+        const Vertex* v1 = (Vertex*)(v + (polys->indices[1] << 2));
+        const Vertex* v2 = (Vertex*)(v + (polys->indices[2] << 2));
 
         uint32 c0 = v0->clip;
         uint32 c1 = v1->clip;
@@ -440,10 +437,11 @@ void faceAddRoomTriangles_c(const RoomTriangle* polys, int32 count)
         if (g0 != g1 || g0 != g2) {
             flags += FACE_GOURAUD;
         }
-        flags |= FACE_TRIANGLE;
 
         if (checkBackface(v0, v1, v2))
             continue;
+
+        flags |= FACE_TRIANGLE;
 
         int32 depth = X_MAX(v0->z, X_MAX(v1->z, v2->z)) >> OT_SHIFT;
 
@@ -529,6 +527,33 @@ void faceAddMeshTriangles_c(const MeshTriangle* polys, int32 count)
     }
 }
 
+typedef void (*RasterProc)(uint16* pixel, const VertexLink* L, const VertexLink* R, const ColorIndex* tile);
+
+extern "C" const RasterProc gRasterProc[FACE_TYPE_MAX] = {
+    rasterizeS,
+    rasterizeF,
+    rasterizeFT,
+    rasterizeFT,
+    rasterizeGT,
+    rasterizeGT,
+    rasterizeSprite,
+    rasterizeFillS,
+    rasterizeLineH,
+    rasterizeLineV
+};
+
+X_NOINLINE void rasterize_c(uint32 flags, VertexLink* top, const ColorIndex* tile)
+{
+    uint8* pixel = (uint8*)fb + top->v.y * FRAME_WIDTH;
+
+    uint32 type = (flags >> FACE_TYPE_SHIFT) & FACE_TYPE_MASK;
+
+    VertexLink* R = (type == FACE_TYPE_F) ? (VertexLink*)(flags & 0xFF) : top;
+
+    gRasterProc[type]((uint16*)pixel, top, R, tile);
+}
+#endif
+
 int32 sphereIsVisible_c(int32 sx, int32 sy, int32 sz, int32 r)
 {
     Matrix &m = matrixGet();
@@ -571,30 +596,93 @@ int32 sphereIsVisible_c(int32 sx, int32 sy, int32 sz, int32 r)
     return 1;
 }
 
-typedef void (*RasterProc)(uint16* pixel, const VertexLink* L, const VertexLink* R);
-
-extern "C" const RasterProc gRasterProc[FACE_TYPE_MAX] = { // IWRAM
-    rasterizeS,
-    rasterizeF,
-    rasterizeFT,
-    rasterizeFTA,
-    rasterizeGT,
-    rasterizeGTA,
-    rasterizeSprite,
-    rasterizeFillS,
-    rasterizeLineH,
-    rasterizeLineV
-};
-
-X_NOINLINE void rasterize_c(uint32 flags, VertexLink* top)
+void flush_ot(int32 bit)
 {
-    uint8* pixel = (uint8*)fb + top->v.y * FRAME_WIDTH;
+    int32 index = 0;
+    const ColorIndex* tile = NULL;
 
-    uint32 type = (flags >> FACE_TYPE_SHIFT) & FACE_TYPE_MASK;
+    for (int32 i = OT_SIZE - 1; i >= 0; i--)
+    {
+        if (!gOT[i]) continue;
 
-    VertexLink* R = (type == FACE_TYPE_F) ? (VertexLink*)(flags & 0xFF) : top;
+        Face *face = gOT[i];
 
-    gRasterProc[type]((uint16*)pixel, top, R);
+        do {
+            index++;
+
+            if ((index & 1) != bit) {
+                face = face->next;
+                continue;
+            }
+
+            uint32 flags = face->flags;
+
+            VertexLink v[16];
+
+            uint32 type = (flags >> FACE_TYPE_SHIFT) & FACE_TYPE_MASK;
+
+            if (type <= FACE_TYPE_GTA)
+            {
+                if (type > FACE_TYPE_F)
+                {
+                    const Texture &tex = level.textures[flags & FACE_TEXTURE];
+                    tile = (ColorIndex*)tex.tile;
+
+                    v[0].t.t = 0xFF00FF00 & (tex.uv01);
+                    v[1].t.t = 0xFF00FF00 & (tex.uv01 << 8);
+                    v[2].t.t = 0xFF00FF00 & (tex.uv23);
+                    v[3].t.t = 0xFF00FF00 & (tex.uv23 << 8);
+                }
+
+                v[0].v = gVertices[face->indices[0]];
+                v[1].v = gVertices[face->indices[1]];
+                v[2].v = gVertices[face->indices[2]];
+                if (!(flags & FACE_TRIANGLE)) {
+                    v[3].v = gVertices[face->indices[3]];
+                }
+
+                if (flags & FACE_CLIPPED) {
+                    drawPoly(flags, v, tile);
+                } else {
+                    if (flags & FACE_TRIANGLE) {
+                        drawTriangle(flags, v, tile);
+                    } else {
+                        drawQuad(flags, v, tile);
+                    }
+                }
+            }
+            else
+            {
+                const Vertex *vert = gVertices + face->indices[0];
+                v[0].v = vert[0];
+                v[1].v = vert[1];
+
+                if (type == FACE_TYPE_SPRITE)
+                {
+                    const Sprite &sprite = level.sprites[flags & FACE_TEXTURE];
+                    tile = (ColorIndex*)sprite.tile;
+                    v[0].t.t = (sprite.uwvh) & (0xFF00FF00);
+                    v[1].t.t = (sprite.uwvh) & (0xFF00FF00 >> 8);
+                }
+
+                rasterize(flags, v, tile);
+            }
+
+            face = face->next;
+
+        } while (face);
+#if 1
+    // sync
+        if (bit) {
+            MARS_SYS_COMM6 = i;
+            while (MARS_SYS_COMM2 > i);
+        } else {
+            MARS_SYS_COMM2 = i;
+            while (MARS_SYS_COMM6 > i);
+        }
+#endif
+    }
+    CacheClear();
 }
 
 void flush_c()
@@ -612,131 +700,39 @@ void flush_c()
         return;
 
     gFacesBase = gFaces;
-/*
+
+//#define ON_CHIP_RENDER
+
+#ifdef ON_CHIP_RENDER
     CacheControl(0);
     CacheControl(SH2_CCTL_CP | SH2_CCTL_CE | SH2_CCTL_TW);
 
-    extern int32 rasterizeGT_asm_start;
-    extern int32 rasterizeGT_asm_end;
+    extern int32 block_render_start;
+    extern int32 block_render_end;
 
-    int32 size = intptr_t(&rasterizeGT_asm_end) - intptr_t(&rasterizeGT_asm_start);
-    fast_memcpy((void*)(0xC0000000 + 0), &rasterizeGT_asm_start, size >> 2); // 516
-
-    extern int32 rasterizeFT_asm_start;
-    extern int32 rasterizeFT_asm_end;
-
-    size = intptr_t(&rasterizeFT_asm_end) - intptr_t(&rasterizeFT_asm_start);
-    fast_memcpy((void*)(0xC0000000 + 516), &rasterizeFT_asm_start, size >> 2); // 416
-
-    extern int32 rasterizeF_asm_start;
-    extern int32 rasterizeF_asm_end;
-
-    size = intptr_t(&rasterizeF_asm_end) - intptr_t(&rasterizeF_asm_start);
-    fast_memcpy((void*)(0xC0000000 + 516 + 416), &rasterizeF_asm_start, size >> 2); // 256
-
-    extern int32 rasterizeS_asm_start;
-    extern int32 rasterizeS_asm_end;
-
-    size = intptr_t(&rasterizeS_asm_end) - intptr_t(&rasterizeS_asm_start);
-    fast_memcpy((void*)(0xC0000000 + 516 + 416 + 256), &rasterizeS_asm_start, size >> 2); // 224
-
-    //extern int32 fps;
-    //fps = size;
-*/
-
+    int32 size = intptr_t(&block_render_end) - intptr_t(&block_render_start);
+    fast_memcpy((void*)0xC0000000, &block_render_start, size >> 2);
+#endif
     PROFILE(CNT_FLUSH);
 
-    for (int32 i = OT_SIZE - 1; i >= 0; i--)
-    {
-        if (!gOT[i]) continue;
+    MARS_WAIT();
+    CacheClear();    
 
-        Face *face = gOT[i];
-        gOT[i] = NULL;
+    MARS_SYS_COMM2 = OT_SIZE;
+    MARS_SYS_COMM6 = OT_SIZE;
+    MARS_SYS_COMM4 = MARS_CMD_FLUSH;
 
-        do {
-            uint32 flags = face->flags;
+    flush_ot(0);
 
-            VertexLink v[16];
+    MARS_WAIT();
 
-            uint32 type = (flags >> FACE_TYPE_SHIFT) & FACE_TYPE_MASK;
+    dmaFill(gOT, 0, OT_SIZE * sizeof(gOT[0]));
 
-            if (type <= FACE_TYPE_GTA)
-            {
-                if (type > FACE_TYPE_F)
-                {
-                    const Texture &tex = level.textures[flags & FACE_TEXTURE];
-                    gTile = (ColorIndex*)tex.tile;
-
-                    v[0].t.t = 0xFF00FF00 & (tex.uv01);
-                    v[1].t.t = 0xFF00FF00 & (tex.uv01 << 8);
-                    v[2].t.t = 0xFF00FF00 & (tex.uv23);
-                    v[3].t.t = 0xFF00FF00 & (tex.uv23 << 8);
-                }
-
-                v[0].v = gVertices[face->indices[0]];
-                v[1].v = gVertices[face->indices[1]];
-                v[2].v = gVertices[face->indices[2]];
-                if (!(flags & FACE_TRIANGLE)) {
-                    v[3].v = gVertices[face->indices[3]];
-                }
-
-                if (flags & FACE_CLIPPED) {
-                    drawPoly(flags, v);
-                } else {
-                    if (flags & FACE_TRIANGLE) {
-                        drawTriangle(flags, v);
-                    } else {
-                        drawQuad(flags, v);
-                    }
-                }
-            }
-            else
-            {
-                const Vertex *vert = gVertices + face->indices[0];
-                v[0].v = vert[0];
-                v[1].v = vert[1];
-
-                if (type == FACE_TYPE_SPRITE)
-                {
-                    const Sprite &sprite = level.sprites[flags & FACE_TEXTURE];
-                    gTile = (ColorIndex*)sprite.tile;
-                    v[0].t.t = (sprite.uwvh) & (0xFF00FF00);
-                    v[1].t.t = (sprite.uwvh) & (0xFF00FF00 >> 8);
-                }
-
-                rasterize(flags, v);
-            }
-
-            face = face->next;
-
-        } while (face);
-    }
-/*
+#ifdef ON_CHIP_RENDER
     CacheControl(0);
     CacheControl(SH2_CCTL_CP | SH2_CCTL_CE);
-*/
+#endif
 }
-#endif
-
-#if defined(__32X__)
-    #undef transformRoom
-    //#undef transformRoomUW
-    #undef transformMesh
-    //#undef faceAddRoomQuads
-    //#undef faceAddRoomTriangles
-    //#undef faceAddMeshQuads
-    //#undef faceAddMeshTriangles
-    #undef rasterize
-
-    #define transformRoom           transformRoom_asm
-    //#define transformRoomUW         transformRoomUW_asm
-    #define transformMesh           transformMesh_asm
-    //#define faceAddRoomQuads        faceAddRoomQuads_asm
-    //#define faceAddRoomTriangles    faceAddRoomTriangles_asm
-    //#define faceAddMeshQuads        faceAddMeshQuads_asm
-    //#define faceAddMeshTriangles    faceAddMeshTriangles_asm
-    #define rasterize               rasterize_asm
-#endif
 
 VertexLink* clipPoly(VertexLink* poly, VertexLink* tmp, int32 &pCount)
 {
@@ -817,7 +813,7 @@ void renderLevelFree()
 {
 }
 
-extern "C" X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v)
+extern "C" X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v, const ColorIndex* tile)
 {
     VertexLink* v0 = v + 0;
     VertexLink* v1 = v + 1;
@@ -846,10 +842,10 @@ extern "C" X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v)
         }
     }
 
-    rasterize(flags, top);
+    rasterize(flags, top, tile);
 }
 
-extern "C" X_NOINLINE void drawQuad(uint32 flags, VertexLink* v)
+extern "C" X_NOINLINE void drawQuad(uint32 flags, VertexLink* v, const ColorIndex* tile)
 {
     VertexLink* v0 = v + 0;
     VertexLink* v1 = v + 1;
@@ -881,10 +877,10 @@ extern "C" X_NOINLINE void drawQuad(uint32 flags, VertexLink* v)
         }
     }
 
-    rasterize(flags, top);
+    rasterize(flags, top, tile);
 }
 
-extern "C" X_NOINLINE void drawPoly(uint32 flags, VertexLink* v)
+extern "C" X_NOINLINE void drawPoly(uint32 flags, VertexLink* v, const ColorIndex* tile)
 {
     VertexLink tmp[16];
 
@@ -902,7 +898,7 @@ extern "C" X_NOINLINE void drawPoly(uint32 flags, VertexLink* v)
                 v[0].v.y == v[2].v.y)
                 return;
 
-            drawTriangle(flags, v);
+            drawTriangle(flags, v, tile);
         } else {
 
             if (v[0].v.y == v[1].v.y &&
@@ -910,7 +906,7 @@ extern "C" X_NOINLINE void drawPoly(uint32 flags, VertexLink* v)
                 v[0].v.y == v[3].v.y)
                 return;
 
-            drawQuad(flags, v);
+            drawQuad(flags, v, tile);
         }
         return;
     }
@@ -954,7 +950,7 @@ extern "C" X_NOINLINE void drawPoly(uint32 flags, VertexLink* v)
         return; // zero height poly
     }
 
-    rasterize(flags, top);
+    rasterize(flags, top, tile);
 }
 
 void faceAddRoom(const Room* room)
@@ -981,18 +977,7 @@ void faceAddMesh(const MeshQuad* quads, const MeshTriangle* triangles, int32 qCo
 
 void clear()
 {
-#if 1
-    MARS_VDP_FILLEN = 0xFF;
-    MARS_VDP_FILADR = 0x100; // skip line table
-    for(int32 i = 0; i < (FRAME_WIDTH * FRAME_HEIGHT) >> 9; i++)
-    {
-        MARS_VDP_FILDAT = 0x0000;
-        while (MARS_VDP_FBCTL & MARS_VDP_FEN);
-        MARS_VDP_FILADR += 0x100;
-    }
-#else
-    dmaFill((void*)fb, 0, FRAME_WIDTH * FRAME_HEIGHT);
-#endif
+    MARS_SYS_COMM4 = MARS_CMD_CLEAR;
 }
 
 void renderRoom(const Room* room)

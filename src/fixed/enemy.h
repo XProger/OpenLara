@@ -787,7 +787,7 @@ struct Wolf : Enemy
             case STATE_STOP:
             {
                 if (nextState)
-                    nextState;
+                    return nextState;
                 return STATE_WALK;
             }
 
