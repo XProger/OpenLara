@@ -17,11 +17,11 @@ openlara :
 
 install : openlara
 	install -d $(DESTDIR)$(PREFIX)/bin/
-	install openlara $(DESTDIR)$(PREFIX)/bin/openlara
+	install openlara $(DESTDIR)$(PREFIX)/bin/OpenLara
 
 uninstall :
-	rm -f $(DESTDIR)$(PREFIX)/bin/openlara
+	rm -f $(DESTDIR)$(PREFIX)/bin/OpenLara
 
 clean:
-	rm -f openlara
+	rm -f OpenLara
 
