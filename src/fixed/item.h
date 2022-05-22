@@ -1491,9 +1491,9 @@ ItemObj* ItemObj::init(Room* room)
         // INIT_ITEM( INV_PASSPORT          , ??? );
         // INIT_ITEM( INV_COMPASS           , ??? );
         // INIT_ITEM( INV_HOME              , ??? );
-        // INIT_ITEM( GEARS_1               , ??? );
-        // INIT_ITEM( GEARS_2               , ??? );
-        // INIT_ITEM( GEARS_3               , ??? );
+        INIT_ITEM( GEARS_1               , Gears );
+        INIT_ITEM( GEARS_2               , Gears );
+        INIT_ITEM( GEARS_3               , Gears );
         INIT_ITEM( CUT_1                 , CinematicObject );
         INIT_ITEM( CUT_2                 , CinematicObject );
         INIT_ITEM( CUT_3                 , CinematicObject );
