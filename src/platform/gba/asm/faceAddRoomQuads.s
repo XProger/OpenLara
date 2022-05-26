@@ -33,8 +33,6 @@ depth       .req vg0
 tmp         .req flags
 next        .req vp0
 
-SP_SIZE = 4
-
 .global faceAddRoomQuads_asm
 faceAddRoomQuads_asm:
     stmfd sp!, {r4-r7}
