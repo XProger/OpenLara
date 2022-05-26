@@ -176,7 +176,9 @@ flush_asm:
   .draw:
     // r0 = flags
     // r1 = ptr
-    adr lr, .next_face
+    tst face, face
+    adrne lr, .loop_list
+    adreq lr, .next_ot
 
     tst flags, #FACE_CLIPPED
     bne drawPoly
@@ -209,7 +211,9 @@ flush_asm:
 
     // r0 = flags
     // r1 = ptr
-    adr lr, .next_face
+    tst face, face
+    adrne lr, .loop_list
+    adreq lr, .next_ot
 
     // gui
     cmp type, #FACE_TYPE_SPRITE
@@ -226,10 +230,6 @@ flush_asm:
     bic uv, uwvh, MASK
     str uv, [ptr, #(VERTEX_T + VERTEX_SIZEOF * 1)]
     b rasterize_asm
-
-.next_face:
-    tst face, face
-    bne .loop_list
 
 .next_ot:
     cmp list, OT
