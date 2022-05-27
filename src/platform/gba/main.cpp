@@ -291,6 +291,9 @@ int main(void)
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         } else {
+        #ifdef _DEBUG
+            Sleep(4);
+        #endif
             int32 frame = (GetTickCount() - startTime) / 33;
             if (GetAsyncKeyState('R')) frame /= 10;
 

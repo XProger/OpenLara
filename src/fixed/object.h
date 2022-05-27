@@ -335,6 +335,23 @@ struct TrapDoor : Object
 };
 
 
+struct Gears : Object
+{
+    enum {
+        STATE_STATIC,
+        STATE_ROTATE,
+    };
+
+    Gears(Room* room) : Object(room) {}
+
+    virtual void update()
+    {
+        goalState = isActive() ? STATE_ROTATE : STATE_STATIC;
+        animProcess();
+    }
+};
+
+
 struct CinematicObject : Object
 {
     CinematicObject(Room* room) : Object(room)

@@ -225,13 +225,10 @@ void* osLoadLevel(const char* name)
     return (void*)levelData;
 }
 
-#ifdef _DEBUG
-int main(void) {
-#else
-int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    int argc = (lpCmdLine && strlen(lpCmdLine)) ? 2 : 1;
-    const char* argv[] = { "", lpCmdLine };
-#endif
+int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
+//    int argc = (lpCmdLine && strlen(lpCmdLine)) ? 2 : 1;
+//    const char* argv[] = { "", lpCmdLine };
 
     RECT r = { 0, 0, FRAME_WIDTH, FRAME_HEIGHT };
 

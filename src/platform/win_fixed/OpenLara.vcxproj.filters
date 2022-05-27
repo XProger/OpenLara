@@ -3,8 +3,10 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="..\..\fixed\common.cpp" />
-    <ClCompile Include="..\..\fixed\render\gl1.cpp" />
     <ClCompile Include="sound.cpp" />
+    <ClCompile Include="..\..\fixed\render\gl1.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="OpenLara.rc" />
@@ -41,6 +43,9 @@
     </Filter>
     <Filter Include="fmt">
       <UniqueIdentifier>{f297223e-368f-46b9-9f41-3e8075cbc5c2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="render">
+      <UniqueIdentifier>{fe1fca63-da0d-4e31-b8c4-1d61eb02d01b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

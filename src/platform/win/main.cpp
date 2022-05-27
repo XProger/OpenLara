@@ -1010,7 +1010,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     int sw = GetSystemMetrics(SM_CXSCREEN);
     int sh = GetSystemMetrics(SM_CYSCREEN);
-    if (sw <= r.right || sh <= r.bottom) {
+    if (sw <= r.right + 128 || sh <= r.bottom + 128) {
         r.right  /= 2;
         r.bottom /= 2;
     }
