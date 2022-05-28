@@ -348,17 +348,6 @@ X_INLINE int32 abs(int32 x) {
     extern uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
 #endif
 
-// system
-extern int32 osGetSystemTimeMS();
-extern bool osSaveSettings();
-extern bool osLoadSettings();
-extern bool osCheckSave();
-extern bool osSaveGame();
-extern bool osLoadGame();
-extern void osJoyVibrate(int32 index, int32 L, int32 R);
-extern void osSetPalette(const uint16* palette);
-extern void* osLoadLevel(const char* name);
-
 #ifdef PROFILING
     #define PROFILE_FRAME\
         CNT_UPDATE,\
@@ -2592,7 +2581,6 @@ enum TrackID
 
 struct LevelInfo
 {
-    const char*  name;
     const void*  data;
     StringID     title;
     TrackID      track;
@@ -2938,7 +2926,7 @@ bool useSwitch(ItemObj* item, int32 timer);
 bool useKey(ItemObj* item, ItemObj* lara);
 bool usePickup(ItemObj* item);
 
-void startLevel(const char* name);
+void startLevel(LevelID id);
 void nextLevel(LevelID next);
 bool gameSave();
 bool gameLoad();
@@ -2963,5 +2951,17 @@ void updateFading(int32 frames);
 
 void dmaFill(void* dst, uint8 value, uint32 count);
 void dmaCopy(const void* src, void* dst, uint32 size);
+
+// system
+int32 osGetSystemTimeMS();
+bool osSaveSettings();
+bool osLoadSettings();
+bool osCheckSave();
+bool osSaveGame();
+bool osLoadGame();
+void osJoyVibrate(int32 index, int32 L, int32 R);
+void osSetPalette(const uint16* palette);
+const void* osLoadScreen(LevelID id);
+const void* osLoadLevel(LevelID id);
 
 #endif

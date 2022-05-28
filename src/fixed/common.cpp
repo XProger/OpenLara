@@ -37,9 +37,9 @@ EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
     #include "LEVEL1_PKD.h"
     #include "LEVEL2_PKD.h"
 
-    #define LEVEL_INFO(name, title, track, secrets) { #name, name##_PKD, title, track, secrets }
+    #define LEVEL_INFO(data, title, track, secrets) { data##_PKD, title, track, secrets }
 #else
-    #define LEVEL_INFO(name, title, track, secrets) { #name, NULL, title, track, secrets }
+    #define LEVEL_INFO(data, title, track, secrets) { #data, title, track, secrets }
 #endif
 
 EWRAM_DATA LevelID gLevelID = LVL_TR1_TITLE;

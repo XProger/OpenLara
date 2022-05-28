@@ -202,14 +202,19 @@ LRESULT CALLBACK wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-void* osLoadLevel(const char* name)
+const void* osLoadScreen(LevelID id)
+{
+    return TITLE_SCR;
+}
+
+const void* osLoadLevel(LevelID id)
 {
     // level1
     char buf[32];
 
     delete[] levelData;
 
-    sprintf(buf, "data/%s.PKD", name);
+    sprintf(buf, "data/%s.PKD", gLevelInfo[id].data);
 
     FILE *f = fopen(buf, "rb");
 
@@ -279,7 +284,7 @@ int main(void)
 
     soundInit();
 
-    gameInit(gLevelInfo[gLevelID].name);
+    gameInit();
 
     MSG msg;
 
@@ -550,16 +555,14 @@ void boostEWRAM()
     }
 }
 
-void* osLoadLevel(const char* name)
+const void* osLoadScreen(LevelID id)
 {
-    for (int32 i = 0; i < LVL_MAX; i++)
-    {
-        if (strcmp(name, gLevelInfo[i].name) == 0)
-            return (void*)gLevelInfo[i].data;
-    }
+    return TITLE_SCR;
+}
 
-    gLevelID = LVL_TR1_TITLE;
-    return (void*)gLevelInfo[gLevelID].data;
+const void* osLoadLevel(LevelID id)
+{
+    return gLevelInfo[id].data;
 }
 
 int main(void)
@@ -577,7 +580,7 @@ int main(void)
     rumbleInit();
     soundInit();
 
-    gameInit(gLevelInfo[gLevelID].name);
+    gameInit();
 
     uint16 mode = DCNT_BG2 | DCNT_PAGE | DCNT_MODE4;
 

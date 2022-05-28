@@ -519,7 +519,7 @@ struct Inventory
         this->lara = lara;
 
         if (page == INV_PAGE_TITLE) {
-            background = TITLE_SCR;
+            background = osLoadScreen(LVL_TR1_TITLE);
         } else {
             background = copyBackground();
         }

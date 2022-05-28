@@ -54,7 +54,7 @@ bool gameLoad()
 
     SaveGame tmp = gSaveGame;
     gLevelID = (LevelID)gSaveGame.level;
-    startLevel(gLevelInfo[gLevelID].name);
+    startLevel(gLevelID);
     gSaveGame = tmp;
 
     inventory.setSlots(gSaveGame.invSlots);
@@ -83,7 +83,7 @@ bool gameLoad()
     return true;
 }
 
-void gameInit(const char* name)
+void gameInit()
 {
     drawInit();
 
@@ -101,7 +101,7 @@ void gameInit(const char* name)
 
     inventory.init();
 
-    startLevel(name);
+    startLevel(gLevelID);
 }
 
 void gameFree()
@@ -227,7 +227,7 @@ void gameLoadLevel(const void* data)
     drawLevelInit();
 }
 
-void startLevel(const char* name)
+void startLevel(LevelID id)
 {
     gRandSeedLogic = osGetSystemTimeMS() * 3;
     gRandSeedDraw = osGetSystemTimeMS() * 7;
@@ -235,7 +235,7 @@ void startLevel(const char* name)
     sndStop();
     sndFreeSamples();
 
-    void* data = osLoadLevel(name);
+    const void* data = osLoadLevel(id);
     gameLoadLevel(data);
 
     sndInitSamples();
@@ -311,7 +311,7 @@ void gameUpdate(int32 frames)
         if (gLevelID == LVL_LOAD) {
             gameLoad();
         } else {
-            startLevel(gLevelInfo[gLevelID].name);
+            startLevel(gLevelID);
         }
         gameUpdate(1);
     }
