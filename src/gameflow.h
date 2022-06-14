@@ -1053,7 +1053,7 @@ namespace TR {
         if (Stream::existsContent("DATA/GYM.SAT"))
             return VER_TR1_SAT;
 
-        if (Stream::existsContent("data/ASSAULT.TR2") || Stream::existsContent("assault.TR2"))
+        if (Stream::existsContent("DATA/ASSAULT.TR2") || Stream::existsContent("data/ASSAULT.TR2") || Stream::existsContent("assault.TR2"))
             return VER_TR2_PC;
         if (Stream::existsContent("DATA/ASSAULT.PSX"))
             return VER_TR2_PSX;
@@ -1082,24 +1082,29 @@ namespace TR {
                 case VER_TR1_PSX : sprintf(dst, "PSXDATA/%s.PSX", LEVEL_INFO[id].name); break;
                 case VER_TR1_SAT : sprintf(dst, "DATA/%s.SAT",    LEVEL_INFO[id].name); break;
                 case VER_TR2_PC  : { // oh FFFFUUUUUUCKing CaTaComB.Tr2!
-                    if (id == LVL_TR2_VENICE || id == LVL_TR2_CUT_2 || id == LVL_TR2_PLATFORM || id == LVL_TR2_CUT_3 || id == LVL_TR2_UNWATER || 
-                        id == LVL_TR2_KEEL || id == LVL_TR2_LIVING || id == LVL_TR2_DECK || id == LVL_TR2_CATACOMB || id == LVL_TR2_ICECAVE ||
-                        id == LVL_TR2_CUT_4 || id == LVL_TR2_XIAN || id == LVL_TR2_HOUSE) {
-                        char buf[64];
-                        strcpy(buf, LEVEL_INFO[id].name);
-                        StrUtils::toLower(buf);
-                        sprintf(dst, "DATA/%s.TR2", buf);
-                    } else if (id == LVL_TR2_TITLE) {
-                        sprintf(dst, "DATA/%s.tr2", LEVEL_INFO[id].name);
-                    } else if (id == LVL_TR2_EMPRTOMB) {
-                        strcpy(dst, "DATA/Emprtomb.tr2");
-                    } else {
-                        sprintf(dst, "DATA/%s.TR2", LEVEL_INFO[id].name);
+                    char dir[] = "DATA";
+                    for (int dir_case = 0; dir_case < 2; dir_case++) {
+                        if (id == LVL_TR2_VENICE || id == LVL_TR2_CUT_2 || id == LVL_TR2_PLATFORM || id == LVL_TR2_CUT_3 || id == LVL_TR2_UNWATER ||
+                            id == LVL_TR2_KEEL || id == LVL_TR2_LIVING || id == LVL_TR2_DECK || id == LVL_TR2_CATACOMB || id == LVL_TR2_ICECAVE ||
+                            id == LVL_TR2_CUT_4 || id == LVL_TR2_XIAN || id == LVL_TR2_HOUSE) {
+                            char buf[64];
+                            strcpy(buf, LEVEL_INFO[id].name);
+                            StrUtils::toLower(buf);
+                            sprintf(dst, "%s/%s.TR2", dir, buf);
+                        } else if (id == LVL_TR2_TITLE) {
+                            sprintf(dst, "%s/%s.tr2", dir, LEVEL_INFO[id].name);
+                        } else if (id == LVL_TR2_EMPRTOMB) {
+                            strcpy(dst, "%s/Emprtomb.tr2");
+                        } else {
+                            sprintf(dst, "%s/%s.TR2", dir, LEVEL_INFO[id].name);
+                        }
+                        if (Stream::existsContent(dst)) break;
+                        strcpy(dst, LEVEL_INFO[id].name);
+                        StrUtils::toLower(dst);
+                        strcat(dst, ".TR2");
+                        if (Stream::existsContent(dst)) break;
+                        StrUtils::toLower(dir);
                     }
-                    if (Stream::existsContent(dst)) break;
-                    strcpy(dst, LEVEL_INFO[id].name);
-                    StrUtils::toLower(dst);
-                    strcat(dst, ".TR2");
                     break;
                 }
                 case VER_TR2_PSX : sprintf(dst, "DATA/%s.PSX", LEVEL_INFO[id].name); break;
