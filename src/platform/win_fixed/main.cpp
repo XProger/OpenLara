@@ -18,6 +18,9 @@ HDC hDC;
 LARGE_INTEGER g_timer;
 LARGE_INTEGER g_current;
 
+LARGE_INTEGER gTimerFreq;
+LARGE_INTEGER gTimerStart;
+
 void osSetPalette(const uint16* palette)
 {
     //
@@ -25,7 +28,9 @@ void osSetPalette(const uint16* palette)
 
 int32 osGetSystemTimeMS()
 {
-    return GetTickCount();
+    LARGE_INTEGER count;
+    QueryPerformanceCounter(&count);
+    return int32((count.QuadPart - gTimerStart.QuadPart) * 1000L / gTimerFreq.QuadPart);
 }
 
 bool osSaveSettings()
@@ -90,7 +95,187 @@ bool osLoadGame()
     return true;
 }
 
+
+#define INPUT_JOY_COUNT        4
+
+#define USE_GAMEPAD_XINPUT
+
+// gamepad
+#ifdef USE_GAMEPAD_XINPUT
+typedef struct _XINPUT_GAMEPAD {
+    WORD                                wButtons;
+    BYTE                                bLeftTrigger;
+    BYTE                                bRightTrigger;
+    SHORT                               sThumbLX;
+    SHORT                               sThumbLY;
+    SHORT                               sThumbRX;
+    SHORT                               sThumbRY;
+} XINPUT_GAMEPAD, * PXINPUT_GAMEPAD;
+
+typedef struct _XINPUT_STATE {
+    DWORD                               dwPacketNumber;
+    XINPUT_GAMEPAD                      Gamepad;
+} XINPUT_STATE, * PXINPUT_STATE;
+
+typedef struct _XINPUT_VIBRATION {
+    WORD                                wLeftMotorSpeed;
+    WORD                                wRightMotorSpeed;
+} XINPUT_VIBRATION, * PXINPUT_VIBRATION;
+
+#define XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  7849
+#define XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE 8689
+#define XINPUT_GAMEPAD_TRIGGER_THRESHOLD    30
+
+DWORD(WINAPI* _XInputGetState) (DWORD dwUserIndex, XINPUT_STATE* pState);
+DWORD(WINAPI* _XInputSetState) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
+void  (WINAPI* _XInputEnable)   (BOOL enable);
+
+#define JOY_DEAD_ZONE_TRIGGER    0.01f
+#define JOY_MIN_UPDATE_FX_TIME   50
+
+struct JoyDevice {
+    int32 vL, vR; // current value for left/right motor vibration
+    int32 oL, oR; // last applied value
+    int32 time;   // time when we can send vibration update
+    int32 mask;   // buttons mask
+    bool  ready;
+} joyDevice[INPUT_JOY_COUNT];
+
+bool osJoyReady(int index) {
+    return joyDevice[index].ready;
+}
+
+void osJoyVibrate(int32 index, int32 L, int32 R)
+{
+    joyDevice[index].vL = L;
+    joyDevice[index].vR = R;
+}
+
+void joyRumble(int index)
+{
+    if (!_XInputSetState)
+        return;
+
+    JoyDevice& joy = joyDevice[index];
+
+    if (!joy.ready)
+        return;
+
+    if ((joy.vL == joy.oL) && (joy.vR == joy.oR))
+        return;
+
+    if (osGetSystemTimeMS() < joy.time)
+        return;
+
+    XINPUT_VIBRATION vibration;
+    vibration.wLeftMotorSpeed = WORD(joy.vL << 8);
+    vibration.wRightMotorSpeed = WORD(joy.vR << 8);
+    _XInputSetState(index, &vibration);
+    joy.oL = joy.vL;
+    joy.oR = joy.vR;
+    joy.time = osGetSystemTimeMS() + JOY_MIN_UPDATE_FX_TIME;
+}
+
+void inputInit() {
+    memset(joyDevice, 0, sizeof(joyDevice));
+
+    HMODULE h = LoadLibrary("xinput1_3.dll");
+    if (h == NULL) {
+        h = LoadLibrary("xinput9_1_0.dll");
+    }
+
+    if (!h)
+        return;
+
+    #define GetProcAddr(lib, x) (x = (decltype(x))GetProcAddress(lib, #x + 1))
+
+    GetProcAddr(h, _XInputGetState);
+    GetProcAddr(h, _XInputSetState);
+    GetProcAddr(h, _XInputEnable);
+
+    for (int i = 0; i < INPUT_JOY_COUNT; i++)
+    {
+        XINPUT_STATE state;
+        int res = _XInputGetState(i, &state);
+        joyDevice[i].ready = (_XInputGetState(i, &state) == ERROR_SUCCESS);
+
+        if (joyDevice[i].ready)
+            LOG("Gamepad %d is ready\n", i + 1);
+    }
+}
+
+void inputFree()
+{
+    memset(joyDevice, 0, sizeof(joyDevice));
+}
+
+void inputUpdate()
+{
+    if (!_XInputGetState)
+        return;
+
+    for (int i = 0; i < INPUT_JOY_COUNT; i++)
+    {
+        if (!joyDevice[i].ready)
+            continue;
+
+        joyRumble(i);
+
+        XINPUT_STATE state;
+        if (_XInputGetState(i, &state) != ERROR_SUCCESS)
+        {
+            inputFree();
+            inputInit();
+            break;
+        }
+
+        static const InputKey buttons[] = { IK_UP, IK_DOWN, IK_LEFT, IK_RIGHT, IK_START, IK_SELECT, IK_NONE, IK_NONE, IK_L, IK_R, IK_NONE, IK_NONE, IK_A, IK_B, IK_X, IK_Y };
+
+        int32 curMask = state.Gamepad.wButtons;
+        int32 oldMask = joyDevice[i].mask;
+
+        for (int i = 0; i < 16; i++)
+        {
+            bool wasDown = (oldMask & (1 << i)) != 0;
+            bool isDown = (curMask & (1 << i)) != 0;
+
+            if (isDown == wasDown)
+                continue;
+
+            if (isDown && !wasDown) {
+                keys |= buttons[i];
+            } else {
+                keys &= ~buttons[i];
+            }
+        }
+
+        joyDevice[i].mask = curMask;
+
+
+        //osJoyVibrate(j, state.Gamepad.bLeftTrigger / 255.0f, state.Gamepad.bRightTrigger / 255.0f); // vibration test
+        
+        /*
+        Input::setJoyPos(j, jkL, joyDir(joyAxis(state.Gamepad.sThumbLX, -32768, 32767),
+            joyAxis(-state.Gamepad.sThumbLY, -32768, 32767)));
+        Input::setJoyPos(j, jkR, joyDir(joyAxis(state.Gamepad.sThumbRX, -32768, 32767),
+            joyAxis(-state.Gamepad.sThumbRY, -32768, 32767)));
+        Input::setJoyPos(j, jkLT, vec2(state.Gamepad.bLeftTrigger / 255.0f, 0.0f));
+        Input::setJoyPos(j, jkRT, vec2(state.Gamepad.bRightTrigger / 255.0f, 0.0f));
+        */
+
+
+
+
+    }
+}
+#elif defined(USE_GAMEPAD_WINMM)
+
+#else
+
 void osJoyVibrate(int32 index, int32 L, int32 R) {}
+
+#endif
+
 
 uint8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
 
@@ -197,14 +382,19 @@ LRESULT CALLBACK wndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-void* osLoadLevel(const char* name)
+const void* osLoadScreen(LevelID id)
+{
+    return (const void*)1; // TODO
+}
+
+const void* osLoadLevel(LevelID id)
 {
     // level1
     char buf[32];
 
     delete[] levelData;
 
-    sprintf(buf, "data/%s.PHD", name);
+    sprintf(buf, "data/%s.PHD", (char*)gLevelInfo[id].data);
 
     FILE *f = fopen(buf, "rb");
 
@@ -225,8 +415,17 @@ void* osLoadLevel(const char* name)
     return (void*)levelData;
 }
 
+// hint to the driver to use discrete GPU
+extern "C" {
+    __declspec(dllexport) int NvOptimusEnablement = 1; // NVIDIA
+    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1; // AMD
+}
+
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+    QueryPerformanceFrequency(&gTimerFreq);
+    QueryPerformanceCounter(&gTimerStart);
+
 //    int argc = (lpCmdLine && strlen(lpCmdLine)) ? 2 : 1;
 //    const char* argv[] = { "", lpCmdLine };
 
@@ -250,8 +449,9 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     ShowWindow(hWnd, SW_SHOWDEFAULT);
 
     soundInit();
+    inputInit();
 
-    gameInit(gLevelInfo[gLevelID].name);
+    gameInit();
 
     MSG msg;
 
@@ -266,6 +466,8 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         #ifdef _DEBUG
             Sleep(4);
         #endif
+            inputUpdate();
+
             int32 frame = (GetTickCount() - startTime) / 33;
             if (GetAsyncKeyState('R')) frame /= 10;
 
@@ -280,6 +482,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         }
     } while (msg.message != WM_QUIT);
 
+    inputFree();
     gameFree();
 
     return 0;

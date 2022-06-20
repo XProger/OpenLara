@@ -639,8 +639,10 @@ enum InputKey {
     IK_Z        = (1 << 9),
     IK_L        = (1 << 10),
     IK_R        = (1 << 11),
-    IK_START    = (1 << 12),
-    IK_SELECT   = (1 << 13)
+    IK_LT       = (1 << 12),
+    IK_RT       = (1 << 13),
+    IK_START    = (1 << 14),
+    IK_SELECT   = (1 << 15),
 };
 
 // action keys (ItemObj::input)
