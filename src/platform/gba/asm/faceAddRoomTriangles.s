@@ -83,7 +83,7 @@ faceAddRoomTriangles_asm:
 
     CCW .skip
 
-    // vz0 = MAX_Z3 (depth)
+    // depth = MAX_Z3
     ldrh vz0, [vp0, #VERTEX_Z]
     ldrh vz1, [vp1, #VERTEX_Z]
     ldrh vz2, [vp2, #VERTEX_Z]

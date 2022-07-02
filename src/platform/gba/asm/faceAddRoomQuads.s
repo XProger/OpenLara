@@ -92,7 +92,7 @@ faceAddRoomQuads_asm:
 
     CCW .skip
 
-    // vz0 = MAX_Z4 (depth)
+    // depth = MAX_Z4
     ldrh vz0, [vp0, #VERTEX_Z]
     ldrh vz1, [vp1, #VERTEX_Z]
     ldrh vz2, [vp2, #VERTEX_Z]

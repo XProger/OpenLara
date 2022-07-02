@@ -23,9 +23,6 @@ vy1         .req vg3
 vx2         .req vg2
 vy2         .req vg2
 
-vz0         .req vg0
-vz1         .req vg1
-vz2         .req vg2
 depth       .req vg0
 
 tmp         .req flags
@@ -49,9 +46,11 @@ faceAddMeshTriangles_asm:
     add polys, #2   // skip flags
 
 .loop:
-    ldrb vp0, [polys], #1
-    ldrb vp1, [polys], #1
-    ldrb vp2, [polys], #4   // + padding + flags
+    ldrh vp0, [polys], #2
+    lsr vp1, vp0, #8
+    and vp0, #0xFF
+    ldrh vp2, [polys], #4   // + flags
+    and vp2, #0xFF
 
     add vp0, vp, vp0, lsl #3
     add vp1, vp, vp1, lsl #3
@@ -59,31 +58,29 @@ faceAddMeshTriangles_asm:
 
     CCW .skip
 
-    // fetch clip flags
-    ldrb vg0, [vp0, #VERTEX_CLIP]
-    ldrb vg1, [vp1, #VERTEX_CLIP]
-    ldrb vg2, [vp2, #VERTEX_CLIP]
+    // fetch [c, g, zz]
+    ldr vg0, [vp0, #VERTEX_Z]
+    ldr vg1, [vp1, #VERTEX_Z]
+    ldr vg2, [vp2, #VERTEX_Z]
 
     // check clipping
     and tmp, vg0, vg1
     and tmp, vg2
-    tst tmp, #(CLIP_DISCARD >> 8)
+    tst tmp, #(CLIP_DISCARD << 16)
     bne .skip
 
     // mark if should be clipped by viewport
     orr tmp, vg0, vg1
     orr tmp, vg2
-    tst tmp, #(CLIP_FRAME >> 8)
+    tst tmp, #(CLIP_FRAME << 16)
     ldrh flags, [polys, #-8]
     orrne flags, #FACE_CLIPPED
 
-    // vz0 = AVG_Z3 (depth)
-    ldrh vz0, [vp0, #VERTEX_Z]
-    ldrh vz1, [vp1, #VERTEX_Z]
-    ldrh vz2, [vp2, #VERTEX_Z]
-    add depth, vz0, vz1
-    add depth, vz2, lsl #1
-    lsr depth, #(2 + OT_SHIFT)
+    // depth = AVG_Z3
+    lsl vg0, #16
+    add depth, vg0, vg1, lsl #16
+    add depth, vg2, lsl #17
+    lsr depth, #(16 + 2 + OT_SHIFT)
 
     // faceAdd
     rsb vp0, vertices, vp0, lsr #3

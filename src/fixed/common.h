@@ -1,7 +1,7 @@
 #ifndef H_COMMON
 #define H_COMMON
 //#define STATIC_ITEMS
-//#define PROFILING
+#define PROFILING
 #ifdef PROFILING
     #define STATIC_ITEMS
     #define PROFILE_FRAMETIME
@@ -28,6 +28,8 @@
 #define SND_FMT_XA      (1 << 13)
 #define SND_FMT_OGG     (1 << 14)
 #define SND_FMT_MP3     (1 << 15)
+
+#define FIXED_SHIFT     14
 
 #if defined(__WIN32__)
     #define USE_DIV_TABLE
@@ -348,133 +350,22 @@ X_INLINE int32 abs(int32 x) {
     extern uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
 #endif
 
-#ifdef PROFILING
-    #define PROFILE_FRAME\
-        CNT_UPDATE,\
-        CNT_RENDER
-
-    #define PROFILE_STAGES\
-        CNT_TRANSFORM,\
-        CNT_ADD,\
-        CNT_FLUSH,\
-        CNT_VERT,\
-        CNT_POLY
-
-    #define PROFILE_SOUND\
-        CNT_SOUND
-
-    #if defined(PROFILE_FRAMETIME)
-        enum ProfileCounterId {
-            PROFILE_FRAME,
-            CNT_MAX,
-            PROFILE_STAGES,
-            PROFILE_SOUND
-        };
-    #elif defined(PROFILE_SOUNDTIME)
-        enum ProfileCounterId {
-            PROFILE_SOUND,
-            CNT_MAX,
-            PROFILE_FRAME,
-            PROFILE_STAGES
-        };
-    #else
-        enum ProfileCounterId {
-            PROFILE_STAGES,
-            CNT_MAX,
-            PROFILE_FRAME,
-            PROFILE_SOUND
-        };
-    #endif
-
-    extern uint32 gCounters[CNT_MAX];
-    
-    #if defined(__3DO__) || defined(__32X__) // should be first, armcpp bug (#elif)
-        extern int32 g_timer;
-
-        #define PROFILE_START() {\
-            g_timer = osGetSystemTimeMS();\
-        }
-
-        #define PROFILE_STOP(value) {\
-            value += (osGetSystemTimeMS() - g_timer);\
-        }
-    #elif defined(__WIN32__) || defined(__GBA_WIN__)
-        extern LARGE_INTEGER g_timer;
-        extern LARGE_INTEGER g_current;
-
-        #define PROFILE_START() {\
-            QueryPerformanceCounter(&g_timer);\
-        }
-
-        #define PROFILE_STOP(value) {\
-            QueryPerformanceCounter(&g_current);\
-            value += uint32(g_current.QuadPart - g_timer.QuadPart);\
-        }
-    #elif defined(__GBA__)
-        #ifdef PROFILE_SOUNDTIME
-            #define TIMER_FREQ_DIV 1
-        #else
-            #define TIMER_FREQ_DIV 3
-        #endif
-
-        #define PROFILE_START() {\
-            REG_TM2CNT_L = 0;\
-            REG_TM2CNT_H = (1 << 7) | TIMER_FREQ_DIV;\
-        }
-
-        #define PROFILE_STOP(value) {\
-            value += REG_TM2CNT_L;\
-            REG_TM2CNT_H = 0;\
-        }
-    #else
-        #define PROFILE_START() aaa
-        #define PROFILE_STOP(value) bbb
-    #endif
-
-    struct ProfileCounter
-    {
-        ProfileCounterId cnt;
-
-        ProfileCounter(ProfileCounterId cnt) : cnt(cnt) {
-            if (cnt < CNT_MAX) {
-                PROFILE_START()
-            }
-        }
-
-        ~ProfileCounter() {
-            if (cnt < CNT_MAX) {
-                PROFILE_STOP(gCounters[cnt]);
-            }
-        }
-    };
-
-    #define PROFILE(cnt) ProfileCounter profileCounter(cnt)
-    #define PROFILE_CLEAR() memset(gCounters, 0, sizeof(gCounters));
-#else
-    #define PROFILE(cnt)
-    #define PROFILE_CLEAR()
-#endif
-
-#ifdef __TNS__
-    void osSetPalette(uint16* palette);
-#endif
-
 #define STATIC_MESH_FLAG_NO_COLLISION   1
 #define STATIC_MESH_FLAG_VISIBLE        2
 #define MAX_STATIC_MESH_RADIUS          (5 * 1024)
 
 extern int32 fps;
 
-#define FIXED_SHIFT     14
-
 #ifndef F16_SHIFT
     #define F16_SHIFT 0
 #endif
 
 #ifdef USE_MATRIX_INT16
-    #define MATRIX_FIXED_SHIFT  FIXED_SHIFT
-#else
-    #define MATRIX_FIXED_SHIFT  0
+    #define MATRIX_FIXED_SHIFT FIXED_SHIFT
+#endif
+
+#ifndef MATRIX_FIXED_SHIFT
+   #define MATRIX_FIXED_SHIFT 0
 #endif
 
 #define SND_MAX_DIST    (8 * 1024)
@@ -2965,5 +2856,113 @@ void osJoyVibrate(int32 index, int32 L, int32 R);
 void osSetPalette(const uint16* palette);
 const void* osLoadScreen(LevelID id);
 const void* osLoadLevel(LevelID id);
+
+#ifdef PROFILING
+    #define PROFILE_FRAME\
+        CNT_UPDATE,\
+        CNT_RENDER
+
+    #define PROFILE_STAGES\
+        CNT_TRANSFORM,\
+        CNT_ADD,\
+        CNT_FLUSH,\
+        CNT_VERT,\
+        CNT_POLY
+
+    #define PROFILE_SOUND\
+        CNT_SOUND
+
+    #if defined(PROFILE_FRAMETIME)
+        enum ProfileCounterId {
+            PROFILE_FRAME,
+            CNT_MAX,
+            PROFILE_STAGES,
+            PROFILE_SOUND
+        };
+    #elif defined(PROFILE_SOUNDTIME)
+        enum ProfileCounterId {
+            PROFILE_SOUND,
+            CNT_MAX,
+            PROFILE_FRAME,
+            PROFILE_STAGES
+        };
+    #else
+        enum ProfileCounterId {
+            PROFILE_STAGES,
+            CNT_MAX,
+            PROFILE_FRAME,
+            PROFILE_SOUND
+        };
+    #endif
+
+    extern uint32 gCounters[CNT_MAX];
+    
+    #if defined(__3DO__) || defined(__32X__) // should be first, armcpp bug (#elif)
+        extern int32 g_timer;
+
+        #define PROFILE_START() {\
+            g_timer = osGetSystemTimeMS();\
+        }
+
+        #define PROFILE_STOP(value) {\
+            value += (osGetSystemTimeMS() - g_timer);\
+        }
+    #elif defined(__WIN32__) || defined(__GBA_WIN__)
+        extern LARGE_INTEGER g_timer;
+        extern LARGE_INTEGER g_current;
+
+        #define PROFILE_START() {\
+            QueryPerformanceCounter(&g_timer);\
+        }
+
+        #define PROFILE_STOP(value) {\
+            QueryPerformanceCounter(&g_current);\
+            value += uint32(g_current.QuadPart - g_timer.QuadPart);\
+        }
+    #elif defined(__GBA__)
+        #ifdef PROFILE_SOUNDTIME
+            #define TIMER_FREQ_DIV 1
+        #else
+            #define TIMER_FREQ_DIV 3
+        #endif
+
+        #define PROFILE_START() {\
+            REG_TM2CNT_L = 0;\
+            REG_TM2CNT_H = (1 << 7) | TIMER_FREQ_DIV;\
+        }
+
+        #define PROFILE_STOP(value) {\
+            value += REG_TM2CNT_L;\
+            REG_TM2CNT_H = 0;\
+        }
+    #else
+        #define PROFILE_START() aaa
+        #define PROFILE_STOP(value) bbb
+    #endif
+
+    struct ProfileCounter
+    {
+        ProfileCounterId cnt;
+
+        ProfileCounter(ProfileCounterId cnt) : cnt(cnt) {
+            if (cnt < CNT_MAX) {
+                PROFILE_START()
+            }
+        }
+
+        ~ProfileCounter() {
+            if (cnt < CNT_MAX) {
+                PROFILE_STOP(gCounters[cnt]);
+            }
+        }
+    };
+
+    #define PROFILE(cnt) ProfileCounter profileCounter(cnt)
+    #define PROFILE_CLEAR() memset(gCounters, 0, sizeof(gCounters));
+#else
+    #define PROFILE(cnt)
+    #define PROFILE_CLEAR()
+#endif
+
 
 #endif

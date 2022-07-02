@@ -94,6 +94,7 @@
 .equ MIN_INT32,     0x80000000
 .equ MAX_INT32,     0x7FFFFFFF
 
+// res = divTable[x] (uint16)
 .macro divLUT res, x
     add \res, \x, #DIVLUT_ADDR
     ldrh \res, [\res, \x]

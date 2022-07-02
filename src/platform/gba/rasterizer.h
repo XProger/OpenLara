@@ -514,7 +514,7 @@ void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
 #ifdef ALIGNED_LIGHTMAP
-    ASSERT((intptr_t(lightmap) & 0xFFFF) == 0); // lightmap should be 64k aligned
+    ASSERT((intptr_t(gLightmap) & 0xFFFF) == 0); // lightmap should be 64k aligned
 #endif
 
     int32 Lh = 0, Rh = 0;
@@ -629,7 +629,7 @@ void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 }
 
             #ifdef ALIGNED_LIGHTMAP
-                g += intptr_t(lightmap);
+                g += intptr_t(gLightmap);
             #endif
 
                 width >>= 1;
@@ -809,7 +809,7 @@ void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
 #ifdef ALIGNED_LIGHTMAP
-    ASSERT((intptr_t(lightmap) & 0xFFFF) == 0); // lightmap should be 64k aligned
+    ASSERT((intptr_t(gLightmap) & 0xFFFF) == 0); // lightmap should be 64k aligned
 #endif
 
     int32 Lh = 0, Rh = 0;
@@ -935,7 +935,7 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 }
 
             #ifdef ALIGNED_LIGHTMAP
-                g += intptr_t(lightmap);
+                g += intptr_t(gLightmap);
             #endif
 
                 width >>= 1;

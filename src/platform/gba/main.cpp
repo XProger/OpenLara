@@ -214,7 +214,7 @@ const void* osLoadLevel(LevelID id)
 
     delete[] levelData;
 
-    sprintf(buf, "data/%s.PKD", gLevelInfo[id].data);
+    sprintf(buf, "data/%s.PKD", (const char*)gLevelInfo[id].data);
 
     FILE *f = fopen(buf, "rb");
 

@@ -34,6 +34,8 @@ minXY       .req vy
 maxXY       .req vz
 
 tmp         .req vy
+dx          .req vz
+dy          .req tmp
 dz          .req vz
 fog         .req vz
 
@@ -59,8 +61,11 @@ transformRoom_asm:
     ldr m, [m]
     fiq_on
     ldmia m!, {mx0, my0, mz0, mw0,  mx1, my1, mz1, mw1}
-    ldmia m, {mx2, my2, mz2, mw2}^
+    asr mw0, #FIXED_SHIFT
+    asr mw1, #FIXED_SHIFT
     fiq_off
+    ldmia m, {mx2, my2, mz2, mw2}
+    asr mw2, #FIXED_SHIFT
 
 .loop:
     // unpack vertex
@@ -71,10 +76,10 @@ transformRoom_asm:
     and vx, mask, v, lsl #10
 
     // transform z
-    mla z, mx2, vx, mw2
+    mul z, mx2, vx
     mla z, my2, vy, z
     mla z, mz2, vz, z
-    asr z, #FIXED_SHIFT
+    add z, mw2, z, asr #FIXED_SHIFT
 
     // skip if vertex is out of z-range
     add z, #VIEW_OFF
@@ -87,16 +92,16 @@ transformRoom_asm:
 
     fiq_on
     // transform y
-    mla y, mx1, vx, mw1
+    mul y, mx1, vx
     mla y, my1, vy, y
     mla y, mz1, vz, y
-    asr y, #FIXED_SHIFT
+    add y, mw1, y, asr #FIXED_SHIFT
 
     // transform x
-    mla x, mx0, vx, mw0
+    mul x, mx0, vx
     mla x, my0, vy, x
     mla x, mz0, vz, x
-    asr x, #FIXED_SHIFT
+    add x, mw0, x, asr #FIXED_SHIFT
     fiq_off
 
     // fog
@@ -116,13 +121,13 @@ transformRoom_asm:
     orrge vg, #CLIP_FAR
 
     // project
-    mov dz, z, lsr #6
-    add dz, z, lsr #4
+    mov dz, z, lsr #4
+    add dz, z, lsr #6
     divLUT tmp, dz
-    mul x, tmp, x
-    mul y, tmp, y
-    asr x, #(16 - PROJ_SHIFT)
-    asr y, #(16 - PROJ_SHIFT)
+    mul dx, x, tmp
+    mul dy, y, tmp
+    asr x, dx, #(16 - PROJ_SHIFT)
+    asr y, dy, #(16 - PROJ_SHIFT)
 
     // portal rect clipping
     ldmia sp, {minXY, maxXY}
