@@ -116,8 +116,8 @@ X_INLINE Face* faceAdd(int32 depth)
 
 extern "C" {
     X_NOINLINE void drawPoly(uint32 flags, VertexLink* v, const ColorIndex* tile);
-    X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v, const ColorIndex* tile);
-    X_NOINLINE void drawQuad(uint32 flags, VertexLink* v, const ColorIndex* tile);
+    X_INLINE void drawTriangle(uint32 flags, VertexLink* v, const ColorIndex* tile);
+    X_INLINE void drawQuad(uint32 flags, VertexLink* v, const ColorIndex* tile);
 }
 
 extern "C" {
@@ -598,6 +598,26 @@ int32 sphereIsVisible_c(int32 sx, int32 sy, int32 sz, int32 r)
 
 void flush_ot(int32 bit)
 {
+    VertexLink v[4 + 3];
+    VertexLink* q = v;
+    VertexLink* t = v + 4;
+    // quad
+    q[0].prev = 3;
+    q[0].next = 1;
+    q[1].prev = -1;
+    q[1].next = 1;
+    q[2].prev = -1;
+    q[2].next = 1;
+    q[3].prev = -1;
+    q[3].next = -3;
+    // triangle
+    t[0].prev = 2;
+    t[0].next = 1;
+    t[1].prev = -1;
+    t[1].next = 1;
+    t[2].prev = -1;
+    t[2].next = -2;
+
     int32 index = 0;
     const ColorIndex* tile = NULL;
 
@@ -617,37 +637,37 @@ void flush_ot(int32 bit)
 
             uint32 flags = face->flags;
 
-            VertexLink v[16];
-
             uint32 type = (flags >> FACE_TYPE_SHIFT) & FACE_TYPE_MASK;
 
             if (type <= FACE_TYPE_GTA)
             {
+                VertexLink* ptr = (flags & FACE_TRIANGLE) ? t : q;
+
                 if (type > FACE_TYPE_F)
                 {
                     const Texture &tex = level.textures[flags & FACE_TEXTURE];
                     tile = (ColorIndex*)tex.tile;
 
-                    v[0].t.t = 0xFF00FF00 & (tex.uv01);
-                    v[1].t.t = 0xFF00FF00 & (tex.uv01 << 8);
-                    v[2].t.t = 0xFF00FF00 & (tex.uv23);
-                    v[3].t.t = 0xFF00FF00 & (tex.uv23 << 8);
+                    ptr[0].t.t = 0xFF00FF00 & (tex.uv01);
+                    ptr[1].t.t = 0xFF00FF00 & (tex.uv01 << 8);
+                    ptr[2].t.t = 0xFF00FF00 & (tex.uv23);
+                    ptr[3].t.t = 0xFF00FF00 & (tex.uv23 << 8);
                 }
 
-                v[0].v = gVertices[face->indices[0]];
-                v[1].v = gVertices[face->indices[1]];
-                v[2].v = gVertices[face->indices[2]];
+                ptr[0].v = gVertices[face->indices[0]];
+                ptr[1].v = gVertices[face->indices[1]];
+                ptr[2].v = gVertices[face->indices[2]];
                 if (!(flags & FACE_TRIANGLE)) {
-                    v[3].v = gVertices[face->indices[3]];
+                    ptr[3].v = gVertices[face->indices[3]];
                 }
 
                 if (flags & FACE_CLIPPED) {
-                    drawPoly(flags, v, tile);
+                    drawPoly(flags, ptr, tile);
                 } else {
                     if (flags & FACE_TRIANGLE) {
-                        drawTriangle(flags, v, tile);
+                        drawTriangle(flags, ptr, tile);
                     } else {
-                        drawQuad(flags, v, tile);
+                        drawQuad(flags, ptr, tile);
                     }
                 }
             }
@@ -716,7 +736,7 @@ void flush_c()
     PROFILE(CNT_FLUSH);
 
     MARS_WAIT();
-    CacheClear();    
+    CacheClear();
 
     MARS_SYS_COMM2 = OT_SIZE;
     MARS_SYS_COMM6 = OT_SIZE;
@@ -732,67 +752,6 @@ void flush_c()
     CacheControl(0);
     CacheControl(SH2_CCTL_CP | SH2_CCTL_CE);
 #endif
-}
-
-VertexLink* clipPoly(VertexLink* poly, VertexLink* tmp, int32 &pCount)
-{
-    #define LERP_SHIFT          6
-    #define LERP(a,b,t)         (b + ((a - b) * t >> LERP_SHIFT))
-    //#define LERP2(a,b,ta,tb)    LERP(a,b,t)
-    #define LERP2(a,b,ta,tb)    (b + (((a - b) * ta / tb) >> LERP_SHIFT) ) // less gaps between clipped polys, but slow
-
-    #define CLIP_AXIS(X, Y, edge, output) {\
-        int32 ta = (edge - b->v.X) << LERP_SHIFT;\
-        int32 tb = (a->v.X - b->v.X);\
-        ASSERT(tb != 0);\
-        int32 t = ta / tb;\
-        VertexLink* v = output + count++;\
-        v->v.X = edge;\
-        v->v.Y = LERP2(a->v.Y, b->v.Y, ta, tb);\
-        v->v.g = LERP(a->v.g, b->v.g, t);\
-        v->t.uv.u = LERP(a->t.uv.u, b->t.uv.u, t);\
-        v->t.uv.v = LERP(a->t.uv.v, b->t.uv.v, t);\
-    }
-
-    #define CLIP_XY(X, Y, X0, X1, input, output) {\
-        const VertexLink *a, *b = input + pCount - 1;\
-        for (int32 i = 0; i < pCount; i++) {\
-            a = b;\
-            b = input + i;\
-            if (a->v.X < X0) {\
-                if (b->v.X < X0) continue;\
-                CLIP_AXIS(X, Y, X0, output);\
-            } else if (a->v.X > X1) {\
-                if (b->v.X > X1) continue;\
-                CLIP_AXIS(X, Y, X1, output);\
-            }\
-            if (b->v.X < X0) {\
-                CLIP_AXIS(X, Y, X0, output);\
-            } else if (b->v.X > X1) {\
-                CLIP_AXIS(X, Y, X1, output);\
-            } else {\
-                output[count++] = *b;\
-            }\
-        }\
-        if (count < 3) return NULL;\
-    }
-
-    int32 count = 0;
-
-    VertexLink *in = poly;
-    VertexLink *out = tmp;
-
-    // clip x
-    CLIP_XY(x, y, 0, FRAME_WIDTH, in, out);
-
-    pCount = count;
-    count = 0;
-
-    // clip y
-    CLIP_XY(y, x, 0, FRAME_HEIGHT, out, in);
-    pCount = count;
-
-    return in;
 }
 
 void renderInit()
@@ -813,142 +772,113 @@ void renderLevelFree()
 {
 }
 
-extern "C" X_NOINLINE void drawTriangle(uint32 flags, VertexLink* v, const ColorIndex* tile)
+extern "C" X_INLINE void drawTriangle(uint32 flags, VertexLink* v, const ColorIndex* tile)
 {
-    VertexLink* v0 = v + 0;
-    VertexLink* v1 = v + 1;
-    VertexLink* v2 = v + 2;
-
-    v0->next = v1 - v0;
-    v1->next = v2 - v1;
-    v2->next = v0 - v2;
-    v0->prev = v2 - v0;
-    v1->prev = v0 - v1;
-    v2->prev = v1 - v2;
-
-   VertexLink* top;
-
-    if (v0->v.y < v1->v.y) {
-        if (v0->v.y < v2->v.y) {
-            top = v0;
-        } else {
-            top = v2;
-        }
-    } else {
-        if (v1->v.y < v2->v.y) {
-            top = v1;
-        } else {
-            top = v2;
-        }
-    }
-
+    VertexLink* top = v;
+    if (top->v.y > v[1].v.y) top = v + 1;
+    if (top->v.y > v[2].v.y) top = v + 2;
     rasterize(flags, top, tile);
 }
 
-extern "C" X_NOINLINE void drawQuad(uint32 flags, VertexLink* v, const ColorIndex* tile)
+extern "C" X_INLINE void drawQuad(uint32 flags, VertexLink* v, const ColorIndex* tile)
 {
-    VertexLink* v0 = v + 0;
-    VertexLink* v1 = v + 1;
-    VertexLink* v2 = v + 2;
-    VertexLink* v3 = v + 3;
-
-    v0->next = v1 - v0;
-    v1->next = v2 - v1;
-    v2->next = v3 - v2;
-    v3->next = v0 - v3;
-    v0->prev = v3 - v0;
-    v1->prev = v0 - v1;
-    v2->prev = v1 - v2;
-    v3->prev = v2 - v3;
-
-    VertexLink* top;
-
-    if (v0->v.y < v1->v.y) {
-        if (v0->v.y < v2->v.y) {
-            top = (v0->v.y < v3->v.y) ? v0 : v3;
-        } else {
-            top = (v2->v.y < v3->v.y) ? v2 : v3;
-        }
-    } else {
-        if (v1->v.y < v2->v.y) {
-            top = (v1->v.y < v3->v.y) ? v1 : v3;
-        } else {
-            top = (v2->v.y < v3->v.y) ? v2 : v3;
-        }
-    }
-
+    VertexLink* top = v;
+    if (top->v.y > v[1].v.y) top = v + 1;
+    if (top->v.y > v[2].v.y) top = v + 2;
+    if (top->v.y > v[3].v.y) top = v + 3;
     rasterize(flags, top, tile);
 }
 
 extern "C" X_NOINLINE void drawPoly(uint32 flags, VertexLink* v, const ColorIndex* tile)
 {
-    VertexLink tmp[16];
+    #define LERP_SHIFT          6
+    #define LERP(a,b,t)         (b + ((a - b) * t >> LERP_SHIFT))
+    //#define LERP2(a,b,ta,tb)    LERP(a,b,t)
+    #define LERP2(a,b,ta,tb)    (b + (((a - b) * ta / tb) >> LERP_SHIFT) ) // less gaps between clipped polys, but slow
 
-    int32 count = (flags & FACE_TRIANGLE) ? 3 : 4;
-
-    v = clipPoly(v, tmp, count);
-
-    if (!v) return;
-
-    if (count <= 4)
-    {
-        if (count == 3) {
-
-            if (v[0].v.y == v[1].v.y &&
-                v[0].v.y == v[2].v.y)
-                return;
-
-            drawTriangle(flags, v, tile);
-        } else {
-
-            if (v[0].v.y == v[1].v.y &&
-                v[0].v.y == v[2].v.y &&
-                v[0].v.y == v[3].v.y)
-                return;
-
-            drawQuad(flags, v, tile);
-        }
-        return;
+    #define CLIP_AXIS(X, Y, edge, output) {\
+        int32 ta = (edge - b->v.X) << LERP_SHIFT;\
+        int32 tb = (a->v.X - b->v.X);\
+        ASSERT(tb != 0);\
+        int32 t = ta / tb;\
+        ASSERT(count < 8);\
+        VertexLink* p = output + count++;\
+        p->v.X = edge;\
+        p->v.Y = LERP2(a->v.Y, b->v.Y, ta, tb);\
+        p->v.g = LERP(a->v.g, b->v.g, t);\
+        p->t.uv.u = LERP(a->t.uv.u, b->t.uv.u, t);\
+        p->t.uv.v = LERP(a->t.uv.v, b->t.uv.v, t);\
     }
 
-    VertexLink* top = v;
-    top->next = (v + 1) - top;
-    top->prev = (v + count - 1) - top;
+    #define CLIP_XY(X, Y, X0, X1, input, output) {\
+        const VertexLink *a, *b = input + pCount - 1;\
+        for (int32 i = 0; i < pCount; i++) {\
+            a = b;\
+            b = input + i;\
+            if (a->v.X < X0) {\
+                if (b->v.X < X0) continue;\
+                CLIP_AXIS(X, Y, X0, output);\
+            } else if (a->v.X > X1) {\
+                if (b->v.X > X1) continue;\
+                CLIP_AXIS(X, Y, X1, output);\
+            }\
+            if (b->v.X < X0) {\
+                CLIP_AXIS(X, Y, X0, output);\
+            } else if (b->v.X > X1) {\
+                CLIP_AXIS(X, Y, X1, output);\
+            } else {\
+                ASSERT(count < 8);\
+                output[count++] = *b;\
+            }\
+        }\
+        if (count < 3) return;\
+    }
 
-    bool skip = true;
+    VertexLink tmp[8];
+    VertexLink out[8];
 
-    for (int32 i = 1; i < count; i++)
+    int32 pCount = (flags & FACE_TRIANGLE) ? 3 : 4;
+    int32 count = 0;
+
+    // clip x
+    CLIP_XY(x, y, 0, FRAME_WIDTH, v, tmp);
+
+    pCount = count;
+    count = 0;
+
+    // clip y
+    CLIP_XY(y, x, 0, FRAME_HEIGHT, tmp, out);
+
+    VertexLink* first = out;
+    VertexLink* last = out + count - 1;
+
+    bool skip = (first->v.y == last->v.y);
+
+    VertexLink* top = (first->v.y < last->v.y) ? first : last;
+    first->prev = count - 1;
+    first->next = 1;
+    last->prev = -1;
+    last->next = 1 - count;
+
+    for (int32 i = 1; i < count - 1; i++)
     {
-        int8 next = i + 1;
-        int8 prev = i - 1;
-
-        if (next >= count) {
-            next -= count;
-        }
-
-        if (prev < 0) {
-            prev += count;
-        }
-
-        next -= i;
-        prev -= i;
-
-        VertexLink *p = v + i;
-        p->next = next;
-        p->prev = prev;
+        VertexLink* p = out + i;
 
         if (p->v.y != top->v.y)
         {
-            if (p->v.y < top->v.y) {
+            if (p->v.y < top->v.y)
+            {
                 top = p;
             }
             skip = false;
         }
+
+        p->prev = -1;
+        p->next = 1;
     }
 
-    if (skip) {
-        return; // zero height poly
-    }
+    if (skip)
+        return;
 
     rasterize(flags, top, tile);
 }

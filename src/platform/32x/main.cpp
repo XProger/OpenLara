@@ -84,9 +84,14 @@ void updateInput()
     if (mask & SEGA_CTRL_MODE)    keys |= IK_SELECT;
 }
 
-void* osLoadLevel(const char* name)
+const void* osLoadScreen(LevelID id)
 {
-    return (void*)LEVEL1_PKD;
+    return TITLE_SCR;
+}
+
+const void* osLoadLevel(LevelID id)
+{
+    return (void*)LEVEL1_PKD; // TODO
 }
 
 uint16 pageIndex = 0;
@@ -190,7 +195,7 @@ int main()
 
     MARS_SYS_COMM4 = 0;
 
-    gameInit(gLevelInfo[gLevelID].name);
+    gameInit();
 
     int32 lastFrame = (gFrameIndex >> 1) - 1;
     int32 fpsCounter = 0;

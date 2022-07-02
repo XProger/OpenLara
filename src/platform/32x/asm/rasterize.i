@@ -11,7 +11,7 @@
 .align 4
 .global _rasterize_asm
 _rasterize_asm:
-        mov     tile, r7
+        mov     tile, r7                // set 4th arg for proc
         mov     flags, type
         shll2   type
         shlr16  type
@@ -19,7 +19,7 @@ _rasterize_asm:
 
         cmp/eq  #FACE_TYPE_F, type      // cmp/eq #imm is 8-bit
         bf/s    .getProc
-        mov     L, R
+        mov     L, R                    // [delay slot]
         extu.b  flags, R
 
 .getProc: // proc = table[type]
@@ -29,13 +29,14 @@ _rasterize_asm:
 
         // pixel = fb + y * 320 = fb + y * 256 + y * 64
         mov.w   @(VERTEX_Y, L), y
+        // FRAME_WIDTH = 320 = 256 + 64
         mov.l   var_fb, pixel
         shll8   y
         add     y, pixel        // pixel += y * 256
         shar    y
         shar    y
         jmp     @proc
-        add     y, pixel        // pixel += y * 64
+        add     y, pixel        // [delay slot] pixel += y * 64
 
 .align 2
 var_fb:
@@ -49,7 +50,7 @@ var_table:
         .long 0xC0000000 + _rasterizeFT_asm - _block_render_start
         .long 0xC0000000 + _rasterizeFT_asm - _block_render_start
         .long 0xC0000000 + _rasterizeGT_asm - _block_render_start
-        .long 0xC0000000 + _rasterizeGT_asm - _block_render_start        
+        .long 0xC0000000 + _rasterizeGT_asm - _block_render_start
 #else
         .long _rasterizeS_asm
         .long _rasterizeF_asm
