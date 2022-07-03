@@ -250,14 +250,19 @@ void* readFile(char* fileName, void* buffer, int32 bufferSize)
     return ptr;
 }
 
-void* osLoadLevel(const char* name)
+const void* osLoadScreen(LevelID id)
+{
+    return TITLE_SCR;
+}
+
+const void* osLoadLevel(LevelID id)
 {
     char buf[32];
 
-    sprintf(buf, "data/%s.D", name);
+    sprintf(buf, "data/%s.D", (const char*)gLevelInfo[id].data);
     readFile(buf, RAM_LVL, MAX_RAM_LVL);
 
-    sprintf(buf, "data/%s.V", name);
+    sprintf(buf, "data/%s.V", (const char*)gLevelInfo[id].data);
     readFile(buf, RAM_TEX, MAX_RAM_TEX);
 
     return RAM_LVL;
@@ -308,7 +313,7 @@ int main(int argc, char *argv[])
 
     sndInit();
 
-    gameInit(gLevelInfo[gLevelID].name);
+    gameInit();
 
     AvailMem(&memInfoVRAM, MEMTYPE_DRAM);
     printf("DRAM: %d\n", memInfoVRAM.minfo_SysFree);

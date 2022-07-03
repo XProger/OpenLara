@@ -71,7 +71,7 @@ enum InvSlot {
     SLOT_SOUND,
     SLOT_CONTROLS,
     SLOT_HOME,
-    SLOT_MAX,
+    SLOT_MAX
 };
 
 enum PassportPage {
@@ -283,8 +283,8 @@ struct Inventory
             case ITEM_SCION_PICKUP_QUALOPEC :
             case ITEM_SCION_PICKUP_DROP     :
             case ITEM_SCION_PICKUP_HOLDER   : return ITEM_INV_SCION;
-            default                         : return type;
         }
+        return type;
     }
 
     InvSlot remapToSlot(ItemType type)
@@ -313,8 +313,8 @@ struct Inventory
             case ITEM_KEYHOLE_2    : return SLOT_KEY_ITEM_2;
             case ITEM_KEYHOLE_3    : return SLOT_KEY_ITEM_3;
             case ITEM_KEYHOLE_4    : return SLOT_KEY_ITEM_4;
-            default                : return SLOT_MAX;
         }
+        return SLOT_MAX;
     }
 
     void add(ItemType type, int32 count = 1)

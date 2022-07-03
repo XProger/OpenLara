@@ -49,7 +49,7 @@ EWRAM_DATA int32 gBrightness;
     #include "fmt/psx.h"
 #endif
 
-bool readLevelStream(Stream& f)
+bool readLevelStream(DataStream& f)
 {
 #ifdef CPU_BIG_ENDIAN
     f.bigEndian = true;
@@ -70,7 +70,7 @@ bool readLevelStream(Stream& f)
         return true;
 #endif
 
-    LOG("Unsupported level format\n");
+    //LOG("Unsupported level format\n");
     ASSERT(false);
 
     return false;
@@ -86,7 +86,7 @@ void readLevel(const uint8* data)
 
     gAnimTexFrame = 0;
 
-    Stream f(data, 0);
+    DataStream f(data, 0);
     readLevelStream(f);
 
     // prepare models // TODO prerocess

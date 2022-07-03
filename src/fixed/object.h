@@ -67,17 +67,17 @@ struct Object : ItemObj
     bool isActive()
     {
         if (((flags & ITEM_FLAG_MASK) != ITEM_FLAG_MASK) || (timer == -1))
-            return (flags & ITEM_FLAG_REVERSE);
+            return (flags & ITEM_FLAG_REVERSE) != 0;
 
         if (timer == 0)
-            return !(flags & ITEM_FLAG_REVERSE);
+            return (flags & ITEM_FLAG_REVERSE) == 0;
 
         timer--;
 
         if (timer == 0)
             timer = -1;
 
-        return !(flags & ITEM_FLAG_REVERSE);
+        return (flags & ITEM_FLAG_REVERSE) == 0;
     }
 
     bool checkLimit(Lara* lara, const int16* limitData)
@@ -339,7 +339,7 @@ struct Gears : Object
 {
     enum {
         STATE_STATIC,
-        STATE_ROTATE,
+        STATE_ROTATE
     };
 
     Gears(Room* room) : Object(room) {}

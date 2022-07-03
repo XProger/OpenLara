@@ -130,6 +130,18 @@ void renderInit()
     }
 }
 
+void renderFree()
+{
+}
+
+void renderLevelInit()
+{
+}
+
+void renderLevelFree()
+{
+}
+
 void setViewport(const RectMinMax &vp)
 {
     viewport = vp;

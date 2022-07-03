@@ -3,14 +3,14 @@
 
 #include "common.h"
 
-struct Stream
+struct DataStream
 {
     const uint8* data;
     int32 size;
     int32 pos;
     bool bigEndian;
 
-    Stream(const uint8* data, int32 size) : data(data), size(size), pos(0), bigEndian(false)
+    DataStream(const uint8* data, int32 size) : data(data), size(size), pos(0), bigEndian(false)
     {
         //
     }

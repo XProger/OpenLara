@@ -189,7 +189,7 @@ void Sector::getTriggerFloorCeiling(int32 x, int32 y, int32 z, int32* floor, int
 }
 
 #ifndef __32X__
-#ifndef USE_ASM
+#if !defined(USE_ASM) || defined(__3DO__) // TODO for 3DO
 const Sector* Room::getSector(int32 x, int32 z) const
 {
     // TODO remove clamp?

@@ -177,7 +177,7 @@
         #define LOG(...)    printf(__VA_ARGS__)
     #endif
 #else
-    #define LOG(...)
+    #define LOG()
 #endif
 
 #if !defined(__3DO__)
@@ -533,7 +533,7 @@ enum InputKey {
     IK_LT       = (1 << 12),
     IK_RT       = (1 << 13),
     IK_START    = (1 << 14),
-    IK_SELECT   = (1 << 15),
+    IK_SELECT   = (1 << 15)
 };
 
 // action keys (ItemObj::input)

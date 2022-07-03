@@ -4,7 +4,7 @@
 #include "common.h"
 #include "stream.h"
 
-bool read_PKD(Stream &f)
+bool read_PKD(DataStream &f)
 {
     const uint8* data = f.getPtr();
 

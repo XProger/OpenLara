@@ -143,7 +143,7 @@ int32 getTextWidth(const char* text)
     int32 w = 0;
 
     char c;
-    while ((c = *text++))
+    while ((c = *text++) != 0)
     {
         if (c == ' ') {
             w += 6;
@@ -170,7 +170,7 @@ void drawText(int32 x, int32 y, const char* text, TextAlign align)
 
     int32 index;
     char c;
-    while ((c = *text++))
+    while ((c = *text++) != 0)
     {
         if (c == ' ') {
             x += 6;

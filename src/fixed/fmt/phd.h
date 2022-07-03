@@ -4,7 +4,7 @@
 #include "common.h"
 #include "stream.h"
 
-bool read_PHD(Stream &f)
+bool read_PHD(DataStream &f)
 {
     uint8* ptr = gLevelData;
 

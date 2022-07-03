@@ -40,6 +40,7 @@
     <ClInclude Include="..\..\fixed\nav.h" />
     <ClInclude Include="..\..\fixed\object.h" />
     <ClInclude Include="..\..\fixed\room.h" />
+    <ClInclude Include="..\..\fixed\stream.h" />
     <ClInclude Include="rasterizer.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
