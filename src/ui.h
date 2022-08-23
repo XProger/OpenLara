@@ -545,6 +545,7 @@ namespace UI {
         showHelp = false;
         helpTipTime = 5.0f;
         hintTime = subsTime = 0.0f;
+        pickups.clear();
     }
 
     void deinit() {
