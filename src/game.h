@@ -217,7 +217,9 @@ namespace Game {
             }
         }
 
-        if (!level->level.isTitle()) {
+        // Only check for cStart if the inventory is not active.
+        // Otherwise if cStart was binded to item selection key in inventory it would reset the player.
+        if (!level->level.isTitle() && !inventory->isActive()) {
             if (Input::lastState[0] == cStart) level->addPlayer(0);
             if (Input::lastState[1] == cStart) level->addPlayer(1);
         }
