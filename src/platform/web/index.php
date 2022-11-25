@@ -10,6 +10,7 @@
 			body {
 				margin: 0px;
 				font-size: 1.0em;
+				touch-action: none;
 			}
 			.game_fs {
 				position: fixed;
@@ -32,7 +33,9 @@
 			</style>
 			<meta charset="utf-8">
 			<meta name="apple-mobile-web-app-capable" content="yes">
-			<meta name="viewport" content="width=854, user-scalable=no">
+			<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+			<meta name="viewport" content="viewport-fit=cover, user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+			<!--<meta name="viewport" content="width=854, user-scalable=no">-->
 		</head>
 		<body>
 			<button id="goFS">Go fullscreen</button>
@@ -221,7 +224,7 @@
 				//	return "Really want to quit the game?";
 				//};
 
-				var isMobile = !!navigator.platform && /iPad|iPhone|iPod/.test(navigator.platform);
+				var isMobile = !!navigator.platform && (/iPad|iPhone|iPod/.test(navigator.platform) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
 				if (isMobile) {
 					canvasElement.className = "game_fs";

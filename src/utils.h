@@ -2405,17 +2405,17 @@ struct BitStream {
     BitStream(uint8 *data, int size) : data(data), end(data + size), index(0), value(0) {}
 
     inline uint32 readBit() {
-       uint32 bit;
+        uint32 bit;
 
-       if (!index--) {
-          value = *data++;
-          index = 7;
-       }
+        if (!index--) {
+            value = *data++;
+            index = 7;
+        }
 
-       bit = value & 1;
-       value >>= 1;
+        bit = value & 1;
+        value >>= 1;
 
-       return bit;
+        return bit;
     }
 
     uint32 read(int count) {

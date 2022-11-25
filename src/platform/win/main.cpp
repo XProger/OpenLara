@@ -162,7 +162,6 @@ void joyInit() {
     for (int j = 0; j < INPUT_JOY_COUNT; j++) {
         if (_XInputGetState) { // XInput
             XINPUT_STATE state;
-            int res = _XInputGetState(j, &state);
             joyDevice[j].ready = (_XInputGetState(j, &state) == ERROR_SUCCESS);
         } else { // mmSystem (legacy)
             JOYINFOEX info;

@@ -1371,7 +1371,7 @@ namespace Core {
 
     void endFrame() {
         if (active.target != defaultTarget) {
-            GAPI::setTarget(NULL, NULL, 0);
+            setTarget(NULL, NULL, 0);
             validateRenderState();
         }
         GAPI::endFrame();
