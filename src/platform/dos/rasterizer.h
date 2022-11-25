@@ -33,7 +33,7 @@ void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -52,7 +52,7 @@ void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             if (N->v.y < R->v.y) return;
 
@@ -128,7 +128,8 @@ void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
 void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
-    uint16 color = gLightmap[(L->v.g << 8) | L->t.t];
+    uint32 color = (uint32)R;
+    color = gLightmap[(L->v.g << 8) | color];
     color |= (color << 8);
 
     int32 Lh = 0;
@@ -142,7 +143,7 @@ void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             ASSERT(L->v.y >= 0);
 
@@ -163,7 +164,7 @@ void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             ASSERT(R->v.y >= 0);
 
@@ -231,128 +232,6 @@ void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     }
 }
 
-void rasterizeG_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
-{
-    int32 Lh = 0, Rh = 0;
-    int32 Lx, Rx, Ldx = 0, Rdx = 0;
-    int32 Lg, Rg, Ldg = 0, Rdg = 0;
-
-    const uint8* ft_lightmap = gLightmap + L->t.t;
-
-    while (1)
-    {
-        while (!Lh)
-        {
-            const VertexLink* N = L->prev;
-
-            if (N->v.y < L->v.y) return;
-
-            Lh = N->v.y - L->v.y;
-            Lx = L->v.x;
-            Lg = L->v.g;
-
-            if (Lh > 1)
-            {
-                int32 tmp = FixedInvU(Lh);
-                Ldx = tmp * (N->v.x - Lx);
-                Ldg = tmp * (N->v.g - Lg);
-            }
-
-            Lx <<= 16;
-            Lg <<= 16;
-            L = N;
-        }
-
-        while (!Rh) 
-        {
-            const VertexLink* N = R->next;
-
-            if (N->v.y < R->v.y) return;
-
-            Rh = N->v.y - R->v.y;
-            Rx = R->v.x;
-            Rg = R->v.g;
-
-            if (Rh > 1)
-            {
-                int32 tmp = FixedInvU(Rh);
-                Rdx = tmp * (N->v.x - Rx);
-                Rdg = tmp * (N->v.g - Rg);
-            }
-
-            Rx <<= 16;
-            Rg <<= 16;
-            R = N;
-        }
-
-        int32 h = X_MIN(Lh, Rh);
-        Lh -= h;
-        Rh -= h;
-
-        while (h--)
-        {
-            int32 x1 = Lx >> 16;
-            int32 x2 = Rx >> 16;
-
-            int32 width = x2 - x1;
-
-            if (width > 0)
-            {
-                int32 tmp = FixedInvU(width);
-
-                int32 dgdx = tmp * ((Rg - Lg) >> 5) >> 10;
-
-                int32 g = Lg;
-
-                volatile uint8* ptr = (uint8*)pixel + x1;
-
-                if (intptr_t(ptr) & 1)
-                {
-                    *ptr++ = ft_lightmap[g >> 16 << 8];
-                    g += dgdx >> 1;
-                    width--;
-                }
-
-                if (width & 1)
-                {
-                    ptr[width - 1] = ft_lightmap[Rg >> 16 << 8];
-                }
-
-                if (width & 2)
-                {
-                    uint8 p = ft_lightmap[g >> 16 << 8];
-                    g += dgdx;
-                    *(uint16*)ptr = p | (p << 8);
-                    ptr += 2;
-                }
-
-                width >>= 2;
-                while (width--)
-                {
-                    uint8 p;
-
-                    p = ft_lightmap[g >> 16 << 8];
-                    *(uint16*)ptr = p | (p << 8);
-                    g += dgdx;
-                    ptr += 2;
-
-                    p = ft_lightmap[g >> 16 << 8];
-                    *(uint16*)ptr = p | (p << 8);
-                    g += dgdx;
-                    ptr += 2;
-                }
-            }
-
-            pixel += VRAM_WIDTH;
-
-            Lx += Ldx;
-            Rx += Rdx;
-            Lg += Ldg;
-            Rg += Rdg;
-        }
-    }
-}
-
 void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 {
     const uint8* ft_lightmap = &gLightmap[L->v.g << 8];
@@ -367,7 +246,7 @@ void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -392,7 +271,7 @@ void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             if (N->v.y < R->v.y) return;
 
@@ -494,13 +373,13 @@ void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
     // 8-bit fractional part precision for Gouraud component
     // has some artifacts but allow to save one reg for inner loop
-    // for aligned by 64k address of lightmap array
+    // with aligned by 64k address of lightmap array
 
     while (1)
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -528,7 +407,7 @@ void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             if (N->v.y < R->v.y) return;
 
@@ -655,7 +534,7 @@ void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
     {
         while (!Lh)
         {
-            const VertexLink* N = L->prev;
+            const VertexLink* N = L + L->prev;
 
             if (N->v.y < L->v.y) return;
 
@@ -680,7 +559,7 @@ void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
 
         while (!Rh) 
         {
-            const VertexLink* N = R->next;
+            const VertexLink* N = R + R->next;
 
             if (N->v.y < R->v.y) return;
 

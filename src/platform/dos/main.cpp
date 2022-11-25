@@ -160,16 +160,19 @@ bool osLoadGame()
 
 void osJoyVibrate(int32 index, int32 L, int32 R) {}
 
-void* osLoadLevel(const char* name)
+const void* osLoadScreen(LevelID id)
 {
-    sndStop();
+    return TITLE_SCR;
+}
 
-// level1
+const void* osLoadLevel(LevelID id)
+{
+    // level1
     char buf[32];
 
     delete[] levelData;
 
-    sprintf(buf, "data/%s.PKD", name);
+    sprintf(buf, "data/%s.PKD", (const char*)gLevelInfo[id].data);
 
     FILE *f = fopen(buf, "rb");
 
@@ -228,7 +231,7 @@ int main(void)
     videoAcquire();
     inputAcquire();
 
-    gameInit(gLevelInfo[gLevelID].name);
+    gameInit();
 
     int32 lastFrameIndex = -1;
 
