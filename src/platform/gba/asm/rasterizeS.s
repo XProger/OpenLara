@@ -23,6 +23,8 @@ Ry2     .req Rh
 Lxy     .req tmp
 Ly2     .req Lh
 indexB  .req pair
+Ltmp    .req N
+Rtmp    .req N
 
 .global rasterizeS_asm
 rasterizeS_asm:
@@ -32,13 +34,7 @@ rasterizeS_asm:
     mov LMAP, #LMAP_ADDR
     add LMAP, #0x1A00
 
-    mov Lh, #0                      // Lh = 0
     mov Rh, #0                      // Rh = 0
-
-.loop:
-
-    cmp Lh, #0
-      bne .calc_left_end        // if (Lh != 0) end with left
 
     .calc_left_start:
         ldr Lxy, [L, #VERTEX_X]     // Lxy = (L->v.y << 16) | (L->v.x)
@@ -56,9 +52,9 @@ rasterizeS_asm:
 
         divLUT tmp, Lh              // tmp = FixedInvU(Lh)
 
-        ldrsh Ldx, [L, #VERTEX_X]
-        sub Ldx, Lx, asr #16
-        mul Ldx, tmp                // Ldx = tmp * (N->v.x - Lx)
+        ldrsh Ltmp, [L, #VERTEX_X]
+        sub Ltmp, Lx, asr #16
+        mul Ldx, tmp, Ltmp          // Ldx = tmp * (N->v.x - Lx)
     .calc_left_end:
 
     cmp Rh, #0
@@ -80,9 +76,9 @@ rasterizeS_asm:
 
         divLUT tmp, Rh              // tmp = FixedInvU(Rh)
 
-        ldrsh Rdx, [R, #VERTEX_X]
-        sub Rdx, Rx, asr #16
-        mul Rdx, tmp                // Rdx = tmp * (N->v.x - Rx)
+        ldrsh Rtmp, [R, #VERTEX_X]
+        sub Rtmp, Rx, asr #16
+        mul Rdx, tmp, Rtmp          // Rdx = tmp * (N->v.x - Rx)
     .calc_right_end:
 
     cmp Rh, Lh              // if (Rh < Lh)
@@ -136,14 +132,16 @@ rasterizeS_asm:
       bne .scanline
 
 .scanline_end:
-    add Lx, Ldx                     // Lx += Ldx
-    add Rx, Rdx                     // Rx += Rdx
-    add pixel, #FRAME_WIDTH         // pixel += FRAME_WIDTH (240)
+    add Lx, Ldx                 // Lx += Ldx
+    add Rx, Rdx                 // Rx += Rdx
+    add pixel, #FRAME_WIDTH     // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start
 
-    b .loop
+    cmp Lh, #0
+      bne .calc_right_start
+      b .calc_left_start
 
 .exit:
     fiq_off

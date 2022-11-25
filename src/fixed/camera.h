@@ -223,8 +223,20 @@ void Camera::move(Location &to, int32 speed)
 
     vec3i d = to.pos - view.pos;
 
-    if (speed > 1) {
-        d /= speed;
+    if (speed > 1)
+    {
+        if (speed == 8)
+        {
+            d.x >>= 3;
+            d.y >>= 3;
+            d.z >>= 3;
+        }
+        else
+        {
+            d.x /= speed;
+            d.y /= speed;
+            d.z /= speed;
+        }
     }
 
     view.pos += d;
@@ -295,7 +307,7 @@ void Camera::updateFollow(ItemObj* item)
 
     Location best = getBestLocation(false);
 
-    move(best, lastFixed ? speed : 12);
+    move(best, lastFixed ? speed : 8);
 }
 
 void Camera::updateCombat(ItemObj* item)

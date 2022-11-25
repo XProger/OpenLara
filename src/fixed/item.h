@@ -113,6 +113,13 @@ int32 ItemObj::getFrames(const AnimFrame* &frameA, const AnimFrame* &frameB, int
 {
     const Anim* anim = level.anims + animIndex;
 
+    if (anim->frameBegin == anim->frameEnd)
+    {
+        frameA = frameB = (AnimFrame*)(level.animFrames + (anim->frameOffset >> 1));
+        animFrameRate = 1;
+        return 0;
+    }
+
     animFrameRate = anim->frameRate;
 
     int32 frameSize = (sizeof(AnimFrame) >> 1) + (level.models[type].count << 1);
@@ -122,9 +129,31 @@ int32 ItemObj::getFrames(const AnimFrame* &frameA, const AnimFrame* &frameB, int
 //    int32 d = FixedInvU(animFrameRate);
 //    int32 indexA = frame * d >> 16;
 
-    int32 indexA = frame / animFrameRate;
-    int32 frameDelta = frame - indexA * animFrameRate;
-    int32 indexB = indexA + 1;
+    int32 indexA, indexB;
+    int32 frameDelta;
+
+    if (animFrameRate == 1)
+    {
+        indexA = frame;
+        frameDelta = frame - indexA;
+    }
+    else if (animFrameRate == 2)
+    {
+        indexA = frame >> 1;
+        frameDelta = frame - (indexA << 1);
+    }
+    else if (animFrameRate == 4)
+    {
+        indexA = frame >> 2;
+        frameDelta = frame - (indexA << 2);
+    }
+    else
+    {
+        indexA = frame / animFrameRate;
+        frameDelta = frame - (indexA * animFrameRate);
+    }
+
+    indexB = indexA + 1;
 
     if (indexB * animFrameRate >= anim->frameEnd)
     {
@@ -414,8 +443,9 @@ void ItemObj::animSkip(int32 stateBefore, int32 stateAfter, bool advance)
     goalState = stateAfter;
 }
 
-#define ANIM_MOVE_LERP_POS  (16)
-#define ANIM_MOVE_LERP_ROT  ANGLE(2)
+#define ANIM_MOVE_LERP_POS_SHIFT    4
+#define ANIM_MOVE_LERP_POS          (1 << ANIM_MOVE_LERP_POS_SHIFT)
+#define ANIM_MOVE_LERP_ROT          ANGLE(2)
 
 void ItemObj::animProcess(bool movement)
 {
@@ -488,11 +518,20 @@ bool ItemObj::moveTo(const vec3i &point, ItemObj* item, bool lerp)
 
     vec3i posDelta = p - pos;
 
-    int32 dist = phd_sqrt(X_SQR(posDelta.x) + X_SQR(posDelta.y) + X_SQR(posDelta.z));
+    int32 dist = X_SQR(posDelta.x) + X_SQR(posDelta.y) + X_SQR(posDelta.z);
 
-    if (dist > ANIM_MOVE_LERP_POS) {
-        pos += (posDelta * ANIM_MOVE_LERP_POS) / dist;
-    } else {
+    if (dist > ANIM_MOVE_LERP_POS * ANIM_MOVE_LERP_POS)
+    {
+        dist = phd_sqrt(dist) >> 1;
+        ASSERT(dist < DIV_TABLE_SIZE);
+        dist = FixedInvU(dist);
+
+        pos.x += posDelta.x * dist >> (16 + 1 - ANIM_MOVE_LERP_POS_SHIFT);
+        pos.y += posDelta.y * dist >> (16 + 1 - ANIM_MOVE_LERP_POS_SHIFT);
+        pos.z += posDelta.z * dist >> (16 + 1 - ANIM_MOVE_LERP_POS_SHIFT);
+    }
+    else
+    {
         pos = p;
     }
 

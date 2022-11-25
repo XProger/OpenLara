@@ -283,6 +283,7 @@ struct Inventory
             case ITEM_SCION_PICKUP_QUALOPEC :
             case ITEM_SCION_PICKUP_DROP     :
             case ITEM_SCION_PICKUP_HOLDER   : return ITEM_INV_SCION;
+            default                         : ;
         }
         return type;
     }
@@ -313,6 +314,7 @@ struct Inventory
             case ITEM_KEYHOLE_2    : return SLOT_KEY_ITEM_2;
             case ITEM_KEYHOLE_3    : return SLOT_KEY_ITEM_3;
             case ITEM_KEYHOLE_4    : return SLOT_KEY_ITEM_4;
+            default                : ;
         }
         return SLOT_MAX;
     }
@@ -1306,7 +1308,8 @@ struct Inventory
         int32 h = optionsHeight;
         int32 y = (FRAME_HEIGHT - h) / 2 - 12;
 
-        renderBorder((FRAME_WIDTH - w) / 2, y, w, h, 25, 14, 10, 2);
+        renderFill((FRAME_WIDTH - w) / 2 + 1, y + 1, w - 2, h - 2, 25, 2);
+        renderBorder((FRAME_WIDTH - w) / 2, y, w, h, 14, 10, 2);
 
         w -= 4;
         h = 18;
@@ -1317,7 +1320,7 @@ struct Inventory
             const Option &opt = options[i];
 
             if (optionIndex == i) {
-                renderBorder((FRAME_WIDTH - w) / 2, y, w, h, -1, 15, 15, 1);
+                renderBorder((FRAME_WIDTH - w) / 2, y, w, h, 15, 15, 1);
             }
 
             switch (opt.type)

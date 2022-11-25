@@ -44,9 +44,12 @@ Ly2     .req Lh
 inv     .req indexA
 duv     .req indexB
 dtmp    .req t
+dtmp2   .req indexB
 
 Ltmp    .req N
 Rtmp    .req N
+Ltmp2   .req dtdx
+Rtmp2   .req dtdx
 
 .macro PUT_PIXELS
     tex indexA, t
@@ -73,15 +76,7 @@ rasterizeFTA_asm:
     fiq_on
     mov L, arg_L
     mov R, arg_R
-    mov LRh, #0                     // Lh = 0
-
-.loop:
-    lsr Lh, LRh, #16
-    lsl Rh, LRh, #16
-    lsr Rh, Rh, #16
-
-    cmp Lh, #0
-      bgt .calc_left_end        // if (Lh != 0) end with left
+    mov Rh, #0                      // Rh = 0
 
     .calc_left_start:
         ldrsb N, [L, #VERTEX_PREV]  // N = L + L->prev
@@ -101,13 +96,13 @@ rasterizeFTA_asm:
 
         divLUT tmp, Lh              // tmp = FixedInvU(Lh)
 
-        ldrsh Ldx, [L, #VERTEX_X]
-        sub Ldx, Lx, asr #16
-        mul Ldx, tmp                // Ldx = tmp * (N->v.x - Lx)
+        ldrsh Ltmp, [L, #VERTEX_X]
+        sub Ltmp, Lx, asr #16
+        mul Ldx, tmp, Ltmp          // Ldx = tmp * (N->v.x - Lx)
 
         ldr Ldt, [L, #VERTEX_T]
         sub Ldt, Lt                 // Ldt = N->v.t - Lt
-        scaleUV Ldt, Ltmp, tmp
+        scaleUV Ldt, Ltmp, Ltmp2, tmp
     .calc_left_end:
 
     cmp Rh, #0
@@ -131,13 +126,13 @@ rasterizeFTA_asm:
 
         divLUT tmp, Rh              // tmp = FixedInvU(Rh)
 
-        ldrsh Rdx, [R, #VERTEX_X]
-        sub Rdx, Rx, asr #16
-        mul Rdx, tmp                // Rdx = tmp * (N->v.x - Rx)
+        ldrsh Rtmp, [R, #VERTEX_X]
+        sub Rtmp, Rx, asr #16
+        mul Rdx, tmp, Rtmp          // Rdx = tmp * (N->v.x - Rx)
 
         ldr Rdt, [R, #VERTEX_T]
         sub Rdt, Rt                 // Rdt = N->v.t - Rt
-        scaleUV Rdt, Rtmp, tmp
+        scaleUV Rdt, Rtmp, Rtmp2, tmp
     .calc_right_end:
 
     cmp Rh, Lh              // if (Rh < Lh)
@@ -160,7 +155,7 @@ rasterizeFTA_asm:
     divLUT inv, width               // inv = FixedInvU(width)
 
     sub dtdx, Rt, Lt                // duv = Rt - Lt
-    scaleUV dtdx, dtmp, inv
+    scaleUV dtdx, dtmp, dtmp2, inv
 
     mov t, Lt                       // t = Lt
 
@@ -240,7 +235,13 @@ rasterizeFTA_asm:
       fiq_off_ne
       bne .scanline_start
 
-    b .loop
+    lsr Lh, LRh, #16
+    lsl Rh, LRh, #16
+    lsr Rh, Rh, #16
+
+    cmp Lh, #0
+      bne .calc_right_start
+      b .calc_left_start
 
 .exit:
     fiq_off

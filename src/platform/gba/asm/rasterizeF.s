@@ -7,6 +7,7 @@ index   .req r3
 Lh      .req r4
 Rh      .req r5
 Lx      .req r6
+
 // FIQ regs
 Rx      .req r8
 Ldx     .req r9
@@ -24,6 +25,8 @@ Lxy     .req tmp
 Ly2     .req Lh
 LMAP    .req Lx
 ptr     .req tmp
+Ltmp    .req N
+Rtmp    .req N
 
 .global rasterizeF_asm
 rasterizeF_asm:
@@ -36,12 +39,7 @@ rasterizeF_asm:
 
     mov R, L
 
-    mov Lh, #0                      // Lh = 0
     mov Rh, #0                      // Rh = 0
-
-.loop:
-    cmp Lh, #0
-      bne .calc_left_end        // if (Lh != 0) end with left
 
     .calc_left_start:
         ldr Lxy, [L, #VERTEX_X]     // Lxy = (L->v.y << 16) | (L->v.x)
@@ -59,9 +57,9 @@ rasterizeF_asm:
 
         divLUT tmp, Lh              // tmp = FixedInvU(Lh)
 
-        ldrsh Ldx, [L, #VERTEX_X]
-        sub Ldx, Lx, asr #16
-        mul Ldx, tmp                // Ldx = tmp * (N->v.x - L->v.x)
+        ldrsh Ltmp, [L, #VERTEX_X]
+        sub Ltmp, Lx, asr #16
+        mul Ldx, tmp, Ltmp          // Ldx = tmp * (N->v.x - L->v.x)
     .calc_left_end:
 
     cmp Rh, #0
@@ -83,9 +81,9 @@ rasterizeF_asm:
 
         divLUT tmp, Rh              // tmp = FixedInvU(Rh)
 
-        ldrsh Rdx, [R, #VERTEX_X]
-        sub Rdx, Rx, asr #16
-        mul Rdx, tmp                // Rdx = tmp * (N->v.x - Rx)
+        ldrsh Rtmp, [R, #VERTEX_X]
+        sub Rtmp, Rx, asr #16
+        mul Rdx, tmp, Rtmp          // Rdx = tmp * (N->v.x - Rx)
     .calc_right_end:
 
     cmp Rh, Lh              // if (Rh < Lh)
@@ -126,13 +124,16 @@ rasterizeF_asm:
       bne .scanline_block_2px
 
 .scanline_end:
-    add Lx, Ldx                     // Lx += Ldx
-    add Rx, Rdx                     // Rx += Rdx
-    add pixel, #FRAME_WIDTH         // pixel += FRAME_WIDTH (240)
+    add Lx, Ldx                 // Lx += Ldx
+    add Rx, Rdx                 // Rx += Rdx
+    add pixel, #FRAME_WIDTH     // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start
-    b .loop
+
+    cmp Lh, #0
+      bne .calc_right_start
+      b .calc_left_start
 
 .exit:
     fiq_off

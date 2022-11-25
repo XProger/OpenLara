@@ -62,13 +62,13 @@ extern Level level;
 
 const uint8* gTile;
 
-Vertex* gVerticesBase;
-Face* gFacesBase;
-
 EWRAM_DATA uint8 gBackgroundCopy[FRAME_WIDTH * FRAME_HEIGHT];   // EWRAM 37.5k
 EWRAM_DATA ALIGN8 Vertex gVertices[MAX_VERTICES];               // EWRAM 16k
 EWRAM_DATA Face gFaces[MAX_FACES];                              // EWRAM 30k
 Face* gOT[OT_SIZE];                                             // IWRAM 2.5k
+
+Vertex* gVerticesBase = gVertices;
+Face* gFacesBase = gFaces;
 
 enum ClipFlags {
     CLIP_LEFT    = 1 << 0,
@@ -163,10 +163,10 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
     {
         uint32 value = *(uint32*)(vertices++);
 
-        int32 vx = (value & (0xFF)) << 10;
-        int32 vy = (value & (0xFF << 8));
-        int32 vz = (value & (0xFF << 16)) >> 6;
-        int32 vg = (value & (0xFF << 24)) >> (24 - 5);
+        int32 vx = (0xFF & (value));
+        int32 vy = (0xFF & (value >> 8));
+        int32 vz = (0xFF & (value >> 16));
+        int32 vg = (0xFF & (value >> 24)) << 5;
 
         const Matrix &m = matrixGet();
         int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
@@ -177,17 +177,17 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
 
         if (z <= VIEW_MIN_F) {
             clip = CLIP_NEAR;
-            z = VIEW_MIN_F;
+            z = VIEW_MIN_F >> 8;
         }
 
-        if (z >= VIEW_MAX_F) {
+        if (z >= VIEW_MAX_F >> 8) {
             clip = CLIP_FAR;
-            z = VIEW_MAX_F;
+            z = VIEW_MAX_F >> 8;
         }
 
-        x >>= FIXED_SHIFT;
-        y >>= FIXED_SHIFT;
-        z >>= FIXED_SHIFT;
+        x >>= FIXED_SHIFT - 8;
+        y >>= FIXED_SHIFT - 8;
+        z >>= FIXED_SHIFT - 8;
 
         if (z > FOG_MIN)
         {
@@ -684,30 +684,12 @@ void flush_c()
 }
 #endif
 
-void renderInit()
-{
-    gVerticesBase = gVertices;
-    gFacesBase = gFaces;
-}
-
-void renderFree()
-{
-}
-
-void renderLevelInit()
-{
-}
-
-void renderLevelFree()
-{
-}
-
 extern "C" X_NOINLINE void drawPoly(uint32 flags, VertexLink* v)
 {
     #define LERP_SHIFT          6
     #define LERP(a,b,t)         (b + ((a - b) * t >> LERP_SHIFT))
     //#define LERP2(a,b,ta,tb)    LERP(a,b,t)
-    #define LERP2(a,b,ta,tb)    (b + (((a - b) * ta / tb) >> LERP_SHIFT) ) // less gaps between clipped polys, but slow
+    #define LERP2(a,b,ta,tb)    (b + (((a - b) * ta / tb) >> LERP_SHIFT) ) // less gaps between clipped polys, but slow // @DIV
 
     #define CLIP_AXIS(X, Y, edge, output) {\
         int32 ta = (edge - b->v.X) << LERP_SHIFT;\
@@ -1133,14 +1115,8 @@ const int32 BAR_COLORS[BAR_MAX][5] = {
     { 43, 44, 43, 42, 41 },
 };
 
-X_NOINLINE void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 shade, int32 color1, int32 color2, int32 z)
+X_NOINLINE void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 color1, int32 color2, int32 z)
 {
-    // background
-    if (shade >= 0) {
-        renderFill(x + 1, y + 1, width - 2, height - 2, shade, z);
-    }
-
-    // frame
     renderLine(x + 1, y, width - 2, 1, color1, z);
     renderLine(x + 1, y + height - 1, width - 2, 1, color2, z);
     renderLine(x, y, 1, height, color1, z);
@@ -1150,9 +1126,9 @@ X_NOINLINE void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 
 void renderBar(int32 x, int32 y, int32 width, int32 value, BarType type)
 {
     // colored bar
-    int32 ix = x + 2;
-    int32 iy = y + 2;
-    int32 w = value * width >> 8;
+    int32 ix = x + 1;
+    int32 iy = y + 1;
+    int32 w = value* width >> 8;
 
     if (w > 0)
     {
@@ -1162,7 +1138,12 @@ void renderBar(int32 x, int32 y, int32 width, int32 value, BarType type)
         }
     }
 
-    renderBorder(x, y, width + 4, BAR_HEIGHT + 4, 27, 19, 17, 0);
+    if (w < width)
+    {
+        renderFill(x + 1 + w, y + 1, width - w, BAR_HEIGHT, 27, 0);
+    }
+
+    renderBorder(x, y, width + 2, BAR_HEIGHT + 2, 19, 17, 0);
 }
 
 void renderBackground(const void* background)

@@ -75,7 +75,7 @@ transformRoomUW_asm:
 
     stmfd sp!, {spMinXY, spMaxXY, spRandLUT, spFrame, spCaustLUT}
 
-    mov mask, #(0xFF << 10)
+    mov mask, #0xFF
 
     ldr m, =gMatrixPtr
     ldr m, [m]
@@ -91,15 +91,15 @@ transformRoomUW_asm:
     // unpack vertex
     ldmia vertices!, {v}
 
-    and vz, mask, v, lsr #6
-    and vy, v, #0xFF00
-    and vx, mask, v, lsl #10
+    and vz, mask, v, lsr #16
+    and vy, mask, v, lsr #8
+    and vx, mask, v
 
     // transform z
     mul z, mx2, vx
     mla z, my2, vy, z
     mla z, mz2, vz, z
-    add z, mw2, z, asr #FIXED_SHIFT
+    add z, mw2, z, asr #(FIXED_SHIFT - 8)
 
     // skip if vertex is out of z-range
     add z, #VIEW_OFF
@@ -107,7 +107,7 @@ transformRoomUW_asm:
     movhi vg, #(CLIP_NEAR + CLIP_FAR)
     bhi .skip
 
-    and vg, mask, v, lsr #14
+    mov vg, v, lsr #24
     sub z, #VIEW_OFF
 
     fiq_on
@@ -115,13 +115,13 @@ transformRoomUW_asm:
     mul y, mx1, vx
     mla y, my1, vy, y
     mla y, mz1, vz, y
-    add y, mw1, y, asr #FIXED_SHIFT
+    add y, mw1, y, asr #(FIXED_SHIFT - 8)
 
     // transform x
     mul x, mx0, vx
     mla x, my0, vy, x
     mla x, mz0, vz, x
-    add x, mw0, x, asr #FIXED_SHIFT
+    add x, mw0, x, asr #(FIXED_SHIFT - 8)
     fiq_off
 
     // caustics
@@ -133,13 +133,15 @@ transformRoomUW_asm:
     and rand, #(MAX_CAUSTICS - 1)
     ldr caust, [sp, #SP_CAUST]
     ldr caust, [caust, rand, lsl #2]
-    add vg, caust, lsl #5
+    add vg, caust, asr #5
 
     // fog
     cmp z, #FOG_MIN
     subgt fog, z, #FOG_MIN
-    addgt vg, fog, lsl #6
-    lsr vg, #13
+    addgt vg, fog, lsr #4
+
+    // vg 0..255 -> 0..31
+    lsr vg, #3
     cmp vg, #31
     movgt vg, #31
 
@@ -189,7 +191,7 @@ transformRoomUW_asm:
     strh y, [res, #-4]
     strh z, [res, #-2]
 
-    mov mask, #(0xFF << 10)
+    mov mask, #0xFF
 .skip:
     strh vg, [res], #8
 

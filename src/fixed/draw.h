@@ -348,7 +348,7 @@ void drawNodesLerp(const ItemObj* item, const AnimFrame* frameA, const AnimFrame
 #define DEF_TORSO_ANGLE_Y -832
 #define DEF_TORSO_ANGLE_Z -192
 
-const uint32 ZERO_POS[2] = { 0, 0 };
+uint32 ZERO_POS[2] = { 0, 0 };
 
 void drawLaraNodes(const ItemObj* lara, const AnimFrame* frameA)
 {
@@ -433,7 +433,7 @@ void drawLaraNodes(const ItemObj* lara, const AnimFrame* frameA)
                     matrixSetBasis(matrixGet(), basis);
                     matrixRotateYXZ(arm->angle.x, arm->angle.y, arm->angle.z);
                 }
-                matrixFrame(&ZERO_POS, anglesArm[i]++);
+                matrixFrame(ZERO_POS, anglesArm[i]++);
                 drawMesh(*mesh++);
 
                 { // JOINT_ARM_2
@@ -571,9 +571,9 @@ void drawLaraNodesLerp(const ItemObj* lara, const AnimFrame* frameA, const AnimF
                 bool useLerp = frameRateArm[i] > 1; // armed hands always use frameRate == 1 (i.e. useLerp == false)
 
                 if (useLerp) {
-                    matrixFrameLerp(&ZERO_POS, anglesArmA[i]++, anglesArmB[i]++, frameDelta, frameRate);
+                    matrixFrameLerp(ZERO_POS, anglesArmA[i]++, anglesArmB[i]++, frameDelta, frameRate);
                 } else {
-                    matrixFrame(&ZERO_POS, anglesArmA[i]++);
+                    matrixFrame(ZERO_POS, anglesArmA[i]++);
                 }
                 drawMesh(*mesh++);
 
@@ -920,9 +920,9 @@ void drawFPS()
     drawText(2, 16, buf, TEXT_ALIGN_LEFT);
 }
 
+#ifdef PROFILING
 void drawProfiling()
 {
-#ifdef PROFILING
     for (int32 i = 0; i < CNT_MAX; i++)
     {
         char buf[32];
@@ -930,7 +930,7 @@ void drawProfiling()
         drawText(2, 16 + 32 + i * 16, buf, TEXT_ALIGN_LEFT);
     }
     flush();
-#endif
 }
+#endif
 
 #endif

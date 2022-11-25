@@ -107,32 +107,30 @@
 // vx2 - vg2
 // vy2 - vg2
 .macro CCW skip
-    ldrsh vx0, [vp0, #VERTEX_X]
-    ldrsh vy0, [vp0, #VERTEX_Y]
+    ldr vy0, [vp0, #VERTEX_X]       // yyxx
+    mov vx0, vy0, lsl #16
     ldrsh vx2, [vp2, #VERTEX_X]
     ldrsh vy1, [vp1, #VERTEX_Y]
-    rsb vx2, vx2, vx0 // reverse order for mla
-    sub vy1, vy1, vy0
+    rsb vx2, vx2, vx0, asr #16      // reverse order for mla
+    sub vy1, vy1, vy0, asr #16
     mul vy1, vx2, vy1
     ldrsh vx1, [vp1, #VERTEX_X]
-    sub vx0, vx1, vx0
+    sub vx0, vx1, vx0, asr #16
     ldrsh vy2, [vp2, #VERTEX_Y]
-    sub vy0, vy2, vy0
+    sub vy0, vy2, vy0, asr #16
     mlas vy1, vx0, vy0, vy1
     ble \skip
 .endm
 
-.macro scaleUV uv, tmp, f
-    asr \tmp, \uv, #16
-    mul \tmp, \f                    // u = f * int16(uv >> 16)
+.macro scaleUV uv, tmp, tmp2, f
+    smull \tmp2, \tmp, \uv, \f      // u = (f * uv) >> 32
 
     lsl \uv, #16
     asr \uv, #16
     mul \uv, \f                     // v = f * int16(uv)
+    lsr \uv, #16
 
-    lsr \tmp, #16
-    lsl \tmp, #16
-    orr \uv, \tmp, \uv, lsr #16     // uv = (u & 0xFFFF0000) | (v >> 16)
+    orr \uv, \uv, \tmp, lsl #16     // uv = (u & 0xFFFF0000) | (v >> 16)
 .endm
 
 .macro tex index, uv

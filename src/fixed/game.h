@@ -356,10 +356,11 @@ void gameRender()
         flush();
     }
 
+#ifdef PROFILING
     drawProfiling();
-
-#ifndef PROFILE_SOUNDTIME
-    PROFILE_CLEAR();
+    #ifndef PROFILE_SOUNDTIME
+        PROFILE_CLEAR();
+    #endif
 #endif
 }
 

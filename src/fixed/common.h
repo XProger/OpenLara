@@ -336,8 +336,10 @@ X_INLINE int32 abs(int32 x) {
 
 #if defined(__WIN32__) || defined(__GBA_WIN__)
     #define ASSERT(x) { if (!(x)) { DebugBreak(); } }
+    #define STATIC_ASSERT(x) typedef char static_assert_##__COUNTER__[(x) ? 1 : -1]
 #else
     #define ASSERT(x)
+    #define STATIC_ASSERT(x)
 #endif
 
 #if defined(__GBA_WIN__)
@@ -590,13 +592,11 @@ struct vec3i {
     X_INLINE vec3i  operator + (const vec3i &v) const { return create(x + v.x, y + v.y, z + v.z); }
     X_INLINE vec3i  operator - (const vec3i &v) const { return create(x - v.x, y - v.y, z - v.z); }
     X_INLINE vec3i  operator * (int32 s) const { return create(x * s, y * s, z * s); }
-    X_INLINE vec3i  operator / (int32 s) const { return create(x / s, y / s, z / s); }
     X_INLINE bool   operator == (const vec3i &v) const { return x == v.x && y == v.y && z == v.z; }
     X_INLINE bool   operator != (const vec3i &v) const { return x != v.x || y != v.y || z != v.z; }
     X_INLINE vec3i& operator += (const vec3i &v) { x += v.x; y += v.y; z += v.z; return *this; }
     X_INLINE vec3i& operator -= (const vec3i &v) { x -= v.x; y -= v.y; z -= v.z; return *this; }
     X_INLINE vec3i& operator *= (int32 s) { x *= s; y *= s; z *= s; return *this; }
-    X_INLINE vec3i& operator /= (int32 s) { x /= s; y /= s; z /= s; return *this; }
 };
 
 #define _vec3i(x,y,z) vec3i::create(x, y, z)
@@ -2774,11 +2774,20 @@ void matrixFrame(const void* pos, const void* angles);
 void matrixFrameLerp(const void* pos, const void* anglesA, const void* anglesB, int32 delta, int32 rate);
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY);
 
+#if defined(__GBA__) || defined(__GBA_WIN__)
+#define renderInit()
+#define renderFree()
+#define renderSwap()
+#define renderLevelInit()
+#define renderLevelFree()
+#else
 void renderInit();
 void renderFree();
 void renderSwap();
 void renderLevelInit();
 void renderLevelFree();
+#endif
+
 void setViewport(const RectMinMax &vp);
 void setPaletteIndex(int32 index);
 void clear();
@@ -2787,7 +2796,8 @@ void renderMesh(const Mesh* mesh);
 void renderShadow(int32 x, int32 z, int32 sx, int32 sz);
 void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index);
 void renderGlyph(int32 vx, int32 vy, int32 index);
-void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 shade, int32 color1, int32 color2, int32 z);
+void renderFill(int32 x, int32 y, int32 width, int32 height, int32 shade, int32 z);
+void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 color1, int32 color2, int32 z);
 void renderBar(int32 x, int32 y, int32 width, int32 value, BarType type);
 void renderBackground(const void* background);
 void* copyBackground();

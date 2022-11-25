@@ -3293,8 +3293,8 @@ struct Lara : ItemObj
             if (frame)
             {
                 if (anim == ANIM_PISTOLS_AIM) {
-                    arm->angle.x -= arm->angle.x / frame;
-                    arm->angle.y -= arm->angle.y / frame;
+                    arm->angle.x -= arm->angle.x / frame; // @DIV
+                    arm->angle.y -= arm->angle.y / frame; // @DIV
                 }
 
                 if (anim == ANIM_PISTOLS_FIRE) {
@@ -3620,7 +3620,7 @@ struct Lara : ItemObj
         const AABBs &box = target->getBoundingBox(false);
         vec3i p;
         p.x = (box.minX + box.maxX) >> 1;
-        p.y = box.minY + (box.maxY - box.minY) / 3;
+        p.y = box.minY + (box.maxY - box.minY) / 3; // @DIV
         p.z = (box.minZ + box.maxZ) >> 1;
         int32 s, c;
         sincos(target->angle.y, s, c);

@@ -48,8 +48,8 @@ sphereIsVisible_asm:
     mov x, vx, asr #FIXED_SHIFT
     mov y, vy, asr #FIXED_SHIFT
 
-    mov z, vz, lsr #(FIXED_SHIFT + 6)
-    add z, z, vz, lsr #(FIXED_SHIFT + 4)
+    mov z, vz, lsr #(FIXED_SHIFT + 4)
+    add z, vz, lsr #(FIXED_SHIFT + 6)
     divLUT tmp, z
     mul x, tmp, x
     mul y, tmp, y

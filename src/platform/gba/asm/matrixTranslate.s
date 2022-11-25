@@ -8,7 +8,18 @@ m   .req r3
 e0  .req r8
 e1  .req r9
 e2  .req r10
-v   .req r11
+vx  .req r11
+e3  .req r12
+e4  .req r13
+e5  .req r14
+
+v   .req vx
+vy  .req e0
+vp  .req e1
+e6  .req e2
+e7  .req vx
+e8  .req e3
+vz  .req e4
 
 .global matrixTranslateRel_asm
 matrixTranslateRel_asm:
@@ -18,25 +29,25 @@ matrixTranslateRel_asm:
     ldr m, [m]
 
     // x
-    ldmia m!, {e0, e1, e2, v}
-    mla v, e0, x, v
-    mla v, e1, y, v
-    mla v, e2, z, v
-    stmdb m, {v}
+    ldmia m!, {e0, e1, e2, vx, e3, e4, e5}
+    mla vx, e0, x, vx
+    mla vx, e1, y, vx
+    mla vx, e2, z, vx
+    str vx, [m, #-16]
 
     // y
-    ldmia m!, {e0, e1, e2, v}
-    mla v, e0, x, v
-    mla v, e1, y, v
-    mla v, e2, z, v
-    stmdb m, {v}
+    mul vy, e3, x
+    mla vy, e4, y, vy
+    mla vy, e5, z, vy
+    ldmia m, {vp, e6, e7, e8, vz}
+    add vy, vy, vp
+    str vy, [m]
 
     // z
-    ldmia m!, {e0, e1, e2, v}
-    mla v, e0, x, v
-    mla v, e1, y, v
-    mla v, e2, z, v
-    stmdb m, {v}
+    mla vz, e6, x, vz
+    mla vz, e7, y, vz
+    mla vz, e8, z, vz
+    str vz, [m, #16]
 
     fiq_off
     bx lr

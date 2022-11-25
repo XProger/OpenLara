@@ -25,7 +25,6 @@ BUILD		:= build
 SOURCES		:= ../../fixed . asm
 INCLUDES	:= include . ../../fixed
 DATA		:= data
-MUSIC		:=
 LIBTONC		:= $(DEVKITPRO)/libtonc
 
 #---------------------------------------------------------------------------------
@@ -80,11 +79,6 @@ CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
 CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
-
-ifneq ($(strip $(MUSIC)),)
-	export AUDIOFILES	:=	$(foreach dir,$(notdir $(wildcard $(MUSIC)/*.*)),$(CURDIR)/$(MUSIC)/$(dir))
-	BINFILES += soundbank.bin
-endif
 
 #---------------------------------------------------------------------------------
 # use CXX for linking C++ projects, CC for standard C
@@ -145,13 +139,6 @@ $(OFILES_SOURCES) : $(HFILES)
 # The bin2o rule should be copied and modified
 # for each extension used in the data directories
 #---------------------------------------------------------------------------------
-
-#---------------------------------------------------------------------------------
-# rule to build soundbank from music files
-#---------------------------------------------------------------------------------
-soundbank.bin soundbank.h : $(AUDIOFILES)
-#---------------------------------------------------------------------------------
-	@mmutil $^ -osoundbank.bin -hsoundbank.h
 
 %.PKD.o	%_PKD.h :	%.PKD
 	@echo $(notdir $<)

@@ -58,9 +58,10 @@ faceAddMeshQuads_asm:
     add vp0, vp, vp0, lsl #3
     add vp1, vp, vp1, lsl #3
     add vp2, vp, vp2, lsl #3
-    add vp3, vp, vp3, lsl #3
 
     CCW .skip
+
+    add vp3, vp, vp3, lsl #3
 
     // fetch [c, g, zz]
     ldr vg0, [vp0, #VERTEX_Z]

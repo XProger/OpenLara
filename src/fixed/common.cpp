@@ -1025,7 +1025,7 @@ int32 phd_atan(int32 x, int32 y)
         swap(x, y);
     }
 
-    return abs(atanTable[(y << 11) / x] + atanOctant[o]);
+    return abs(atanTable[(y << 11) / x] + atanOctant[o]); //@DIV
 }
 
 uint32 phd_sqrt(uint32 x)
@@ -1552,7 +1552,8 @@ void palSet(const uint16* palette, int32 gamma, int32 bright)
 
     if (gamma || bright)
     {
-        uint16* tmp = (uint16*)&gSpheres;
+        //STATIC_ASSERT(sizeof(gSpheres) >= 512);
+        uint16* tmp = (uint16*)gSpheres;
 
         if (gamma) {
             palGamma(pal, tmp, gamma);

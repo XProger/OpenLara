@@ -27,6 +27,7 @@ Ldg     .req r10
 Rdg     .req r11
 Ldt     .req r12
 Rdt     .req r13
+spFIQ   .req r14
 
 h       .req N
 
@@ -46,17 +47,17 @@ ptr     .req Lx
 width   .req Rh
 
 g       .req Lg
-dgdx    .req L
+dgdx    .req R
 
 t       .req Lt
-dtdx    .req R
-dtmp    .req L
+dtdx    .req L
+dtmp    .req tmp
+dtmp2   .req R
 
-Ltmp    .req N
-Rtmp    .req N
-
-SP_TILE = 0
-SP_SIZE = 4
+Ltmp    .req spFIQ
+Rtmp    .req spFIQ
+Ltmp2   .req N
+Rtmp2   .req N
 
 G_EXTRA = 5   // extra bits of precision for gouraud shading (8 + G_EXTRA)
 
@@ -74,21 +75,16 @@ G_EXTRA = 5   // extra bits of precision for gouraud shading (8 + G_EXTRA)
 
 .global rasterizeGT_asm
 rasterizeGT_asm:
-    ldr r3, =gTile
-    ldr r3, [r3]
-    stmfd sp!, {r3-r11, lr}
+    stmfd sp!, {r4-r11, lr}
+
+    ldr TILE, =gTile
+    ldr TILE, [TILE]
 
     mov pixel, arg_pixel
     mov L, arg_L
     mov R, arg_R
 
-    mov Lh, #0                      // Lh = 0
     mov Rh, #0                      // Rh = 0
-
-.loop:
-
-    cmp Lh, #0
-      bne .calc_left_end        // if (Lh != 0) end with left
 
     .calc_left_start:
         ldrsb N, [L, #VERTEX_PREV]  // N = L + L->prev
@@ -111,18 +107,18 @@ rasterizeGT_asm:
         divLUT tmp, Lh              // tmp = FixedInvU(Lh)
 
         fiq_on
-        ldrsh Ldx, [N, #VERTEX_X]
-        sub Ldx, Lx, asr #16
-        mul Ldx, tmp                // Ldx = tmp * (N->v.x - Lx)
+        ldrsh Ltmp, [N, #VERTEX_X]
+        sub Ltmp, Lx, asr #16
+        mul Ldx, tmp, Ltmp          // Ldx = tmp * (N->v.x - Lx)
 
-        ldrb Ldg, [N, #VERTEX_G]
-        sub Ldg, Lg, lsr #(8 + G_EXTRA)
-        mul Ldg, tmp                // Ldg = tmp * (N->v.g - Lg)
+        ldrb Ltmp, [N, #VERTEX_G]
+        sub Ltmp, Lg, lsr #(8 + G_EXTRA)
+        mul Ldg, tmp, Ltmp          // Ldg = tmp * (N->v.g - Lg)
         asr Ldg, #(8 - G_EXTRA)     // (8 + G_EXTRA)-bit for fractional part
 
         ldr Ldt, [N, #VERTEX_T]
         sub Ldt, Lt                 // Ldt = N->v.t - Lt
-        scaleUV Ldt, Ltmp, tmp
+        scaleUV Ldt, Ltmp, Ltmp2, tmp
         fiq_off
     .calc_left_end:
 
@@ -150,18 +146,18 @@ rasterizeGT_asm:
         divLUT tmp, Rh              // tmp = FixedInvU(Rh)
 
         fiq_on
-        ldrsh Rdx, [N, #VERTEX_X]
-        sub Rdx, Rx, asr #16
-        mul Rdx, tmp                // Rdx = tmp * (N->v.x - Rx)
+        ldrsh Rtmp, [N, #VERTEX_X]
+        sub Rtmp, Rx, asr #16
+        mul Rdx, tmp, Rtmp          // Rdx = tmp * (N->v.x - Rx)
 
-        ldrb Rdg, [N, #VERTEX_G]
-        sub Rdg, Rg, lsr #(8 + G_EXTRA)
-        mul Rdg, tmp                // Rdg = tmp * (N->v.g - Rg)
+        ldrb Rtmp, [N, #VERTEX_G]
+        sub Rtmp, Rg, lsr #(8 + G_EXTRA)
+        mul Rdg, tmp, Rtmp          // Rdg = tmp * (N->v.g - Rg)
         asr Rdg, #(8 - G_EXTRA)     // (8 + G_EXTRA)-bit for fractional part
 
         ldr Rdt, [N, #VERTEX_T]
         sub Rdt, Rt                 // Rdt = N->v.t - Rt
-        scaleUV Rdt, Rtmp, tmp
+        scaleUV Rdt, Rtmp, Rtmp2, tmp
         fiq_off
     .calc_right_end:
 
@@ -173,8 +169,6 @@ rasterizeGT_asm:
       movge h, Lh           // else h = Lh
     sub Lh, h               // Lh -= h
     sub Rh, h               // Rh -= h
-
-    ldr TILE, [sp, #SP_TILE]
 
     stmfd sp!, {L, R, Lh, Rh}
 
@@ -190,7 +184,7 @@ rasterizeGT_asm:
     divLUT inv, width               // inv = FixedInvU(width)
 
     sub dtdx, Rt, Lt                // dtdx = Rt - Lt
-    scaleUV dtdx, dtmp, inv
+    scaleUV dtdx, dtmp, dtmp2, inv
     // t == Lt (alias)
 
     sub dgdx, Rg, Lg                // dgdx = Rg - Lg
@@ -273,14 +267,16 @@ rasterizeGT_asm:
     add Rt, Rdt
     fiq_off
 
-    add pixel, #FRAME_WIDTH         // pixel += FRAME_WIDTH (240)
+    add pixel, #FRAME_WIDTH     // pixel += FRAME_WIDTH (240)
 
     subs h, #1
       bne .scanline_start
 
     ldmfd sp!, {L, R, Lh, Rh}
-    b .loop
+
+    cmp Lh, #0
+      bne .calc_right_start
+      b .calc_left_start
 
 .exit:
-    add sp, #SP_SIZE                // revert reserved space for [TILE]
     ldmfd sp!, {r4-r11, pc}
