@@ -547,9 +547,11 @@ enum ItemType {
 #define MAX_ITEMS           240
 #define MAX_NODES           32
 #define MAX_TEXTURES        1536 * 2
+#define MAX_ANIM_TEX        128
 
-#define TEX_ATTR_AKILL  0x0001
-#define FACE_TEXTURE    0x07FF
+#define TEX_ATTR_AKILL      0x0001
+#define TEX_ATTR_ANIM       0x0002
+#define FACE_TEXTURE        0x3FFF
 
 struct vec3s
 {

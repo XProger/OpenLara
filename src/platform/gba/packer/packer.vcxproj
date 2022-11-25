@@ -156,6 +156,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IMA.h" />
+    <ClInclude Include="out_32X.h" />
     <ClInclude Include="out_3DO.h" />
     <ClInclude Include="out_GBA.h" />
     <ClInclude Include="common.h" />

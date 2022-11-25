@@ -16,7 +16,14 @@ struct out_GBA
 
     enum {
         FACE_TYPE_SHIFT = 14,
-        FACE_TRIANGLE   = (1 << 13)
+    };
+
+    struct Remap {
+        int32 meshes[MAX_MESHES];
+        int32 models[MAX_MODELS];
+        int32 animFrames[MAX_ANIMS];
+        int16 textures[MAX_TEXTURES];
+        int16 sprites[MAX_TEXTURES];
     };
 
     struct Header
@@ -471,6 +478,27 @@ struct out_GBA
         uint32 uv01;
         uint32 uv23;
 
+        ObjectTexture(const TR1_PC::ObjectTexture* tex)
+        {
+            tile = (tex->tile & 0x3FFF) << 16;
+            uint32 uv0 = ((tex->uv0 << 16) | (tex->uv0 >> 16)) & 0xFF00FF00;
+            uint32 uv1 = ((tex->uv1 << 16) | (tex->uv1 >> 16)) & 0xFF00FF00;
+            uint32 uv2 = ((tex->uv2 << 16) | (tex->uv2 >> 16)) & 0xFF00FF00;
+            uint32 uv3 = ((tex->uv3 << 16) | (tex->uv3 >> 16)) & 0xFF00FF00;
+
+            fixTexCoord(uv0, uv1);
+            fixTexCoord(uv0, uv3);
+            fixTexCoord(uv1, uv2);
+
+            uv01 = uv0 | (uv1 >> 8);
+            uv23 = uv2 | (uv3 >> 8);
+        }
+
+        bool isEqual(const ObjectTexture* tex)
+        {
+            return memcmp(this, tex, sizeof(*tex)) == 0;
+        }
+
         void write(FileStream &f) const
         {
             f.write(tile);
@@ -484,6 +512,25 @@ struct out_GBA
         uint32 tile;
         uint32 uwvh;
         int16 l, t, r, b;
+
+        SpriteTexture(const TR1_PC::SpriteTexture* spr)
+        {
+            uint32 u = spr->u;
+            uint32 v = spr->v;
+            uint32 w = (spr->w + 255) >> 8;
+            uint32 h = (spr->h + 255) >> 8;
+            tile = spr->tile << 16;
+            uwvh = (u << 24) | (w << 16) | (v << 8) | h;
+            l = spr->l;
+            t = spr->t;
+            r = spr->r;
+            b = spr->b;
+        }
+
+        bool isEqual(const SpriteTexture* spr)
+        {
+            return memcmp(this, spr, sizeof(*spr)) == 0;
+        }
 
         void write(FileStream &f) const
         {
@@ -607,9 +654,25 @@ struct out_GBA
             }
         }
 
-        void write(FileStream &f) const
+        void write(FileStream &f, const Remap *remap) const
         {
             ASSERT(vCount < 256);
+
+        #if 0 // TODO proper center/radius calc?
+            vec3s bmin = vertices[0];
+            vec3s bmax = bmin;
+
+            for (int32 j = 0; j < vCount; j++)
+            {
+                const vec3s* v = vertices + j;
+                if (v->x < bmin.x) bmin.x = v->x;
+                if (v->y < bmin.y) bmin.y = v->y;
+                if (v->z < bmin.z) bmin.z = v->z;
+                if (v->x > bmax.x) bmax.x = v->x;
+                if (v->y > bmax.y) bmax.y = v->y;
+                if (v->z > bmax.z) bmax.z = v->z;
+            }
+        #endif
 
             f.write(center.x);
             f.write(center.y);
@@ -641,14 +704,16 @@ struct out_GBA
             for (int32 j = 0; j < rCount; j++)
             {
                 TR1_PC::Quad q = rFaces[j];
+                uint16 texIndex = q.flags & FACE_TEXTURE;
 
                 MeshQuad comp;
                 comp.indices[0] = uint8(q.indices[0]);
                 comp.indices[1] = uint8(q.indices[1]);
                 comp.indices[2] = uint8(q.indices[2]);
                 comp.indices[3] = uint8(q.indices[3]);
-                comp.flags = q.flags & FACE_TEXTURE;
-                if (level->objectTextures[comp.flags].attribute & TEX_ATTR_AKILL) {
+                comp.flags = remap ? remap->textures[texIndex] : texIndex;
+
+                if (level->objectTextures[texIndex].attribute & TEX_ATTR_AKILL) {
                     comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);
                 } else {
                     comp.flags |= (FACE_TYPE_FT << FACE_TYPE_SHIFT);
@@ -675,19 +740,20 @@ struct out_GBA
             for (int32 j = 0; j < tCount; j++)
             {
                 TR1_PC::Triangle t = tFaces[j];
+                uint16 texIndex = t.flags & FACE_TEXTURE;
 
                 MeshTriangle comp;
                 comp.indices[0] = uint8(t.indices[0]);
                 comp.indices[1] = uint8(t.indices[1]);
                 comp.indices[2] = uint8(t.indices[2]);
                 comp.indices[3] = 0;
-                comp.flags = t.flags & FACE_TEXTURE;
-                if (level->objectTextures[comp.flags].attribute & TEX_ATTR_AKILL) {
+                comp.flags = remap ? remap->textures[texIndex] : texIndex;
+
+                if (level->objectTextures[texIndex].attribute & TEX_ATTR_AKILL) {
                     comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);
                 } else {
                     comp.flags |= (FACE_TYPE_FT << FACE_TYPE_SHIFT);
                 }
-                comp.flags |= FACE_TRIANGLE;
 
                 comp.write(f);
             }
@@ -703,7 +769,6 @@ struct out_GBA
                 comp.indices[3] = 0;
                 comp.flags = t.flags & FACE_TEXTURE;
                 comp.flags |= (FACE_TYPE_F << FACE_TYPE_SHIFT);
-                comp.flags |= FACE_TRIANGLE;
 
                 comp.write(f);
             }
@@ -769,6 +834,9 @@ struct out_GBA
         int32 akill;
         uint8* indices;
         uint32 indexSum;
+        int32 tile;
+        int32 x, y;
+        int32 minX, minY, maxX, maxY;
 
         Texture(const TR1_PC* level, TR1_PC::ObjectTexture* tex, int32 uid)
         {
@@ -777,13 +845,14 @@ struct out_GBA
             this->spr = NULL;
             this->link = NULL;
             this->uid = uid;
+            this->tile = -1;
 
             TR1_PC::Tile *tile = level->tiles + (tex->tile & 0x3FFF);
 
-            int32 minX = MIN(MIN(tex->x0, tex->x1), tex->x2);
-            int32 minY = MIN(MIN(tex->y0, tex->y1), tex->y2);
-            int32 maxX = MAX(MAX(tex->x0, tex->x1), tex->x2);
-            int32 maxY = MAX(MAX(tex->y0, tex->y1), tex->y2);
+            minX = MIN(MIN(tex->x0, tex->x1), tex->x2);
+            minY = MIN(MIN(tex->y0, tex->y1), tex->y2);
+            maxX = MAX(MAX(tex->x0, tex->x1), tex->x2);
+            maxY = MAX(MAX(tex->y0, tex->y1), tex->y2);
 
             if (tex->isQuad)
             {
@@ -825,13 +894,14 @@ struct out_GBA
             this->tex = NULL;
             this->spr = spr;
             this->link = NULL;
+            this->tile = -1;
 
             TR1_PC::Tile *tile = level->tiles + (spr->tile & 0x3FF);
 
-            int32 minX = spr->u;
-            int32 minY = spr->v;
-            int32 maxX = spr->u + (spr->w >> 8);
-            int32 maxY = spr->v + (spr->h >> 8);
+            minX = spr->u;
+            minY = spr->v;
+            maxX = spr->u + (spr->w >> 8);
+            maxY = spr->v + (spr->h >> 8);
 
             width = maxX - minX + 1;
             height = maxY - minY + 1;
@@ -866,7 +936,14 @@ struct out_GBA
 
         static int cmp(const Texture* a, const Texture* b)
         {
-            int32 i = b->akill - a->akill;
+            int32 animA = a->tex ? a->tex->attribute & TEX_ATTR_ANIM : 0;
+            int32 animB = b->tex ? b->tex->attribute & TEX_ATTR_ANIM : 0;
+            int32 i = animB - animA;
+
+            if (i == 0)
+            {
+                i = b->akill - a->akill;
+            }
 
             if (i == 0)
             {
@@ -887,7 +964,7 @@ struct out_GBA
         }
     };
 
-    struct Tile24
+    struct Atlas
     {
         struct Node
         {
@@ -925,8 +1002,11 @@ struct out_GBA
                 if (nw < tw || nh < th)
                     return NULL;
 
-                if (nw == tw && nh == th) {
+                if (nw == tw && nh == th)
+                {
                     this->tex = tex;
+                    tex->x = l;
+                    tex->y = t;
                     return this;
                 }
 
@@ -1004,12 +1084,12 @@ struct out_GBA
 
         Node* root;
 
-        Tile24()
+        Atlas()
         {
             root = new Node(0, 0, 256, 256);
         }
 
-        ~Tile24()
+        ~Atlas()
         {
             delete root;
         }
@@ -1024,7 +1104,7 @@ struct out_GBA
             root->fill8(data);
         }
 
-        static int cmp(const Tile24* a, const Tile24* b)
+        static int cmp(const Atlas* a, const Atlas* b)
         {
             return 0;
         }
@@ -1033,81 +1113,16 @@ struct out_GBA
     RoomVertex* roomVertices;
     int32 roomVerticesCount;
 
-    struct Remap {
-        int32 meshes[MAX_MESHES];
-        int32 models[MAX_MODELS];
-        int32 animFrames[MAX_ANIMS];
-        int32 textures[MAX_TEXTURES];
-        int32 sprites[MAX_TEXTURES];
-    };
-
-    Remap remap[LVL_MAX];
+    Remap remaps[LVL_MAX];
 
     Array<Mesh> meshes;
     Array<Model> models;
     Array<AnimFrames> animFrames;
+    Array<ObjectTexture> objectTextures;
+    Array<SpriteTexture> spriteTextures;
 
     Array<Texture> textures;
-    Array<Tile24> tiles;
-
-    void packTiles(FileStream &f)
-    {
-        for (int32 i = 0; i < textures.count; i++)
-        {
-            Texture* tex = textures[i];
-
-            if (tex->link)
-                continue;
-
-            bool placed = false;
-
-            for (int32 j = 0; j < tiles.count; j++)
-            {
-                if (tiles[j]->root->insert(tex)) {
-                    placed = true;
-                    break;
-                }
-            }
-
-            if (!placed)
-            {
-                Tile24* tile = new Tile24();
-                tiles.add(tile);
-                if (!tile->root->insert(tex))
-                {
-                    printf("Can't pack texture %d x %d", tex->width, tex->height);
-                    break;
-                }
-            }
-        }
-
-        uint8* data = new uint8[256 * 256 * 3 * tiles.count];
-
-    // save bitmap (debug)
-        for (int32 i = 0; i < 256 * 256 * tiles.count; i++)
-        {
-            data[i * 3 + 0] = 255;
-            data[i * 3 + 1] = 0;
-            data[i * 3 + 2] = 255;
-        }
-
-        for (int32 i = 0; i < tiles.count; i++)
-        {
-            tiles[i]->fill24(data + i * 256 * 256 * 3);
-        }
-        saveBitmap("tiles.bmp", data, 256, 256 * tiles.count);
-
-        memset(data, 0, 256 * 256 * tiles.count);
-
-        for (int32 i = 0; i < tiles.count; i++)
-        {
-            tiles[i]->fill8(data + i * 256 * 256);
-        }
-
-        f.write(data, 256 * 256 * tiles.count);
-
-        delete[] data;
-    }
+    Array<Atlas> tiles;
 
     void addTextures(TR1_PC* level)
     {
@@ -1164,6 +1179,10 @@ struct out_GBA
             textures.add(tex);
         }
 
+        static int32 maxSprites = 0;
+        maxSprites += level->spriteTexturesCount;
+        printf("%d\n", maxSprites);
+
         delete[] used;
     }
 
@@ -1214,22 +1233,195 @@ struct out_GBA
                 }
             }
         }
+    }
 
-        //remap.textures[i] = textures.add(tex);
-        //remap.sprites[i] = textures.add(tex);
+    void packTiles(FileStream &f)
+    {
+        int32 texPacked = 0;
+
+        for (int32 i = 0; i < textures.count; i++)
+        {
+            Texture* tex = textures[i];
+
+            if (tex->link)
+                continue;
+
+            bool placed = false;
+
+            for (int32 j = 0; j < tiles.count; j++)
+            {
+                if (tiles[j]->root->insert(tex))
+                {
+                    placed = true;
+                    tex->tile = j;
+                    break;
+                }
+            }
+
+            if (!placed)
+            {
+                Atlas* tile = new Atlas();
+                tex->tile = tiles.add(tile);
+                placed = tile->root->insert(tex);
+            }
+
+            if (!placed)
+            {
+                tex->tile = -1;
+                printf("Can't pack texture %d x %d", tex->width, tex->height);
+                break;
+            }
+
+            if (placed) {
+                texPacked++;
+            }
+        }
+
+        printf("textures packed: %d\n", texPacked);
+
+        uint8* data = new uint8[256 * 256 * 3 * tiles.count];
+
+    // save bitmap (debug)
+        for (int32 i = 0; i < 256 * 256 * tiles.count; i++)
+        {
+            data[i * 3 + 0] = 255;
+            data[i * 3 + 1] = 0;
+            data[i * 3 + 2] = 255;
+        }
+
+        for (int32 i = 0; i < tiles.count; i++)
+        {
+            tiles[i]->fill24(data + i * 256 * 256 * 3);
+        }
+        saveBitmap("tiles.bmp", data, 256, 256 * tiles.count);
+
+        memset(data, 0, 256 * 256 * tiles.count);
+
+        for (int32 i = 0; i < tiles.count; i++)
+        {
+            tiles[i]->fill8(data + i * 256 * 256);
+        }
+
+        f.write(data, 256 * 256 * tiles.count);
+
+        delete[] data;
+    }
+
+    void remapTextures()
+    {
+        int32 animated = -1;
+        int32 maxAnimatedTex = 0;
+
+        for (int32 i = 0; i < textures.count; i++)
+        {
+            const Texture* texture = textures[i];
+            const Texture* instance = texture->link ? texture->link : texture;
+
+            int32 dx = instance->x - instance->minX;
+            int32 dy = instance->y - instance->minY;
+
+            ASSERT(instance->tile >= 0);
+
+            Remap &remap = remaps[texture->level->id];
+
+            if (texture->tex) // is ObjectTexture
+            {
+                if (texture->tex->attribute & TEX_ATTR_ANIM)
+                {
+                    ASSERT(animated == -1 || animated == 1);
+                    animated = 1;
+                } else {
+
+                    // add dummy textures as padding between animated and static textures
+                    int32 padding = MAX_ANIM_TEX - objectTextures.count;
+                    for (int32 j = 0; j < padding; j++)
+                    {
+                        TR1_PC::ObjectTexture tmp;
+                        memset(&tmp, 0, sizeof(tmp));
+                        objectTextures.add(new ObjectTexture(&tmp));
+                    }
+
+                    animated = 0;
+                }
+
+                TR1_PC::ObjectTexture tmp;
+                memset(&tmp, 0, sizeof(tmp));
+                tmp.attribute = texture->tex->attribute; // old attribute
+                tmp.tile = instance->tile; // new tile index
+                tmp.x0 = texture->tex->x0 + dx;
+                tmp.y0 = texture->tex->y0 + dy;
+                tmp.x1 = texture->tex->x1 + dx;
+                tmp.y1 = texture->tex->y1 + dy;
+                tmp.x2 = texture->tex->x2 + dx;
+                tmp.y2 = texture->tex->y2 + dy;
+                if (texture->tex->isQuad)
+                {
+                    tmp.x3 = texture->tex->x3 + dx;
+                    tmp.y3 = texture->tex->y3 + dy;
+                }
+
+                ObjectTexture* comp = new ObjectTexture(&tmp);
+
+                int32 texIndex = int32(texture->tex - texture->level->objectTextures);
+
+                int32 index = objectTextures.find(comp);
+                if (index <= 0) {
+                    index = objectTextures.add(comp);
+                } else {
+                    delete comp;
+                }
+                remap.textures[texIndex] = index;
+
+                if (texture->tex->attribute & TEX_ATTR_ANIM) {
+                    maxAnimatedTex = i;
+                }
+            }
+            else // is SpriteTexture
+            {
+                ASSERT(animated == 0);
+
+                TR1_PC::SpriteTexture tmp;
+                memset(&tmp, 0, sizeof(tmp));
+                tmp.tile = instance->spr->tile;
+                tmp.u = texture->spr->u + dx;
+                tmp.v = texture->spr->v + dy;
+                tmp.w = texture->spr->w;
+                tmp.h = texture->spr->h;
+                tmp.l = texture->spr->l;
+                tmp.t = texture->spr->t;
+                tmp.r = texture->spr->r;
+                tmp.b = texture->spr->b;
+
+                SpriteTexture* comp = new SpriteTexture(&tmp);
+
+                int32 sprIndex = int32(texture->spr - texture->level->spriteTextures);
+
+                int32 index = spriteTextures.find(comp);
+                if (index <= 0) {
+                    index = spriteTextures.add(comp);
+                } else {
+                    delete comp;
+                }
+                remap.sprites[sprIndex] = index;
+            }
+        }
+        
+        printf("animated textures: %d\n", maxAnimatedTex + 1);
+
+        ASSERT(maxAnimatedTex < MAX_ANIM_TEX);
     }
 
     int32 addRoomVertex(int32 yOffset, const TR1_PC::Room::Vertex &v)
     {
         RoomVertex comp;
-        int32 px = v.pos.x >> 10;
+        int32 px = v.pos.x >> 8;
         int32 py = (v.pos.y - yOffset) >> 8;
-        int32 pz = v.pos.z >> 10;
+        int32 pz = v.pos.z >> 8;
 
         ASSERT(py >= 0);
-        ASSERT(px < 32);
+        ASSERT(px < (32 << 2));
         ASSERT(py < 64);
-        ASSERT(pz < 32);
+        ASSERT(pz < (32 << 2));
 
         comp.x = px;
         comp.y = py;
@@ -1302,21 +1494,6 @@ struct out_GBA
         return animFrames.add(anim);
     }
 
-    void fixObjectTexture(ObjectTexture &tex, int32 idx)
-    {
-        uint32 uv0 = tex.uv01 & 0xFF00FF00;
-        uint32 uv1 = (tex.uv01 << 8) & 0xFF00FF00;
-        uint32 uv2 = tex.uv23 & 0xFF00FF00;
-        uint32 uv3 = (tex.uv23 << 8) & 0xFF00FF00;
-
-        fixTexCoord(uv0, uv1);
-        fixTexCoord(uv0, uv3);
-        fixTexCoord(uv1, uv2);
-
-        tex.uv01 = uv0 | (uv1 >> 8);
-        tex.uv23 = uv2 | (uv3 >> 8);
-    }
-
     uint32 writePalette(FileStream &f, TR1_PC* level)
     {
         uint32 offset = f.align4();
@@ -1342,16 +1519,26 @@ struct out_GBA
     uint32 writeLightmap(FileStream &f, TR1_PC* level)
     {
         uint32 offset = f.align4();
-
+    #if 1
         for (int32 i = 0; i < 32; i++) {
             level->lightmap[i * 256] = 0;
         }
-        f.write(level->lightmap, 32 * 256);
-
+        f.write(level->lightmap, 256 * 32);
+    #else
+        uint8 lmap[256 * 32];
+        for (int32 i = 0; i < 32; i++)
+        {
+            for (int32 j = 0; j < 256; j++)
+            {
+                lmap[j * 32 + i] = level->lightmap[i * 256 + j];
+            }
+        }
+        f.write(lmap, 256 * 32);
+    #endif
         return offset;
     }
 
-    uint32 writeRooms(FileStream &f, TR1_PC* level)
+    uint32 writeRooms(FileStream &f, TR1_PC* level, const Remap* remap)
     {
         uint32 offset = f.align4();
 
@@ -1371,6 +1558,7 @@ struct out_GBA
             ASSERT(room->info.yTop >= -32768 && room->info.yTop <= 32767);
             info.x = room->info.x / 256;
             info.z = room->info.z / 256;
+
             info.yBottom = -32768;
             info.yTop = 32767;
 
@@ -1413,14 +1601,16 @@ struct out_GBA
             for (int32 i = 0; i < room->qCount; i++)
             {
                 TR1_PC::Quad q = room->quads[i];
+                uint16 texIndex = q.flags & FACE_TEXTURE;
+
                 RoomQuad comp;
                 comp.indices[0] = addRoomVertex(info.yTop, room->vertices[q.indices[0]]);
                 comp.indices[1] = addRoomVertex(info.yTop, room->vertices[q.indices[1]]);
                 comp.indices[2] = addRoomVertex(info.yTop, room->vertices[q.indices[2]]);
                 comp.indices[3] = addRoomVertex(info.yTop, room->vertices[q.indices[3]]);
+                comp.flags = remap ? remap->textures[texIndex] : texIndex;
 
-                comp.flags = q.flags & FACE_TEXTURE;
-                if (level->objectTextures[comp.flags].attribute & TEX_ATTR_AKILL) {
+                if (level->objectTextures[texIndex].attribute & TEX_ATTR_AKILL) {
                     comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);
                 } else {
                     comp.flags |= (FACE_TYPE_FT << FACE_TYPE_SHIFT);
@@ -1433,19 +1623,19 @@ struct out_GBA
             for (int32 i = 0; i < room->tCount; i++)
             {
                 TR1_PC::Triangle t = room->triangles[i];
-                RoomTriangle comp;
+                uint16 texIndex = t.flags & FACE_TEXTURE;
 
+                RoomTriangle comp;
                 comp.indices[0] = addRoomVertex(info.yTop, room->vertices[t.indices[0]]);
                 comp.indices[1] = addRoomVertex(info.yTop, room->vertices[t.indices[1]]);
                 comp.indices[2] = addRoomVertex(info.yTop, room->vertices[t.indices[2]]);
-                    
-                comp.flags = t.flags & FACE_TEXTURE;
-                if (level->objectTextures[comp.flags].attribute & TEX_ATTR_AKILL) {
+                comp.flags = remap ? remap->textures[texIndex] : texIndex;
+
+                if (level->objectTextures[texIndex].attribute & TEX_ATTR_AKILL) {
                     comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);
                 } else {
                     comp.flags |= (FACE_TYPE_FT << FACE_TYPE_SHIFT);
                 }
-                comp.flags |= FACE_TRIANGLE;
 
                 comp.write(f);
             }
@@ -1638,11 +1828,34 @@ struct out_GBA
         }
     }
 
-    uint32 writeAnimTex(FileStream &f, TR1_PC* level)
+    uint32 writeAnimTex(FileStream &f, TR1_PC* level, const Remap* remap)
     {
         uint32 offset = f.align4();
 
-        f.write(level->animTexData, level->animTexDataSize);
+        const uint16* data = level->animTexData;
+
+        int16 rangesCount = *data++;
+
+        f.write(rangesCount);
+
+        for (int32 i = 0; i < rangesCount; i++)
+        {
+            int16 texCount = *data++;
+
+            f.write(texCount);
+
+            for (int32 j = 0; j <= texCount; j++)
+            {
+                uint16 texIndex = *data++;
+                
+                if (remap)
+                {
+                    texIndex = remap->textures[texIndex];
+                }
+
+                f.write(texIndex);
+            }
+        }
 
         return offset;
     }
@@ -1711,7 +1924,7 @@ struct out_GBA
         header.tiles = f.align4();
         f.write((uint8*)pc->tiles, header.tilesCount * 256 * 256);
 
-        header.rooms = writeRooms(f, pc);
+        header.rooms = writeRooms(f, pc, NULL);
         header.floors = writeFloors(f, pc);
 
         header.meshData = f.align4();
@@ -1731,7 +1944,7 @@ struct out_GBA
             const uint8* ptr = (uint8*)pc->meshData + pc->meshOffsets[i];
 
             Mesh* mesh = new Mesh(pc, ptr);
-            mesh->write(f);
+            mesh->write(f, NULL);
             delete[] mesh;
 
             for (int32 j = i + 1; j < pc->meshOffsetsCount; j++)
@@ -1813,40 +2026,14 @@ struct out_GBA
         header.objectTextures = f.align4();
         for (int32 i = 0; i < pc->objectTexturesCount; i++)
         {
-            const TR1_PC::ObjectTexture* objectTexture = pc->objectTextures + i;
-
-            ObjectTexture comp;
-            comp.tile = (objectTexture->tile & 0x3FFF) << 16;
-            uint32 uv0 = ((objectTexture->uv0 << 16) | (objectTexture->uv0 >> 16)) & 0xFF00FF00;
-            uint32 uv1 = ((objectTexture->uv1 << 16) | (objectTexture->uv1 >> 16)) & 0xFF00FF00;
-            uint32 uv2 = ((objectTexture->uv2 << 16) | (objectTexture->uv2 >> 16)) & 0xFF00FF00;
-            uint32 uv3 = ((objectTexture->uv3 << 16) | (objectTexture->uv3 >> 16)) & 0xFF00FF00;
-            comp.uv01 = uv0 | (uv1 >> 8);
-            comp.uv23 = uv2 | (uv3 >> 8);
-
-            // GBA rasterizer doesn't support UV deltas over 127
-            fixObjectTexture(comp, i);
-
+            ObjectTexture comp(pc->objectTextures + i);
             comp.write(f);
         }
 
         header.spriteTextures = f.align4();
         for (int32 i = 0; i < pc->spriteTexturesCount; i++)
         {
-            const TR1_PC::SpriteTexture* spriteTexture = pc->spriteTextures + i;
-
-            SpriteTexture comp;
-            comp.tile = spriteTexture->tile << 16;
-            uint32 u = spriteTexture->u;
-            uint32 v = spriteTexture->v;
-            uint32 w = (spriteTexture->w + 255) >> 8;
-            uint32 h = (spriteTexture->h + 255) >> 8;
-            comp.uwvh = (u << 24) | (w << 16) | (v << 8) | h;
-            comp.l = spriteTexture->l;
-            comp.t = spriteTexture->t;
-            comp.r = spriteTexture->r;
-            comp.b = spriteTexture->b;
-
+            SpriteTexture comp(pc->spriteTextures + i);
             comp.write(f);
         }
 
@@ -1858,7 +2045,7 @@ struct out_GBA
         header.boxes = writeBoxes(f, pc);
         header.overlaps = writeOverlaps(f, pc);
         writeZones(f, pc, header.zones[0]);
-        header.animTexData = writeAnimTex(f, pc);
+        header.animTexData = writeAnimTex(f, pc, NULL);
         header.items = writeItems(f, pc);
         header.cameraFrames = writeCameraFrames(f, pc);
 
@@ -2077,6 +2264,23 @@ struct out_GBA
         delete[] indices;
     }
 
+    void markAnimatedTextures(TR1_PC* level)
+    {
+        const uint16* data = level->animTexData;
+
+        int16 rangesCount = *data++;
+
+        for (int32 i = 0; i < rangesCount; i++)
+        {
+            int16 texCount = *data++;
+
+            for (int32 j = 0; j <= texCount; j++)
+            {
+                level->objectTextures[*data++].attribute |= TEX_ATTR_ANIM;
+            }
+        }    
+    }
+
     void convertWAD(FileStream &f, TR1_PC** pc, TR1_PSX** psx)
     {
         TR1_PC* level;
@@ -2093,6 +2297,7 @@ struct out_GBA
     // collect unique textures
         LEVELS_LOOP()
         {
+            markAnimatedTextures(level);
             addTextures(level);
         }
 
@@ -2100,7 +2305,12 @@ struct out_GBA
 
         packTiles(f);
 
-        printf("textures: %d\n", textures.count);
+        remapTextures();
+
+        printf("textures: %d\n", objectTextures.count);
+        printf("sprites: %d\n", spriteTextures.count);
+
+        ASSERT(objectTextures.count < (1 << FACE_TYPE_SHIFT));
 
     // collect unique meshes
         LEVELS_LOOP()
@@ -2112,7 +2322,7 @@ struct out_GBA
                 const uint8* ptr = (uint8*)level->meshData + level->meshOffsets[i];
 
                 Mesh* mesh = new Mesh(level, ptr);
-                remap[id].meshes[i] = addMesh(mesh);
+                remaps[id].meshes[i] = addMesh(mesh);
             }
         }
 
@@ -2141,7 +2351,7 @@ struct out_GBA
                 }
 
                 AnimFrames* af = new AnimFrames(startPtr, endPtr);
-                remap[id].animFrames[i] = addAnimFrames(af);
+                remaps[id].animFrames[i] = addAnimFrames(af);
             }
         }
 
@@ -2154,40 +2364,58 @@ struct out_GBA
             {
                 Model model;
                 model.init(level, level->models[i]);
-                remap[id].models[i] = addModel(model);
+                remaps[id].models[i] = addModel(model);
             }
-        }
-
-    // collect unique object textures
-        LEVELS_LOOP()
-        {
-            // TODO
         }
 
         printf("Meshes: %d\n", meshes.count);
         printf("Models: %d\n", models.count);
         printf("Animations: %d\n", animFrames.count);
 
+    // write objectTextures
+        headers[0].objectTextures = f.align4();
+        for (int32 i = 0; i < objectTextures.count; i++)
+        {
+            objectTextures[i]->write(f);
+        }
+
+    // write spriteTextures
+        headers[0].spriteTextures = f.align4();
+        for (int32 i = 0; i < spriteTextures.count; i++)
+        {
+            spriteTextures[i]->write(f);
+        }
+
     // write meshes
-        //header.meshes = f.align4();
+        headers[0].meshData = f.align4();
         for (int32 i = 0; i < meshes.count; i++)
         {
             meshes[i]->offset = f.align4();
-            meshes[i]->write(f);
+            meshes[i]->write(f, &remaps[meshes[i]->level->id]);
         }
 
     // write models
-        //header.models = f.align4();
+        headers[0].models = f.align4();
         for (int32 i = 0; i < models.count; i++)
         {
             models[i]->write(f);
         }
 
     // write anims
-        //header.frames = f.align4();
+        headers[0].frameData = f.align4();
         for (int32 i = 0; i < animFrames.count; i++)
         {
             animFrames[i]->write(f);
+        }
+
+    // set global array pointers
+        LEVELS_LOOP()
+        {
+            headers[id].objectTextures  = headers[0].objectTextures;
+            headers[id].spriteTextures  = headers[0].spriteTextures;
+            headers[id].meshData        = headers[0].meshData;
+            headers[id].models          = headers[0].models;
+            headers[id].frameData       = headers[0].frameData;
         }
 
     // palette
@@ -2205,7 +2433,7 @@ struct out_GBA
     // rooms
         LEVELS_LOOP()
         {
-            headers[id].rooms = writeRooms(f, level);
+            headers[id].rooms = writeRooms(f, level, &remaps[id]);
         }
 
     // floors data
@@ -2221,7 +2449,7 @@ struct out_GBA
             headers[id].meshOffsets = f.align4();
             for (int32 i = 0; i < level->meshOffsetsCount; i++)
             {
-                f.write(meshes[remap[id].meshes[i]]->offset);
+                f.write(meshes[remaps[id].meshes[i]]->offset);
             }
         }
 
@@ -2295,48 +2523,11 @@ struct out_GBA
         {
             headers[id].staticMeshes = writeStaticMeshes(f, level);
         }
-    /*
-        header.objectTextures = f.align4();
-        for (int32 i = 0; i < pc->objectTexturesCount; i++)
-        {
-            const TR1_PC::ObjectTexture* objectTexture = pc->objectTextures + i;
 
-            ObjectTexture comp;
-            comp.attribute = objectTexture->attribute;
-            comp.tile = objectTexture->tile & 0x3FFF;
-            comp.uv0 = ((objectTexture->uv0 << 16) | (objectTexture->uv0 >> 16)) & 0xFF00FF00;
-            comp.uv1 = ((objectTexture->uv1 << 16) | (objectTexture->uv1 >> 16)) & 0xFF00FF00;
-            comp.uv2 = ((objectTexture->uv2 << 16) | (objectTexture->uv2 >> 16)) & 0xFF00FF00;
-            comp.uv3 = ((objectTexture->uv3 << 16) | (objectTexture->uv3 >> 16)) & 0xFF00FF00;
-
-            // GBA rasterizer doesn't support UV deltas over 127, due performance reason, so we clamp it
-            fixObjectTexture(comp, i);
-
-            comp.write(f);
-        }
-
-        header.spriteTextures = f.align4();
-        for (int32 i = 0; i < pc->spriteTexturesCount; i++)
-        {
-            const TR1_PC::SpriteTexture* spriteTexture = pc->spriteTextures + i;
-
-            SpriteTexture comp;
-            comp.tile = spriteTexture->tile;
-            comp.u = spriteTexture->u;
-            comp.v = spriteTexture->v;
-            comp.w = spriteTexture->w >> 8;
-            comp.h = spriteTexture->h >> 8;
-            comp.l = spriteTexture->l;
-            comp.t = spriteTexture->t;
-            comp.r = spriteTexture->r;
-            comp.b = spriteTexture->b;
-
-            comp.write(f);
-        }
-
+/*
         header.spriteSequences = f.align4();
         f.writeObj(pc->spriteSequences, pc->spriteSequencesCount);
-        */
+*/
 
     // fixed cameras
         LEVELS_LOOP()
@@ -2371,7 +2562,7 @@ struct out_GBA
     // animated textures
         LEVELS_LOOP()
         {
-            headers[id].animTexData = writeAnimTex(f, level);
+            headers[id].animTexData = writeAnimTex(f, level, &remaps[id]);
         }
 
     // items
