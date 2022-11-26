@@ -163,10 +163,10 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
     {
         uint32 value = *(uint32*)(vertices++);
 
-        int32 vx = (0xFF & (value));
-        int32 vy = (0xFF & (value >> 8));
-        int32 vz = (0xFF & (value >> 16));
-        int32 vg = (0xFF & (value >> 24)) << 5;
+        int32 vx = (value & (0xFF)) << 8;
+        int32 vy = (value & (0xFF << 8));
+        int32 vz = (value & (0xFF << 16)) >> 8;
+        int32 vg = (value & (0xFF << 24)) >> (24 - 5);
 
         const Matrix &m = matrixGet();
         int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
@@ -177,17 +177,17 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
 
         if (z <= VIEW_MIN_F) {
             clip = CLIP_NEAR;
-            z = VIEW_MIN_F >> 8;
+            z = VIEW_MIN_F;
         }
 
-        if (z >= VIEW_MAX_F >> 8) {
+        if (z >= VIEW_MAX_F) {
             clip = CLIP_FAR;
-            z = VIEW_MAX_F >> 8;
+            z = VIEW_MAX_F;
         }
 
-        x >>= FIXED_SHIFT - 8;
-        y >>= FIXED_SHIFT - 8;
-        z >>= FIXED_SHIFT - 8;
+        x >>= FIXED_SHIFT;
+        y >>= FIXED_SHIFT;
+        z >>= FIXED_SHIFT;
 
         if (z > FOG_MIN)
         {
@@ -231,9 +231,9 @@ void transformRoomUW_c(const RoomVertex* vertices, int32 count)
     {
         uint32 value = *(uint32*)(vertices++);
 
-        int32 vx = (value & (0xFF)) << 10;
+        int32 vx = (value & (0xFF)) << 8;
         int32 vy = (value & (0xFF << 8));
-        int32 vz = (value & (0xFF << 16)) >> 6;
+        int32 vz = (value & (0xFF << 16)) >> 8;
         int32 vg = (value & (0xFF << 24)) >> (24 - 5);
 
         const Matrix &m = matrixGet();
@@ -590,7 +590,7 @@ void flush_c()
 
     gFacesBase = gFaces;
 
-    VertexLink v[4 + 3];
+    VertexLink v[8];
     VertexLink* q = v;
     VertexLink* t = v + 4;
     // quad
@@ -609,6 +609,7 @@ void flush_c()
     t[1].next = 1;
     t[2].prev = -1;
     t[2].next = -2;
+    // t[3] dummy
 
     PROFILE(CNT_FLUSH);
 
