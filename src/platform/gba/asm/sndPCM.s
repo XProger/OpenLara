@@ -13,34 +13,53 @@ ampB    .req r8
 outA    .req r9
 outB    .req r12
 last    .req count
-tmp     .req outB
+tmpSP   .req outB
+tmp     .req ampA
+
+.macro clamp amp
+    // Vanadium's clamp trick (-128..127)
+    mov tmp, \amp, asr #31  // tmp <- 0xffffffff
+    cmp tmp, \amp, asr #7  // not equal
+    eorne \amp, tmp, #0x7F  // amp <- 0xffffff80
+.endm
 
 .global sndPCM_asm
 sndPCM_asm:
-    mov tmp, sp
+    mov tmpSP, sp
     stmfd sp!, {r4-r9}
 
-    ldmia tmp, {data, buffer, count}
+    ldmia tmpSP, {data, buffer, count}
 
     mla last, inc, count, pos
     cmp last, size
     movgt last, size
 
 .loop:
-    ldrb ampA, [data, pos, lsr #8]
+    ldrb ampA, [data, pos, lsr #SND_FIXED_SHIFT]
     add pos, pos, inc
-    ldrb ampB, [data, pos, lsr #8]
+    ldrb ampB, [data, pos, lsr #SND_FIXED_SHIFT]
     add pos, pos, inc
-    cmp pos, last
 
+    // can't use signed PCM because of LDRSB restrictions
     sub ampA, ampA, #128
     sub ampB, ampB, #128
 
-    ldmia buffer, {outA, outB}
-    mla outA, volume, ampA, outA
-    mla outB, volume, ampB, outB
-    stmia buffer!, {outA, outB}
+    mul ampA, volume
+    mul ampB, volume
 
+    ldrsb outA, [buffer, #0]
+    ldrsb outB, [buffer, #1]
+
+    add outA, ampA, asr #SND_VOL_SHIFT
+    add outB, ampB, asr #SND_VOL_SHIFT
+
+    clamp outA
+    clamp outB
+
+    strb outA, [buffer], #1
+    strb outB, [buffer], #1
+
+    cmp pos, last
     blt .loop
 
 .done:

@@ -17,30 +17,23 @@ int32 IMA_STEP[] = { // IWRAM !
 
 #if defined(__GBA__) && defined(USE_ASM)
     extern const uint8_t TRACKS_IMA[];
-    // the sound mixer works during VBlank, this is a great opportunity for exclusive access to VRAM without any perf penalties
-    // so we use part of offscreen VRAM as sound buffers (704 + 384 = 1088 bytes)
-    int32* mixerBuffer = (int32*)(MEM_VRAM + VRAM_PAGE_SIZE + FRAME_WIDTH * FRAME_HEIGHT);
-    uint8* soundBuffer = (uint8*)(MEM_VRAM + VRAM_PAGE_SIZE + FRAME_WIDTH * FRAME_HEIGHT + SND_SAMPLES * sizeof(int32)); // use 2k of VRAM after the first frame buffer as sound buffer
 #else
     extern const void* TRACKS_IMA;
-    int32 mixerBuffer[SND_SAMPLES];
-    uint8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
 #endif
+
+int8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
 
 #ifdef USE_ASM
     #define sndIMA      sndIMA_asm
     #define sndPCM      sndPCM_asm
-    #define sndWrite    sndWrite_asm
 
     extern "C" {
-        void sndIMA_asm(IMA_STATE &state, int32* buffer, const uint8* data, int32 size);
-        int32 sndPCM_asm(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int32* buffer, int32 count);
-        void sndWrite_asm(uint8* buffer, int32 count, int32 *data);
+        void sndIMA_asm(IMA_STATE &state, int8* buffer, const uint8* data, int32 size);
+        int32 sndPCM_asm(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer, int32 count);
     }
 #else
     #define sndIMA      sndIMA_c
     #define sndPCM      sndPCM_c
-    #define sndWrite    sndWrite_c
 
 #define DECODE_IMA_4(n)\
     step = IMA_STEP[idx];\
@@ -56,14 +49,16 @@ int32 IMA_STEP[] = { // IWRAM !
     } else {\
         smp += step >> 3;\
     }\
-    *buffer++ = smp >> (16 - (8 + SND_VOL_SHIFT));
+    amp = smp >> 8;\
+    *buffer++ = SND_ENCODE(X_CLAMP(amp, SND_MIN, SND_MAX));
 
-void sndIMA_c(IMA_STATE &state, int32* buffer, const uint8* data, int32 size)
+void sndIMA_c(IMA_STATE &state, int8* buffer, const uint8* data, int32 size)
 {
     uint32 step, index;
 
     int32 smp = state.smp;
     int32 idx = state.idx;
+    int32 amp;
 
     for (int32 i = 0; i < size; i++)
     {
@@ -77,7 +72,7 @@ void sndIMA_c(IMA_STATE &state, int32* buffer, const uint8* data, int32 size)
     state.idx = idx;
 }
 
-int32 sndPCM_c(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int32* buffer, int32 count)
+int32 sndPCM_c(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer, int32 count)
 {
     int32 last = pos + count * inc;
     if (last > size) {
@@ -86,23 +81,14 @@ int32 sndPCM_c(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data
 
     while (pos < last)
     {
-        *buffer++ += SND_DECODE(data[pos >> SND_FIXED_SHIFT]) * volume;
+        int32 amp = SND_DECODE(*buffer) + ((SND_DECODE(data[pos >> SND_FIXED_SHIFT]) * volume) >> SND_VOL_SHIFT);
+        *buffer++ = SND_ENCODE(X_CLAMP(amp, SND_MIN, SND_MAX));
         pos += inc;
     }
 
     return pos;
 }
-
-void sndWrite_c(uint8* buffer, int32 count, int32 *data)
-{
-    for (int32 i = 0; i < count; i++)
-    {
-        int32 samp = X_CLAMP(data[i] >> SND_VOL_SHIFT, SND_MIN, SND_MAX);
-        buffer[i] = SND_ENCODE(samp);
-    }
-}
 #endif
-
 
 struct Music
 {
@@ -111,7 +97,7 @@ struct Music
     int32         pos;
     IMA_STATE     state;
 
-    void fill(int32* buffer, int32 count)
+    void fill(int8* buffer, int32 count)
     {
         int32 len = X_MIN(size - pos, count >> 1);
 
@@ -135,7 +121,7 @@ struct Sample
     int32        volume;
     const uint8* data;
 
-    void fill(int32* buffer, int32 count)
+    void fill(int8* buffer, int32 count)
     {
         pos = sndPCM(pos, inc, size, volume, data, buffer, count);
 
@@ -276,7 +262,7 @@ void sndStop()
     music.data = NULL;
 }
 
-void sndFill(uint8* buffer, int32 count)
+void sndFill(int8* buffer, int32 count)
 {
 #ifdef PROFILE_SOUNDTIME
     PROFILE_CLEAR();
@@ -290,9 +276,9 @@ void sndFill(uint8* buffer, int32 count)
     }
 
     if (music.data) {
-        music.fill(mixerBuffer, count);
+        music.fill(buffer, count);
     } else {
-        dmaFill(mixerBuffer, 0, SND_SAMPLES * sizeof(int32));
+        dmaFill(buffer, 0, SND_SAMPLES * sizeof(buffer[0]));
     }
 
     int32 ch = channelsCount;
@@ -300,12 +286,10 @@ void sndFill(uint8* buffer, int32 count)
     {
         Sample* sample = channels + ch;
 
-        sample->fill(mixerBuffer, count);
+        sample->fill(buffer, count);
 
         if (!sample->data) {
             channels[ch] = channels[--channelsCount];
         }
     }
-
-    sndWrite(buffer, count, mixerBuffer);
 }

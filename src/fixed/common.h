@@ -2839,7 +2839,7 @@ int32 doTutorial(ItemObj* lara, int32 track);
 void sndInit();
 void sndInitSamples();
 void sndFreeSamples();
-void sndFill(uint8* buffer, int32 count);
+void sndFill(int8* buffer, int32 count);
 void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode);
 void sndPlayTrack(int32 track);
 bool sndTrackIsPlaying();

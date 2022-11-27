@@ -94,6 +94,9 @@
 .equ MIN_INT32,     0x80000000
 .equ MAX_INT32,     0x7FFFFFFF
 
+.equ SND_VOL_SHIFT,     6
+.equ SND_FIXED_SHIFT,   8
+
 // res = divTable[x] (uint16)
 .macro divLUT res, x
     add \res, \x, #DIVLUT_ADDR

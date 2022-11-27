@@ -10,9 +10,8 @@ stepLUT .req r6
 step    .req r7
 n       .req r8
 index   .req r9
-outA    .req r12
-outB    .req lr
-tmp     .req outB
+out     .req r12
+tmp     .req out
 
 IMA_STEP_SIZE = 88
 
@@ -33,12 +32,12 @@ IMA_STEP_SIZE = 88
     cmpgt idx, #IMA_STEP_SIZE
     movgt idx, #IMA_STEP_SIZE
 
-    mov \out, smp, asr #2
+    mov \out, smp, asr #(2 + SND_VOL_SHIFT)
 .endm
 
 .global sndIMA_asm
 sndIMA_asm:
-    stmfd sp!, {r4-r9, lr}
+    stmfd sp!, {r4-r9}
 
     ldmia state, {smp, idx}
 
@@ -47,18 +46,18 @@ sndIMA_asm:
 .loop:
     ldrb n, [data], #1
 
-    decode4 n, outA
-    
+    decode4 n, out
+    strb out, [buffer], #1
+
     mov n, n, lsr #4
 
-    decode4 n, outB
-
-    stmia buffer!, {outA, outB}
+    decode4 n, out
+    strb out, [buffer], #1
 
     subs size, #1
     bne .loop
 
     stmia state, {smp, idx}
 
-    ldmfd sp!, {r4-r9, lr}
+    ldmfd sp!, {r4-r9}
     bx lr
