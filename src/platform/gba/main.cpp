@@ -497,14 +497,14 @@ void soundInit()
 
 void soundFill()
 {
-    if (curSoundBuffer == 1) {
+    if (curSoundBuffer) {
         REG_DMA1CNT = 0;
         REG_DMA1SAD = (u32)soundBuffer;
         REG_DMA1CNT = DMA_DST_FIXED | DMA_REPEAT | DMA_16 | DMA_AT_FIFO | DMA_ENABLE;
     }
 
-    sndFill(soundBuffer + curSoundBuffer * SND_SAMPLES, SND_SAMPLES);
-    curSoundBuffer ^= 1;
+    sndFill(soundBuffer + curSoundBuffer, SND_SAMPLES);
+    curSoundBuffer ^= SND_SAMPLES;
 }
 
 void vblank()

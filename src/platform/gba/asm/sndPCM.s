@@ -19,7 +19,7 @@ tmp     .req ampA
 .macro clamp amp
     // Vanadium's clamp trick (-128..127)
     mov tmp, \amp, asr #31  // tmp <- 0xffffffff
-    cmp tmp, \amp, asr #7  // not equal
+    cmp tmp, \amp, asr #7   // not equal
     eorne \amp, tmp, #0x7F  // amp <- 0xffffff80
 .endm
 
