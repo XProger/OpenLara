@@ -12,8 +12,8 @@
     mul \t, \y, \cos
     mla \t, \x, \sin, \t
     mul \x, \cos, \x
-    rsb \y, \y, #0
-    mla \x, \y, \sin, \x
+    mul \y, \sin, \y
+    sub \x, \y
     mov \y, \t, asr #FIXED_SHIFT
     mov \x, \x, asr #FIXED_SHIFT
 .endm
