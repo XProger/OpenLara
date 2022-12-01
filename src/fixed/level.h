@@ -76,6 +76,63 @@ bool readLevelStream(DataStream& f)
     return false;
 }
 
+#ifdef USE_VRAM_MESH
+struct MeshVRAM
+{
+    const Mesh* meshROM;
+    const Mesh* meshVRAM;
+};
+
+MeshVRAM* vramMeshes = (MeshVRAM*)gSpheres; // use temporary memory
+int32 vramMeshesCount;
+
+uint8* pushToVRAM(uint8* ptr, Model* model)
+{
+    for (int32 i = 0; i < model->count; i++)
+    {
+        const Mesh* mesh = meshes[model->start + i];
+
+        int32 vramMeshIndex = -1;
+
+        for (int32 i = 0; i < vramMeshesCount; i++)
+        {
+            if (vramMeshes[i].meshROM == mesh)
+            {
+                vramMeshIndex = i;
+                break;
+            }
+        }
+
+        if (vramMeshIndex == -1)
+        {
+            int32 meshSize = sizeof(Mesh) + 
+                mesh->vCount * sizeof(MeshVertex) +
+                mesh->rCount * sizeof(MeshQuad) +
+                mesh->tCount * sizeof(MeshTriangle);
+
+            if (meshSize & 3)
+            {
+                meshSize += 2;
+            }
+
+            vramMeshes[vramMeshesCount].meshROM = mesh;
+            vramMeshes[vramMeshesCount].meshVRAM = (Mesh*)ptr;
+            vramMeshIndex = vramMeshesCount++;
+
+            memcpy(ptr, mesh, meshSize);
+
+            ptr += meshSize;
+        }
+
+        meshes[level.meshesCount + i] = vramMeshes[vramMeshIndex].meshVRAM;
+    }
+    model->start = level.meshesCount;
+    level.meshesCount += model->count;
+
+    return ptr;
+}
+#endif
+
 void readLevel(const uint8* data)
 {
 //#ifdef ROM_READ
@@ -129,6 +186,22 @@ void readLevel(const uint8* data)
         m->count = int8(spriteSeq->count);
         m->start = spriteSeq->start;
     }
+
+#ifdef USE_VRAM_MESH // experimental, should be per level or dynamic
+    vramMeshesCount = 0;
+    uint8* ptr = (uint8*)0x06014000; // 16k available
+    ptr = pushToVRAM(ptr, models + ITEM_LARA);
+    ptr = pushToVRAM(ptr, models + ITEM_LARA_PISTOLS);
+    ptr = pushToVRAM(ptr, models + ITEM_LARA_SHOTGUN);
+    ptr = pushToVRAM(ptr, models + ITEM_LARA_MAGNUMS);
+    ptr = pushToVRAM(ptr, models + ITEM_LARA_UZIS);
+    ptr = pushToVRAM(ptr, models + ITEM_WOLF);
+    ptr = pushToVRAM(ptr, models + ITEM_BAT);
+    ptr = pushToVRAM(ptr, models + ITEM_BRIDGE_FLAT);
+    ptr = pushToVRAM(ptr, models + ITEM_BRIDGE_TILT_1);
+    ptr = pushToVRAM(ptr, models + ITEM_BRIDGE_TILT_2);
+    //printf("%d\n", ptr - (uint8*)0x06014000);
+#endif
 }
 
 void animTexturesShift()
