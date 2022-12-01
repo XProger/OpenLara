@@ -26,13 +26,13 @@ struct ViewportRel {
 ViewportRel viewportRel;
 
 #if defined(__GBA_WIN__)
-    uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
+    uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
 #elif defined(__GBA__)
     uint32 fb = MEM_VRAM;
 #elif defined(__TNS__)
-    uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
+    uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
 #elif defined(__DOS__)
-    uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
+    uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
 #endif
 
 enum FaceType {
@@ -150,7 +150,7 @@ extern "C" {
     #define faceAddMeshTriangles    faceAddMeshTriangles_c
     #define rasterize               rasterize_c
 
-X_INLINE bool checkBackface(const Vertex *a, const Vertex *b, const Vertex *c)
+X_INLINE bool checkBackface(const Vertex* a, const Vertex* b, const Vertex* c)
 {
     return (b->x - a->x) * (c->y - a->y) <= (c->x - a->x) * (b->y - a->y);
 }
@@ -803,7 +803,7 @@ void faceAddMesh(const MeshQuad* quads, const MeshTriangle* triangles, int32 qCo
 
 void clear()
 {
-    dmaFill((void*)fb, 0, VRAM_WIDTH * FRAME_HEIGHT * 2);
+    dmaFill((void*)fb, 0, FRAME_WIDTH * FRAME_HEIGHT);
 }
 
 void renderRoom(const Room* room)

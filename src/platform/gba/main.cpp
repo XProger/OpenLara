@@ -123,7 +123,7 @@ void soundFill()
 {
     WAVEHDR *waveHdr = waveBuf + curSoundBuffer;
     waveOutUnprepareHeader(waveOut, waveHdr, sizeof(WAVEHDR));
-    sndFill((int8*)waveHdr->lpData, SND_SAMPLES);
+    sndFill((int8*)waveHdr->lpData);
     waveOutPrepareHeader(waveOut, waveHdr, sizeof(WAVEHDR));
     waveOutWrite(waveOut, waveHdr, sizeof(WAVEHDR));
     curSoundBuffer ^= 1;
@@ -503,7 +503,7 @@ void soundFill()
         REG_DMA1CNT = DMA_DST_FIXED | DMA_REPEAT | DMA_16 | DMA_AT_FIFO | DMA_ENABLE;
     }
 
-    sndFill(soundBuffer + curSoundBuffer, SND_SAMPLES);
+    sndFill(soundBuffer + curSoundBuffer);
     curSoundBuffer ^= SND_SAMPLES;
 }
 

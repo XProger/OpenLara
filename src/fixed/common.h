@@ -66,6 +66,7 @@
     #define FRAME_HEIGHT 160
 
     #define USE_FMT     (LVL_FMT_PKD)
+    #define USE_VRAM_MESH // experimental
 
     #include <tonc.h>
 #elif defined(__NDS__)
@@ -188,8 +189,6 @@
 
 #include <math.h>
 #include <limits.h>
-
-#define VRAM_WIDTH   (FRAME_WIDTH/2)    // in shorts
 
 #ifndef USE_FMT
     #define USE_FMT (LVL_FMT_PHD | LVL_FMT_PSX | LVL_FMT_SAT | LVL_FMT_TR2 | LVL_FMT_TR4)
@@ -343,13 +342,13 @@ X_INLINE int32 abs(int32 x) {
 #endif
 
 #if defined(__GBA_WIN__)
-    extern uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
+    extern uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
 #elif defined(__GBA__)
     extern uint32 fb;
 #elif defined(__TNS__)
-    extern uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
+    extern uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
 #elif defined(__DOS__)
-    extern uint16 fb[VRAM_WIDTH * FRAME_HEIGHT];
+    extern uint16 fb[FRAME_WIDTH * FRAME_HEIGHT];
 #endif
 
 #define STATIC_MESH_FLAG_NO_COLLISION   1
@@ -2839,7 +2838,7 @@ int32 doTutorial(ItemObj* lara, int32 track);
 void sndInit();
 void sndInitSamples();
 void sndFreeSamples();
-void sndFill(int8* buffer, int32 count);
+void sndFill(int8* buffer);
 void* sndPlaySample(int32 index, int32 volume, int32 pitch, int32 mode);
 void sndPlayTrack(int32 track);
 bool sndTrackIsPlaying();

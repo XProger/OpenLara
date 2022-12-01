@@ -143,7 +143,7 @@ void rasterizeS_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 }
             }
 
-            pixel += VRAM_WIDTH;
+            pixel += (FRAME_WIDTH >> 1);
 
             Lx += Ldx;
             Rx += Rdx;
@@ -253,7 +253,7 @@ void rasterizeF_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 }
             }
 
-            pixel += VRAM_WIDTH;
+            pixel += (FRAME_WIDTH >> 1);
 
             Lx += Ldx;
             Rx += Rdx;
@@ -377,7 +377,7 @@ void rasterizeFT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 }
             }
 
-            pixel += VRAM_WIDTH;
+            pixel += (FRAME_WIDTH >> 1);
 
             Lx += Ldx;
             Rx += Rdx;
@@ -533,7 +533,7 @@ void rasterizeGT_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 }
             }
 
-            pixel += VRAM_WIDTH;
+            pixel += (FRAME_WIDTH >> 1);
 
             Lx += Ldx;
             Rx += Rdx;
@@ -672,7 +672,7 @@ void rasterizeFTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 }
             }
 
-            pixel += VRAM_WIDTH;
+            pixel += (FRAME_WIDTH >> 1);
 
             Lx += Ldx;
             Rx += Rdx;
@@ -846,7 +846,7 @@ void rasterizeGTA_c(uint16* pixel, const VertexLink* L, const VertexLink* R)
                 }
             }
 
-            pixel += VRAM_WIDTH;
+            pixel += (FRAME_WIDTH >> 1);
 
             Lx += Ldx;
             Rx += Rdx;
@@ -970,7 +970,7 @@ extern "C" X_NOINLINE void rasterizeSprite_c(uint16* pixel, const VertexLink* L,
 
     if (L->v.y < 0)
     {
-        pixel -= L->v.y * VRAM_WIDTH;
+        pixel -= L->v.y * (FRAME_WIDTH >> 1);
         v -= L->v.y * dv;
         h += L->v.y;
     }

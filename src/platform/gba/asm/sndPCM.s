@@ -7,61 +7,87 @@ volume  .req r3
 
 data    .req r4
 buffer  .req r5
-count   .req r6
-ampA    .req r7
-ampB    .req r8
-outA    .req r9
-outB    .req r12
-last    .req count
-tmpSP   .req outB
-tmp     .req ampA
+tmp     .req r6
+last    .req r12
+tmpSP   .req last
+out     .req size
 
-.macro clamp amp
+.macro clamp
     // Vanadium's clamp trick (-128..127)
-    mov tmp, \amp, asr #31  // tmp <- 0xffffffff
-    cmp tmp, \amp, asr #7   // not equal
-    eorne \amp, tmp, #0x7F  // amp <- 0xffffff80
+    mov tmp, out, asr #31  // tmp <- 0xffffffff
+    cmp tmp, out, asr #7   // not equal
+    eorne out, tmp, #0x7F  // out <- 0xffffff80
 .endm
 
-.global sndPCM_asm
-sndPCM_asm:
+.macro calc_last
+    // last = pos + inc * SND_SAMPLES (176)
+    add last, inc, inc, lsl #2      // last = inc * 5
+    add last, inc, last, lsl #1     // last = inc * 11
+    add last, pos, last, lsl #4     // last = pos + (inc * 11) * 16
+.endm
+
+.macro pcm_sample_fetch
+    ldrb out, [data, pos, lsr #SND_FIXED_SHIFT]
+    add pos, inc
+    sub out, #128
+    mul out, volume
+.endm
+
+.macro pcm_sample_fill
+    pcm_sample_fetch
+    asr out, #SND_VOL_SHIFT
+    strb out, [buffer], #1
+.endm
+
+.macro pcm_sample_mix
+    pcm_sample_fetch
+    ldrsb tmp, [buffer]
+    add out, tmp, out, asr #SND_VOL_SHIFT
+    clamp
+    strb out, [buffer], #1
+.endm
+
+.global sndPCM_fill_asm
+sndPCM_fill_asm:
     mov tmpSP, sp
-    stmfd sp!, {r4-r9}
+    stmfd sp!, {r4-r5}
 
-    ldmia tmpSP, {data, buffer, count}
+    ldmia tmpSP, {data, buffer}
 
-    mla last, inc, count, pos
+    calc_last
+
     cmp last, size
     movgt last, size
 
-.loop:
-    ldrb ampA, [data, pos, lsr #SND_FIXED_SHIFT]
-    add pos, pos, inc
-    ldrb ampB, [data, pos, lsr #SND_FIXED_SHIFT]
-    add pos, pos, inc
-
-    // can't use signed PCM because of LDRSB restrictions
-    sub ampA, ampA, #128
-    sub ampB, ampB, #128
-
-    mul ampA, volume
-    mul ampB, volume
-
-    ldrsb outA, [buffer, #0]
-    ldrsb outB, [buffer, #1]
-
-    add outA, ampA, asr #SND_VOL_SHIFT
-    add outB, ampB, asr #SND_VOL_SHIFT
-
-    clamp outA
-    clamp outB
-
-    strb outA, [buffer], #1
-    strb outB, [buffer], #1
+.loop_fill:
+    pcm_sample_fill
+    pcm_sample_fill
 
     cmp pos, last
-    blt .loop
+    blt .loop_fill
 
-.done:
-    ldmfd sp!, {r4-r9}
+    ldmfd sp!, {r4-r5}
+    bx lr
+
+
+.global sndPCM_mix_asm
+sndPCM_mix_asm:
+    mov tmpSP, sp
+    stmfd sp!, {r4-r6} // tmp reg required
+
+    ldmia tmpSP, {data, buffer}
+
+    calc_last
+
+    cmp last, size
+    movgt last, size
+
+.loop_mix:
+    pcm_sample_mix
+    pcm_sample_mix
+
+    cmp pos, last
+    blt .loop_mix
+
+    ldmfd sp!, {r4-r6}
     bx lr

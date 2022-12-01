@@ -24,16 +24,19 @@ int32 IMA_STEP[] = { // IWRAM !
 int8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
 
 #ifdef USE_ASM
-    #define sndIMA      sndIMA_asm
-    #define sndPCM      sndPCM_asm
+    #define sndIMA_fill sndIMA_fill_asm
+    #define sndPCM_fill sndPCM_fill_asm
+    #define sndPCM_mix  sndPCM_mix_asm
 
     extern "C" {
-        void sndIMA_asm(IMA_STATE &state, int8* buffer, const uint8* data, int32 size);
-        int32 sndPCM_asm(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer, int32 count);
+        void sndIMA_fill_asm(IMA_STATE &state, int8* buffer, const uint8* data, int32 size);
+        int32 sndPCM_fill_asm(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer);
+        int32 sndPCM_mix_asm(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer);
     }
 #else
-    #define sndIMA      sndIMA_c
-    #define sndPCM      sndPCM_c
+    #define sndIMA_fill sndIMA_c
+    #define sndPCM_fill sndPCM_c
+    #define sndPCM_mix  sndPCM_c
 
 #define DECODE_IMA_4(n)\
     step = IMA_STEP[idx];\
@@ -72,16 +75,16 @@ void sndIMA_c(IMA_STATE &state, int8* buffer, const uint8* data, int32 size)
     state.idx = idx;
 }
 
-int32 sndPCM_c(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer, int32 count)
+int32 sndPCM_c(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer)
 {
-    int32 last = pos + count * inc;
+    int32 last = pos + SND_SAMPLES * inc;
     if (last > size) {
         last = size;
     }
 
     while (pos < last)
     {
-        int32 amp = SND_DECODE(*buffer) + ((SND_DECODE(data[pos >> SND_FIXED_SHIFT]) * volume) >> SND_VOL_SHIFT);
+        int32 amp = SND_DECODE(*(uint8*)buffer) + ((SND_DECODE(data[pos >> SND_FIXED_SHIFT]) * volume) >> SND_VOL_SHIFT);
         *buffer++ = SND_ENCODE(X_CLAMP(amp, SND_MIN, SND_MAX));
         pos += inc;
     }
@@ -97,18 +100,18 @@ struct Music
     int32         pos;
     IMA_STATE     state;
 
-    void fill(int8* buffer, int32 count)
+    void fill(int8* buffer)
     {
-        int32 len = X_MIN(size - pos, count >> 1);
+        int32 len = X_MIN(size - pos, SND_SAMPLES >> 1);
 
-        sndIMA(state, buffer, data + pos, len);
+        sndIMA_fill(state, buffer, data + pos, len);
 
         pos += len;
 
         if (pos >= size)
         {
             data = NULL;
-            memset(buffer, 0, (count - (len << 1)) * sizeof(buffer[0]));
+            memset(buffer, 0, (SND_SAMPLES - (len << 1)) * sizeof(buffer[0]));
         }
     }
 };
@@ -121,9 +124,19 @@ struct Sample
     int32        volume;
     const uint8* data;
 
-    void fill(int8* buffer, int32 count)
+    void mix(int8* buffer)
     {
-        pos = sndPCM(pos, inc, size, volume, data, buffer, count);
+        pos = sndPCM_mix(pos, inc, size, volume, data, buffer);
+
+        if (pos >= size)
+        {
+            data = NULL;
+        }
+    }
+
+    void fill(int8* buffer)
+    {
+        pos = sndPCM_fill(pos, inc, size, volume, data, buffer);
 
         if (pos >= size)
         {
@@ -262,23 +275,18 @@ void sndStop()
     music.data = NULL;
 }
 
-void sndFill(int8* buffer, int32 count)
+void sndFill(int8* buffer)
 {
 #ifdef PROFILE_SOUNDTIME
     PROFILE_CLEAR();
     PROFILE(CNT_SOUND);
 #endif
+    bool mix = (music.data != NULL);
 
-    if ((channelsCount == 0) && !music.data)
-    {
-        dmaFill(buffer, SND_ENCODE(0), count);
-        return;
-    }
-
-    if (music.data) {
-        music.fill(buffer, count);
+    if (mix) {
+        music.fill(buffer);
     } else {
-        dmaFill(buffer, 0, SND_SAMPLES * sizeof(buffer[0]));
+        dmaFill(buffer, SND_ENCODE(0), SND_SAMPLES * sizeof(buffer[0]));
     }
 
     int32 ch = channelsCount;
@@ -286,10 +294,15 @@ void sndFill(int8* buffer, int32 count)
     {
         Sample* sample = channels + ch;
 
-        sample->fill(buffer, count);
+        if (mix)
+            sample->mix(buffer);
+        else
+            sample->fill(buffer);
 
         if (!sample->data) {
             channels[ch] = channels[--channelsCount];
         }
+
+        mix = true;
     }
 }

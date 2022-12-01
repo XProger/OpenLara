@@ -10,49 +10,53 @@ stepLUT .req r6
 step    .req r7
 n       .req r8
 index   .req r9
+mask    .req r10
 out     .req r12
 tmp     .req out
+diff    .req step
 
 IMA_STEP_SIZE = 88
 
-.macro decode4 n, out
+.macro ima_decode
     ldr step, [stepLUT, idx, lsl #2]
 
-    and index, \n, #7
-    mov tmp, step, lsl #1
-    mla step, index, tmp, step
-    tst \n, #8
-    subne smp, smp, step, lsr #3
-    addeq smp, smp, step, lsr #3
+    mul tmp, step, index
+    add diff, tmp, lsl #1
+
+    subne smp, diff, lsr #3
+    addeq smp, diff, lsr #3
 
     subs index, #3
-    suble idx, idx, #1
-    bicle idx, idx, idx, asr #31
-    addgt idx, idx, index, lsl #1
-    cmpgt idx, #IMA_STEP_SIZE
+    suble idx, #1
+    addgt idx, index, lsl #1
+
+    // clamp 0..88
+    bic idx, idx, asr #31
+    cmp idx, #IMA_STEP_SIZE
     movgt idx, #IMA_STEP_SIZE
 
-    mov \out, smp, asr #(2 + SND_VOL_SHIFT)
+    mov out, smp, asr #(2 + SND_VOL_SHIFT)
+    strb out, [buffer], #1
 .endm
 
-.global sndIMA_asm
-sndIMA_asm:
+.global sndIMA_fill_asm
+sndIMA_fill_asm:
     stmfd sp!, {r4-r9}
 
     ldmia state, {smp, idx}
-
     ldr stepLUT, =IMA_STEP
 
+    mov mask, #7
 .loop:
     ldrb n, [data], #1
 
-    decode4 n, out
-    strb out, [buffer], #1
+    and index, mask, n
+    tst n, #8
+    ima_decode
 
-    mov n, n, lsr #4
-
-    decode4 n, out
-    strb out, [buffer], #1
+    and index, mask, n, lsr #4
+    tst n, #(8 << 4)
+    ima_decode
 
     subs size, #1
     bne .loop
