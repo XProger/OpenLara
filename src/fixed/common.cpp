@@ -1335,6 +1335,28 @@ void matrixRotateYXZ_c(int32 angleX, int32 angleY, int32 angleZ)
     if (angleZ) matrixRotateZ(angleZ);
 }
 
+void matrixFrame_c(const void* pos, const void* angles)
+{
+    int16 aX, aY, aZ;
+    DECODE_ANGLES(*(uint32*)angles, aX, aY, aZ);
+
+    uint32 xy = ((uint32*)pos)[0];
+    uint32 zu = ((uint32*)pos)[1];
+
+#ifdef CPU_BIG_ENDIAN
+    int32 posX = int16(xy >> 16);
+    int32 posY = int16(xy & 0xFFFF);
+    int32 posZ = int16(zu >> 16);
+#else
+    int32 posX = int16(xy & 0xFFFF);
+    int32 posY = int16(xy >> 16);
+    int32 posZ = int16(zu & 0xFFFF);
+#endif
+
+    matrixTranslateRel(posX, posY, posZ);
+    matrixRotateYXZ(aX, aY, aZ);
+}
+
 void boxTranslate_c(AABBi &box, int32 x, int32 y, int32 z)
 {
     box.minX += x;
@@ -1373,28 +1395,6 @@ void boxRotateYQ_c(AABBi &box, int32 quadrant)
     }
 }
 #endif
-
-void matrixFrame(const void* pos, const void* angles)
-{
-    int16 aX, aY, aZ;
-    DECODE_ANGLES(*(uint32*)angles, aX, aY, aZ);
-
-    uint32 xy = ((uint32*)pos)[0];
-    uint32 zu = ((uint32*)pos)[1];
-
-#ifdef CPU_BIG_ENDIAN
-    int32 posX = int16(xy >> 16);
-    int32 posY = int16(xy & 0xFFFF);
-    int32 posZ = int16(zu >> 16);
-#else
-    int32 posX = int16(xy & 0xFFFF);
-    int32 posY = int16(xy >> 16);
-    int32 posZ = int16(zu & 0xFFFF);
-#endif
-
-    matrixTranslateRel(posX, posY, posZ);
-    matrixRotateYXZ(aX, aY, aZ);
-}
 
 void matrixFrameLerp(const void* pos, const void* anglesA, const void* anglesB, int32 delta, int32 rate)
 {

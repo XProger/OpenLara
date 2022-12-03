@@ -51,7 +51,7 @@ sprites      .req index01
 SP_SIZE = (8 * VERTEX_SIZEOF) + 4
 SP_SPRITES = SP_SIZE - 4
 
-.extern rasterize_c, drawPoly
+.extern drawPoly
 
 .global flush_asm
 flush_asm:

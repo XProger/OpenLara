@@ -2649,6 +2649,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
         void matrixRotateZ_asm(int32 angle);
         void matrixRotateYQ_asm(int32 quadrant);
         void matrixRotateYXZ_asm(int32 angleX, int32 angleY, int32 angleZ);
+        void matrixFrame_asm(const void* pos, const void* angles);
         void boxTranslate_asm(AABBi &box, int32 x, int32 y, int32 z);
         void boxRotateYQ_asm(AABBi &box, int32 quadrant);
         int32 sphereIsVisible_asm(int32 x, int32 y, int32 z, int32 r);
@@ -2667,6 +2668,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define matrixRotateZ           matrixRotateZ_asm
     #define matrixRotateYXZ         matrixRotateYXZ_asm
     #define matrixRotateYQ          matrixRotateYQ_asm
+    #define matrixFrame             matrixFrame_asm
     #define boxTranslate            boxTranslate_asm
     #define boxRotateYQ             boxRotateYQ_asm
     #define sphereIsVisible         sphereIsVisible_asm
@@ -2684,6 +2686,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     #define matrixRotateZ           matrixRotateZ_c
     #define matrixRotateYXZ         matrixRotateYXZ_c
     #define matrixRotateYQ          matrixRotateYQ_c
+    #define matrixFrame             matrixFrame_c
     #define boxTranslate            boxTranslate_c
     #define boxRotateYQ             boxRotateYQ_c
     #define sphereIsVisible         sphereIsVisible_c
@@ -2701,6 +2704,7 @@ vec3i boxPushOut(const AABBi &a, const AABBi &b);
     void matrixRotateZ_c(int32 angle);
     void matrixRotateYQ_c(int32 quadrant);
     void matrixRotateYXZ_c(int32 angleX, int32 angleY, int32 angleZ);
+    void matrixFrame_c(const void* pos, const void* angles);
 
     void boxTranslate_c(AABBi &box, int32 x, int32 y, int32 z);
     void boxRotateYQ_c(AABBi &box, int32 quadrant);
@@ -2771,7 +2775,7 @@ X_INLINE vec3i matrixGetDir(const Matrix &m)
     return _vec3i(m.e20, m.e21, m.e22);
 }
 
-void matrixFrame(const void* pos, const void* angles);
+void matrixFrame_c(const void* pos, const void* angles);
 void matrixFrameLerp(const void* pos, const void* anglesA, const void* anglesB, int32 delta, int32 rate);
 void matrixSetView(const vec3i &pos, int32 angleX, int32 angleY);
 
