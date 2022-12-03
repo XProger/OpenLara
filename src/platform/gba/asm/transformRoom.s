@@ -35,7 +35,7 @@ maxXY       .req vz
 
 tmp         .req vy
 dx          .req vz
-dy          .req tmp
+dy          .req vy
 dz          .req vz
 fog         .req vz
 
@@ -65,7 +65,7 @@ transformRoom_asm:
     asr mw1, #FIXED_SHIFT
     fiq_off
     ldmia m, {mx2, my2, mz2, mw2}
-    asr mw2, #FIXED_SHIFT
+    asr mw2, #(FIXED_SHIFT + OT_SHIFT)
 
 .loop:
     // unpack vertex
@@ -79,16 +79,16 @@ transformRoom_asm:
     mul z, mx2, vx
     mla z, my2, vy, z
     mla z, mz2, vz, z
-    add z, mw2, z, asr #(FIXED_SHIFT - 8)
+    add z, mw2, z, asr #(FIXED_SHIFT - 8 + OT_SHIFT)
 
     // skip if vertex is out of z-range
-    add z, #VIEW_OFF
-    cmp z, #(VIEW_OFF + VIEW_OFF + VIEW_MAX)
+    add z, #(VIEW_OFF >> OT_SHIFT)
+    cmp z, #((VIEW_OFF + VIEW_OFF + VIEW_MAX) >> OT_SHIFT)
     movhi vg, #(CLIP_NEAR + CLIP_FAR)
     bhi .skip
 
-    mov vg, v, lsr #24
-    sub z, #VIEW_OFF
+    mov vg, v, lsr #(24 + 3)
+    sub z, #(VIEW_OFF >> OT_SHIFT)
 
     fiq_on
     // transform y
@@ -105,26 +105,21 @@ transformRoom_asm:
     fiq_off
 
     // fog
-    cmp z, #FOG_MIN
-    subgt fog, z, #FOG_MIN
-    addgt vg, fog, lsr #4
-
-    // vg 0..255 -> 0..31
-    lsr vg, #3
-    cmp vg, #31
+    subs fog, z, #(FOG_MIN >> OT_SHIFT)
+    addgt vg, fog, lsr #(3 + FOG_SHIFT - OT_SHIFT)
+    cmpgt vg, #31
     movgt vg, #31
 
     // z clipping
-    cmp z, #VIEW_MIN
-    movle z, #VIEW_MIN
+    cmp z, #(VIEW_MIN >> OT_SHIFT)
+    movle z, #(VIEW_MIN >> OT_SHIFT)
     orrle vg, #CLIP_NEAR
-    cmp z, #VIEW_MAX
-    movge z, #VIEW_MAX
+    cmp z, #(VIEW_MAX >> OT_SHIFT)
+    movge z, #(VIEW_MAX >> OT_SHIFT)
     orrge vg, #CLIP_FAR
 
     // project
-    mov dz, z, lsr #4
-    add dz, z, lsr #6
+    add dz, z, z, lsr #2
     divLUT tmp, dz
     mul dx, x, tmp
     mul dy, y, tmp

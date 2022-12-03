@@ -89,7 +89,7 @@ faceAddMeshQuads_asm:
     add depth, vg0, vg1, lsl #16
     add depth, vg2, lsl #16
     add depth, vg3, lsl #16
-    lsr depth, #(16 + 2 + OT_SHIFT)
+    lsr depth, #(16 + 2)
 
     // faceAdd
     rsb vp0, vertices, vp0, lsr #3

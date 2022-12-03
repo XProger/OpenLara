@@ -92,7 +92,7 @@ faceAddRoomQuads_asm:
 
     CCW .skip
 
-    // depth = MAX_Z4
+    // depth (vz0) = MAX_Z4
     ldrh vz0, [vp0, #VERTEX_Z]
     ldrh vz1, [vp1, #VERTEX_Z]
     ldrh vz2, [vp2, #VERTEX_Z]
@@ -103,7 +103,6 @@ faceAddRoomQuads_asm:
     movlt vz0, vz2
     cmp vz0, vz3
     movlt vz0, vz3
-    mov depth, vz0, lsr #OT_SHIFT
 
     // faceAdd
     rsb vp0, vertices, vp0, lsr #3

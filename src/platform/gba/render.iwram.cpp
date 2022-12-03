@@ -166,7 +166,7 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
         int32 vx = (value & (0xFF)) << 8;
         int32 vy = (value & (0xFF << 8));
         int32 vz = (value & (0xFF << 16)) >> 8;
-        int32 vg = (value & (0xFF << 24)) >> (24 - 5);
+        int32 vg = (value & (0xFF << 24)) >> (24 + 3);
 
         const Matrix &m = matrixGet();
         int32 x = DP43(m.e00, m.e01, m.e02, m.e03, vx, vy, vz);
@@ -189,11 +189,13 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
         y >>= FIXED_SHIFT;
         z >>= FIXED_SHIFT;
 
-        if (z > FOG_MIN)
+        int32 fog = z - FOG_MIN;
+        if (fog > 0)
         {
-            vg += (z - FOG_MIN) << FOG_SHIFT;
-            if (vg > 8191) {
-                vg = 8191;
+            vg += fog >> (FOG_SHIFT + 3);
+            if (vg > 31)
+            {
+                vg = 31;
             }
         }
 
@@ -888,6 +890,11 @@ void renderShadow(int32 x, int32 z, int32 sx, int32 sz)
         ASSERT(false);
         return;
     }
+
+    x >>= MESH_SHIFT;
+    z >>= MESH_SHIFT;
+    sx >>= MESH_SHIFT;
+    sz >>= MESH_SHIFT;
 
     int16 xns1 = x - sx;
     int16 xps1 = x + sx;

@@ -71,21 +71,16 @@
 
 .equ FIXED_SHIFT,   14
 .equ PROJ_SHIFT,    4
-.equ OT_SHIFT,      4
+.equ MESH_SHIFT,    2
 
-.equ VIEW_DIST,     (1024 * 10)
-.equ FOG_SHIFT,     1
-.equ FOG_MAX,       VIEW_DIST
-.equ FOG_MIN,       (FOG_MAX - (8192 >> FOG_SHIFT))
-.equ VIEW_MIN,      (64)
-.equ VIEW_MAX,      (VIEW_DIST)
+.equ VIEW_MIN,      64
+.equ VIEW_MAX,      (10 << 10)
 .equ VIEW_OFF,      4096
+.equ FOG_SHIFT,     4
+.equ FOG_MIN,       (VIEW_MAX - 4096)
 
-.equ OT_SIZE,       641
-
-.equ VIEW_MIN_F,    (VIEW_MIN << FIXED_SHIFT)
-.equ VIEW_MAX_F,    (VIEW_MAX << FIXED_SHIFT)
-.equ VIEW_OFF_F,    (VIEW_OFF << FIXED_SHIFT)
+.equ OT_SHIFT,      4
+.equ OT_SIZE,       ((VIEW_MAX >> OT_SHIFT) + 1)
 
 .equ MAX_CAUSTICS,   32
 .equ MAX_RAND_TABLE, 32

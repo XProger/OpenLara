@@ -136,8 +136,7 @@ transformRoomUW_asm:
     add vg, caust, asr #5
 
     // fog
-    cmp z, #FOG_MIN
-    subgt fog, z, #FOG_MIN
+    subs fog, z, #FOG_MIN
     addgt vg, fog, lsr #4
 
     // vg 0..255 -> 0..31
@@ -154,8 +153,8 @@ transformRoomUW_asm:
     orrge vg, #CLIP_FAR
 
     // project
-    mov dz, z, lsr #4
-    add dz, z, lsr #6
+    add dz, z, z, lsr #2
+    lsr dz, #4
     divLUT tmp, dz
     mul dx, x, tmp
     mul dy, y, tmp

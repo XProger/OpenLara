@@ -205,7 +205,7 @@
 // the maximum of active enemies
     #define MAX_ENEMIES 3
 // visibility distance
-    #define VIEW_DIST (1024 * 10)
+    #define VIEW_DIST (10 << 10)
 // skip collideSpheres for enemies
     #define FAST_HITMASK
 #endif
@@ -224,7 +224,7 @@
 // set the maximum number of simultaneously played channels
     #define SND_CHANNELS 4
 // visibility distance
-    #define VIEW_DIST (1024 * 10)
+    #define VIEW_DIST (10 << 10)
 // skip collideSpheres for enemies
     #define FAST_HITMASK
 #endif
@@ -239,7 +239,7 @@
 // the maximum of active enemies
     #define MAX_ENEMIES 3
 // visibility distance
-    #define VIEW_DIST (1024 * 10)
+    #define VIEW_DIST (10 << 10)
 // skip collideSpheres for enemies
     #define FAST_HITMASK
 #endif
@@ -457,9 +457,11 @@ extern int32 fps;
 #define FOV_SHIFT       3
 #define FOG_SHIFT       1
 #define FOG_MAX         VIEW_DIST
-#define FOG_MIN         (FOG_MAX - (8192 >> FOG_SHIFT))
+#define FOG_MIN         (FOG_MAX - 4096)
 #define VIEW_MIN_F      (64 << FIXED_SHIFT)
 #define VIEW_MAX_F      (VIEW_DIST << FIXED_SHIFT)
+
+#define MESH_SHIFT      2
 
 #define TEX_ATTR_AKILL  1
 

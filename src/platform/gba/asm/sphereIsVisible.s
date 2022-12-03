@@ -14,13 +14,14 @@ vz      .req r13
 m       .req r14
 tmp     .req m
 vp      .req m
-vMinXY  .req z
-vMaxXY  .req r
+dz      .req vz
+minXY   .req z
+maxXY   .req r
 
-rMinX   .req vx
-rMaxX   .req x
-rMinY   .req vy
-rMaxY   .req y
+minX    .req vx
+maxX    .req x
+minY    .req vy
+maxY    .req y
 
 .global sphereIsVisible_asm
 sphereIsVisible_asm:
@@ -42,38 +43,42 @@ sphereIsVisible_asm:
     mla vz, my, y, vz
     mla vz, mz, z, vz
 
-    cmp vz, #VIEW_MAX_F
+    cmp vz, #(VIEW_MAX << FIXED_SHIFT)
     bhi .fail
 
     mov x, vx, asr #FIXED_SHIFT
     mov y, vy, asr #FIXED_SHIFT
+    mov z, vz, asr #(FIXED_SHIFT + OT_SHIFT)
 
-    mov z, vz, lsr #(FIXED_SHIFT + 4)
-    add z, vz, lsr #(FIXED_SHIFT + 6)
-    divLUT tmp, z
+    add dz, z, z, lsr #2
+    divLUT tmp, dz
     mul x, tmp, x
     mul y, tmp, y
     mul r, tmp, r
 
     mov x, x, asr #(16 - PROJ_SHIFT)
-    mov y, y, lsl #(PROJ_SHIFT)
+    mov y, y, asr #(16 - PROJ_SHIFT)
 
-    sub rMinX, x, r, lsr #(16 - PROJ_SHIFT)
-    add rMaxX, x, r, lsr #(16 - PROJ_SHIFT)
-    sub rMinY, y, r, lsl #PROJ_SHIFT
-    add rMaxY, y, r, lsl #PROJ_SHIFT
+    sub minX, x, r, lsr #(16 - PROJ_SHIFT)
+    add maxX, x, r, lsr #(16 - PROJ_SHIFT)
+    sub minY, y, r, lsr #(16 - PROJ_SHIFT)
+    add maxY, y, r, lsr #(16 - PROJ_SHIFT)
 
     ldr vp, =viewportRel
-    ldmia vp, {vMinXY, vMaxXY}
+    ldmia vp, {minXY, maxXY}
 
-    cmp rMaxX, vMinXY, asr #16
-    blt .fail
-    cmp rMaxY, vMinXY, lsl #16
-    blt .fail
-    cmp rMinX, vMaxXY, asr #16
-    bgt .fail
-    cmp rMinY, vMaxXY, lsl #16
-    bgt .fail
+    cmp maxX, minXY, asr #16
+    ble .fail
+    cmp minX, maxXY, asr #16
+    bge .fail
+
+    lsl minXY, #16
+    lsl maxXY, #16
+
+    cmp maxY, minXY, asr #16
+    ble .fail
+    cmp minY, maxXY, asr #16
+    bge .fail
 
     mov r0, #1
     fiq_off

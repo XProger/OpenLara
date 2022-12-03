@@ -667,12 +667,8 @@ bool traceX(const Location &from, Location &to, bool accurate)
     if (!d.x)
         return true;
 
-    int32 dx = abs(d.x) >> 3;
-    ASSERT(dx < DIV_TABLE_SIZE);
-    dx = FixedInvU(dx);
-
-    d.y = (d.y * dx) >> (16 + 3 - TRACE_SHIFT);
-    d.z = (d.z * dx) >> (16 + 3 - TRACE_SHIFT);
+    d.y = (d.y << TRACE_SHIFT) / d.x;
+    d.z = (d.z << TRACE_SHIFT) / d.x;
 
     vec3i p = from.pos;
 
@@ -680,10 +676,10 @@ bool traceX(const Location &from, Location &to, bool accurate)
 
     if (d.x < 0)
     {
-        d.x = -1024;
+        d.x = 1024;
         p.x &= ~1023;
-        p.y -= d.y * (p.x - from.pos.x) >> TRACE_SHIFT;
-        p.z -= d.z * (p.x - from.pos.x) >> TRACE_SHIFT;
+        p.y += d.y * (p.x - from.pos.x) >> TRACE_SHIFT;
+        p.z += d.z * (p.x - from.pos.x) >> TRACE_SHIFT;
 
         while (p.x > to.pos.x)
         {
@@ -694,7 +690,7 @@ bool traceX(const Location &from, Location &to, bool accurate)
             TRACE_CHECK(nextRoom, p.x - 1, p.y, p.z);
 
             room = nextRoom;
-            p += d;
+            p -= d;
         }
     }
     else
@@ -729,12 +725,8 @@ bool traceZ(const Location &from, Location &to, bool accurate)
     if (!d.z)
         return true;
 
-    int32 dz = abs(d.z) >> 3;
-    ASSERT(dz < DIV_TABLE_SIZE);
-    dz = FixedInvU(dz);
-
-    d.x = (d.x * dz) >> (16 + 3 - TRACE_SHIFT);
-    d.y = (d.y * dz) >> (16 + 3 - TRACE_SHIFT);
+    d.x = (d.x << TRACE_SHIFT) / d.z;
+    d.y = (d.y << TRACE_SHIFT) / d.z;
 
     vec3i p = from.pos;
 
@@ -742,10 +734,10 @@ bool traceZ(const Location &from, Location &to, bool accurate)
 
     if (d.z < 0)
     {
-        d.z = -1024;
+        d.z = 1024;
         p.z &= ~1023;
-        p.x -= d.x * (p.z - from.pos.z) >> TRACE_SHIFT;
-        p.y -= d.y * (p.z - from.pos.z) >> TRACE_SHIFT;
+        p.x += d.x * (p.z - from.pos.z) >> TRACE_SHIFT;
+        p.y += d.y * (p.z - from.pos.z) >> TRACE_SHIFT;
 
         while (p.z > to.pos.z)
         {
@@ -756,7 +748,7 @@ bool traceZ(const Location &from, Location &to, bool accurate)
             TRACE_CHECK(nextRoom, p.x, p.y, p.z - 1);
 
             room = nextRoom;
-            p += d;
+            p -= d;
         }
     }
     else
