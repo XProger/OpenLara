@@ -1,7 +1,7 @@
 #ifndef H_COMMON
 #define H_COMMON
 //#define STATIC_ITEMS
-#define PROFILING
+//#define PROFILING
 #ifdef PROFILING
     #define STATIC_ITEMS
     #define PROFILE_FRAMETIME

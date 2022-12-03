@@ -5,9 +5,10 @@ angles  .req r1     // arg
 x       .req pos
 y       .req angles
 z       .req r2
+mask    .req r3
 packed  .req r12
 
-.extern matrixTranslateRel_asm, matrixRotateYXZ_asm
+.extern matrixTranslateRel_asm, matrixRotateYXZ_fast_asm
 
 .global matrixFrame_asm
 matrixFrame_asm:
@@ -20,20 +21,14 @@ matrixFrame_asm:
 
     bl matrixTranslateRel_asm   // doesn't affect user mode r12
 
-    lsl z, packed, #22
-    asr z, #16
+    mov mask, #4096
+    sub mask, #4
 
-    lsr packed, #10
-
-    lsl y, packed, #22
-    asr y, #16
-
-    lsr packed, #10
-
-    lsl x, packed, #22
-    asr x, #16
+    and z, mask, packed, lsl #2
+    and y, mask, packed, lsr #(10 - 2)
+    and x, mask, packed, lsr #(20 - 2)
 
     ldmfd sp!, {lr}
-    b matrixRotateYXZ_asm
+    b matrixRotateYXZ_fast_asm
 
 // TODO matrixFrameLerp

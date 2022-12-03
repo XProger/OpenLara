@@ -142,7 +142,7 @@ cosZ    .req angleZ
 mask    .req tmp
 mm      .req tmp
 
-.global matrixRotateYXZ_asm
+.global matrixRotateYXZ_asm, matrixRotateYXZ_fast_asm
 matrixRotateYXZ_asm:
     mov mask, #0xFF
     orr mask, mask, #0xF00  ; mask = 0xFFF
@@ -151,6 +151,7 @@ matrixRotateYXZ_asm:
     and angleY, mask, angleY, lsr #4
     and angleZ, mask, angleZ, lsr #4
 
+matrixRotateYXZ_fast_asm:
     orr mask, angleX, angleY
     orrs mask, mask, angleZ
     bxeq lr
