@@ -808,7 +808,7 @@ void clear()
     dmaFill((void*)fb, 0, FRAME_WIDTH * FRAME_HEIGHT);
 }
 
-void renderRoom(const Room* room)
+void renderRoom(Room* room)
 {
     int32 vCount = room->info->verticesCount;
     if (vCount <= 0)
@@ -819,6 +819,27 @@ void renderRoom(const Room* room)
         ASSERT(false);
         return;
     }
+
+#ifdef USE_VRAM_ROOM
+    if (playersExtra[0].camera.view.room == room && !((uint32)room->data.vertices & 0x06000000))
+    {
+        memcpy(vramPtr, room->data.quads, room->info->quadsCount * sizeof(RoomQuad));
+        room->data.quads = (RoomQuad*)vramPtr;
+        vramPtr += room->info->quadsCount * sizeof(RoomQuad);
+
+        if ((uint32)vramPtr & 3) vramPtr += 2;
+
+        memcpy(vramPtr, room->data.triangles, room->info->trianglesCount * sizeof(RoomTriangle));
+        room->data.triangles = (RoomTriangle*)vramPtr;
+        vramPtr += room->info->trianglesCount * sizeof(RoomTriangle);
+
+        if ((uint32)vramPtr & 3) vramPtr += 2;
+
+        memcpy(vramPtr, room->data.vertices, room->info->verticesCount * sizeof(RoomVertex));
+        room->data.vertices = (RoomVertex*)vramPtr;
+        vramPtr += room->info->verticesCount * sizeof(RoomVertex);
+    }
+#endif
 
     {
         PROFILE(CNT_TRANSFORM);
@@ -1098,20 +1119,15 @@ void renderGlyph(int32 vx, int32 vy, int32 index)
     Vertex* v1 = gVerticesBase++;
     v1->x = l;
     v1->y = t;
-    //v1->z = z;
     v1->g = 16;
 
     Vertex* v2 = gVerticesBase++;
     v2->x = r;
     v2->y = b;
-    //v2->z = z;
-    //v2->g = vg;
 
     Face* f = faceAdd(0);
     f->flags = (FACE_TYPE_SPRITE << FACE_TYPE_SHIFT) | index;
     f->indices[0] = v1 - gVertices;
-
-    gVerticesBase += 2;
 }
 
 #define BAR_HEIGHT  5

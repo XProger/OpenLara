@@ -67,6 +67,7 @@
 
     #define USE_FMT     (LVL_FMT_PKD)
     #define USE_VRAM_MESH // experimental
+    //#define USE_VRAM_ROOM // experimental
 
     #include <tonc.h>
 #elif defined(__NDS__)
@@ -356,6 +357,10 @@ X_INLINE int32 abs(int32 x) {
 #define MAX_STATIC_MESH_RADIUS          (5 * 1024)
 
 extern int32 fps;
+
+#if defined(USE_VRAM_MESH) || defined(USE_VRAM_ROOM)
+extern uint8* vramPtr;
+#endif
 
 #ifndef F16_SHIFT
     #define F16_SHIFT 0
@@ -2796,7 +2801,7 @@ void renderLevelFree();
 void setViewport(const RectMinMax &vp);
 void setPaletteIndex(int32 index);
 void clear();
-void renderRoom(const Room* room);
+void renderRoom(Room* room);
 void renderMesh(const Mesh* mesh);
 void renderShadow(int32 x, int32 z, int32 sx, int32 sz);
 void renderSprite(int32 vx, int32 vy, int32 vz, int32 vg, int32 index);

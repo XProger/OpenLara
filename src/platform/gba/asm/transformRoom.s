@@ -49,13 +49,10 @@ transformRoom_asm:
 
     ldr res, =gVerticesBase
     ldr res, [res]
-    add res, #VERTEX_G
 
     ldr tmp, =viewportRel
     ldmia tmp, {minXY, maxXY}
     stmfd sp!, {minXY, maxXY}
-
-    mov mask, #0xFF
 
     ldr m, =gMatrixPtr
     ldr m, [m]
@@ -69,26 +66,19 @@ transformRoom_asm:
 
 .loop:
     // unpack vertex
-    ldmia vertices!, {v}
+    ldr v, [vertices], #4
 
-    and vz, mask, v, lsr #16
-    and vy, mask, v, lsr #8
+    mov mask, #0xFF
     and vx, mask, v
+    and vy, mask, v, lsr #8
+    and vz, mask, v, lsr #16
+    mov vg, v, lsr #(24 + 3)
 
     // transform z
     mul z, mx2, vx
     mla z, my2, vy, z
     mla z, mz2, vz, z
     add z, mw2, z, asr #(FIXED_SHIFT - 8 + OT_SHIFT)
-
-    // skip if vertex is out of z-range
-    add z, #(VIEW_OFF >> OT_SHIFT)
-    cmp z, #((VIEW_OFF + VIEW_OFF + VIEW_MAX) >> OT_SHIFT)
-    movhi vg, #(CLIP_NEAR + CLIP_FAR)
-    bhi .skip
-
-    mov vg, v, lsr #(24 + 3)
-    sub z, #(VIEW_OFF >> OT_SHIFT)
 
     fiq_on
     // transform y
@@ -151,13 +141,10 @@ transformRoom_asm:
     orrhi vg, #CLIP_FRAME
 
     // store the result
-    strh x, [res, #-6]
-    strh y, [res, #-4]
-    strh z, [res, #-2]
-
-    mov mask, #0xFF
-.skip:
-    strh vg, [res], #8
+    strh x, [res], #2
+    strh y, [res], #2
+    strh z, [res], #2
+    strh vg, [res], #2
 
     subs count, #1
     bne .loop

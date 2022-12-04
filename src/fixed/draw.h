@@ -701,7 +701,7 @@ void drawModel(const ItemObj* item)
     }
 }
 
-void drawRoom(const Room* room)
+void drawRoom(Room* room)
 {
     setViewport(room->clip);
 

@@ -189,18 +189,17 @@ void readLevel(const uint8* data)
 
 #ifdef USE_VRAM_MESH // experimental, should be per level or dynamic
     vramMeshesCount = 0;
-    uint8* ptr = (uint8*)0x06014000; // 16k available
-    ptr = pushToVRAM(ptr, models + ITEM_LARA);
-    ptr = pushToVRAM(ptr, models + ITEM_LARA_PISTOLS);
-    ptr = pushToVRAM(ptr, models + ITEM_LARA_SHOTGUN);
-    ptr = pushToVRAM(ptr, models + ITEM_LARA_MAGNUMS);
-    ptr = pushToVRAM(ptr, models + ITEM_LARA_UZIS);
-    ptr = pushToVRAM(ptr, models + ITEM_WOLF);
-    ptr = pushToVRAM(ptr, models + ITEM_BAT);
-    ptr = pushToVRAM(ptr, models + ITEM_BRIDGE_FLAT);
-    ptr = pushToVRAM(ptr, models + ITEM_BRIDGE_TILT_1);
-    ptr = pushToVRAM(ptr, models + ITEM_BRIDGE_TILT_2);
-    //printf("%d\n", ptr - (uint8*)0x06014000);
+    vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA);
+    vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_PISTOLS);
+    vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_SHOTGUN);
+    vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_MAGNUMS);
+    vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_UZIS);
+    vramPtr = pushToVRAM(vramPtr, models + ITEM_WOLF);
+    vramPtr = pushToVRAM(vramPtr, models + ITEM_BAT);
+    vramPtr = pushToVRAM(vramPtr, models + ITEM_BRIDGE_FLAT);
+    vramPtr = pushToVRAM(vramPtr, models + ITEM_BRIDGE_TILT_1);
+    vramPtr = pushToVRAM(vramPtr, models + ITEM_BRIDGE_TILT_2);
+    //printf("%d\n", vramPtr - (uint8*)0x06014000);
 #endif
 }
 
