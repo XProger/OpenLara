@@ -29,8 +29,8 @@ out     .req size
 .macro pcm_sample_fetch
     ldrb out, [data, pos, lsr #SND_FIXED_SHIFT]
     add pos, inc
-    sub out, #128
-    mul out, volume
+    subs out, #128
+    mulne out, volume
 .endm
 
 .macro pcm_sample_fill

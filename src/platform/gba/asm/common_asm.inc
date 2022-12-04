@@ -110,13 +110,14 @@
     ldrsh vx2, [vp2, #VERTEX_X]
     ldrsh vy1, [vp1, #VERTEX_Y]
     rsb vx2, vx2, vx0, asr #16      // reverse order for mla
-    sub vy1, vy1, vy0, asr #16
-    mul vy1, vx2, vy1
+    subs vy1, vy1, vy0, asr #16
+    mulne vy1, vx2, vy1
     ldrsh vx1, [vp1, #VERTEX_X]
     sub vx0, vx1, vx0, asr #16
     ldrsh vy2, [vp2, #VERTEX_Y]
-    sub vy0, vy2, vy0, asr #16
-    mlas vy1, vx0, vy0, vy1
+    subs vy0, vy2, vy0, asr #16
+    mulne vy0, vx0, vy0
+    adds vy1, vy0
     ble \skip
 .endm
 
