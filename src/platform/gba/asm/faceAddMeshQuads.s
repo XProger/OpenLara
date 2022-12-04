@@ -49,9 +49,10 @@ faceAddMeshQuads_asm:
 
 .loop:
     ldrh vp0, [polys], #2
+    ldrh vp2, [polys], #4   // + flags
+
     lsr vp1, vp0, #8
     and vp0, #0xFF
-    ldrh vp2, [polys], #4   // + flags
     lsr vp3, vp2, #8
     and vp2, #0xFF
 
@@ -85,11 +86,11 @@ faceAddMeshQuads_asm:
     orrne flags, #FACE_CLIPPED
 
     // depth = AVG_Z4
-    lsl vg0, #16
-    add depth, vg0, vg1, lsl #16
-    add depth, vg2, lsl #16
-    add depth, vg3, lsl #16
-    lsr depth, #(16 + 2)
+    lsl vg0, #16                    // clip g part (high half)
+    add depth, vg0, vg1, lsl #16    // depth = vz0 + vz1
+    add depth, vg2, lsl #16         // depth += vz2
+    add depth, vg3, lsl #16         // depth += vz3
+    lsr depth, #(16 + 2)            // dpeth /= 4
 
     // faceAdd
     rsb vp0, vertices, vp0, lsr #3

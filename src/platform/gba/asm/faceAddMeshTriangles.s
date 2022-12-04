@@ -47,9 +47,10 @@ faceAddMeshTriangles_asm:
 
 .loop:
     ldrh vp0, [polys], #2
+    ldrh vp2, [polys], #4   // + flags
+
     lsr vp1, vp0, #8
     and vp0, #0xFF
-    ldrh vp2, [polys], #4   // + flags
     and vp2, #0xFF
 
     add vp0, vp, vp0, lsl #3
@@ -77,10 +78,10 @@ faceAddMeshTriangles_asm:
     orrne flags, #FACE_CLIPPED
 
     // depth = AVG_Z3
-    lsl vg0, #16
-    add depth, vg0, vg1, lsl #16
-    add depth, vg2, lsl #17
-    lsr depth, #(16 + 2)
+    lsl vg0, #16                    // clip g part (high half)
+    add depth, vg0, vg1, lsl #16    // depth = vz0 + vz1
+    add depth, vg2, lsl #17         // depth += vz2 * 2
+    lsr depth, #(16 + 2)            // depth /= 4
 
     // faceAdd
     rsb vp0, vertices, vp0, lsr #3
