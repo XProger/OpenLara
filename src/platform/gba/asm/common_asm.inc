@@ -121,11 +121,11 @@
 .endm
 
 .macro scaleUV uv, tmp, tmp2, f
-    smull \tmp2, \tmp, \uv, \f      // u = (f * uv) >> 32
+    smullne \tmp2, \tmp, \uv, \f      // u = (f * uv) >> 32
 
     lsl \uv, #16
-    asr \uv, #16
-    mul \uv, \f                     // v = f * int16(uv)
+    asrs \uv, #16
+    mulne \uv, \f                     // v = f * int16(uv)
     lsr \uv, #16
 
     orr \uv, \uv, \tmp, lsl #16     // uv = (u & 0xFFFF0000) | (v >> 16)

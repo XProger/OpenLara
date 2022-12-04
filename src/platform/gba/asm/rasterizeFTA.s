@@ -96,12 +96,12 @@ rasterizeFTA_asm:
 
         divLUT tmp, Lh              // tmp = FixedInvU(Lh)
 
-        ldrsh Ltmp, [L, #VERTEX_X]
-        sub Ltmp, Lx, asr #16
-        mul Ldx, tmp, Ltmp          // Ldx = tmp * (N->v.x - Lx)
+        ldrsh Ldx, [L, #VERTEX_X]
+        subs Ldx, Lx, asr #16
+        mulne Ldx, tmp, Ldx         // Ldx = tmp * (N->v.x - Lx)
 
         ldr Ldt, [L, #VERTEX_T]
-        sub Ldt, Lt                 // Ldt = N->v.t - Lt
+        subs Ldt, Lt                // Ldt = N->v.t - Lt
         scaleUV Ldt, Ltmp, Ltmp2, tmp
     .calc_left_end:
 
@@ -126,12 +126,12 @@ rasterizeFTA_asm:
 
         divLUT tmp, Rh              // tmp = FixedInvU(Rh)
 
-        ldrsh Rtmp, [R, #VERTEX_X]
-        sub Rtmp, Rx, asr #16
-        mul Rdx, tmp, Rtmp          // Rdx = tmp * (N->v.x - Rx)
+        ldrsh Rdx, [R, #VERTEX_X]
+        subs Rdx, Rx, asr #16
+        mulne Rdx, tmp, Rdx         // Rdx = tmp * (N->v.x - Rx)
 
         ldr Rdt, [R, #VERTEX_T]
-        sub Rdt, Rt                 // Rdt = N->v.t - Rt
+        subs Rdt, Rt                // Rdt = N->v.t - Rt
         scaleUV Rdt, Rtmp, Rtmp2, tmp
     .calc_right_end:
 
@@ -154,7 +154,7 @@ rasterizeFTA_asm:
 
     divLUT inv, width               // inv = FixedInvU(width)
 
-    sub dtdx, Rt, Lt                // duv = Rt - Lt
+    subs dtdx, Rt, Lt               // duv = Rt - Lt
     scaleUV dtdx, dtmp, dtmp2, inv
 
     mov t, Lt                       // t = Lt

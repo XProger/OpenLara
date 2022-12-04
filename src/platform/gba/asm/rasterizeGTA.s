@@ -106,17 +106,17 @@ rasterizeGTA_asm:
         divLUT tmp, Lh              // tmp = FixedInvU(Lh)
 
         fiq_on
-        ldrsh Ltmp, [N, #VERTEX_X]
-        sub Ltmp, Lx, asr #16
-        mul Ldx, tmp, Ltmp          // Ldx = tmp * (N->v.x - Lx)
+        ldrsh Ldx, [N, #VERTEX_X]
+        subs Ldx, Lx, asr #16
+        mulne Ldx, tmp, Ldx         // Ldx = tmp * (N->v.x - Lx)
 
-        ldrb Ltmp, [N, #VERTEX_G]
-        sub Ltmp, Lg, lsr #8
-        mul Ldg, tmp, Ltmp          // Ldg = tmp * (N->v.g - Lg)
+        ldrb Ldg, [N, #VERTEX_G]
+        subs Ldg, Lg, lsr #8
+        mulne Ldg, tmp, Ldg         // Ldg = tmp * (N->v.g - Lg)
         asr Ldg, #8                 // 8-bit for fractional part
 
         ldr Ldt, [N, #VERTEX_T]
-        sub Ldt, Lt                 // Ldt = N->v.t - Lt
+        subs Ldt, Lt                // Ldt = N->v.t - Lt
         scaleUV Ldt, Ltmp, Ltmp2, tmp
         fiq_off
     .calc_left_end:
@@ -145,17 +145,17 @@ rasterizeGTA_asm:
         divLUT tmp, Rh              // tmp = FixedInvU(Rh)
 
         fiq_on
-        ldrsh Rtmp, [N, #VERTEX_X]
-        sub Rtmp, Rx, asr #16
-        mul Rdx, tmp, Rtmp          // Rdx = tmp * (N->v.x - Rx)
+        ldrsh Rdx, [N, #VERTEX_X]
+        subs Rdx, Rx, asr #16
+        mulne Rdx, tmp, Rdx         // Rdx = tmp * (N->v.x - Rx)
 
-        ldrb Rtmp, [N, #VERTEX_G]
-        sub Rtmp, Rg, lsr #8
-        mul Rdg, tmp, Rtmp          // Rdg = tmp * (N->v.g - Rg)
+        ldrb Rdg, [N, #VERTEX_G]
+        subs Rdg, Rg, lsr #8
+        mulne Rdg, tmp, Rdg         // Rdg = tmp * (N->v.g - Rg)
         asr Rdg, #8                 // 8-bit for fractional part
 
         ldr Rdt, [N, #VERTEX_T]
-        sub Rdt, Rt                 // Rdt = N->v.t - Rt
+        subs Rdt, Rt                // Rdt = N->v.t - Rt
         scaleUV Rdt, Rtmp, Rtmp2, tmp
         fiq_off
     .calc_right_end:
@@ -182,12 +182,12 @@ rasterizeGTA_asm:
 
     divLUT inv, width               // inv = FixedInvU(width)
 
-    sub dtdx, Rt, Lt                // dtdx = Rt - Lt
+    subs dtdx, Rt, Lt               // dtdx = Rt - Lt
     scaleUV dtdx, dtmp, dtmp2, inv
     // t == Lt (alias)
 
-    sub dgdx, Rg, Lg                // dgdx = Rg - Lg
-    mul dgdx, inv                   // dgdx *= FixedInvU(width)
+    subs dgdx, Rg, Lg               // dgdx = Rg - Lg
+    mulne dgdx, inv                 // dgdx *= FixedInvU(width)
     asr dgdx, #16                   // dgdx >>= 16
     // g == Lg (alias)
 
