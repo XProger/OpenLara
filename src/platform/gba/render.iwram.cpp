@@ -70,6 +70,10 @@ Face* gOT[OT_SIZE];                                             // IWRAM 2.5k
 Vertex* gVerticesBase = gVertices;
 Face* gFacesBase = gFaces;
 
+#if defined(USE_VRAM_MESH) || defined(USE_VRAM_ROOM)
+uint8* vramPtr;
+#endif
+
 enum ClipFlags {
     CLIP_LEFT    = 1 << 0,
     CLIP_RIGHT   = 1 << 1,
@@ -129,6 +133,7 @@ extern "C" {
     #define faceAddMeshQuads        faceAddMeshQuads_asm
     #define faceAddMeshTriangles    faceAddMeshTriangles_asm
     #define rasterize               rasterize_asm
+    #define clearFB                 clearFB_asm
 
     extern "C" {
         void transformRoom_asm(const RoomVertex* vertices, int32 count);
@@ -139,6 +144,7 @@ extern "C" {
         void faceAddMeshQuads_asm(const MeshQuad* polys, int32 count);
         void faceAddMeshTriangles_asm(const MeshTriangle* polys, int32 count);
         void rasterize_asm(uint32 flags, VertexLink* top);
+        void clearFB_asm(void* fb);
     }
 #else
     #define transformRoom           transformRoom_c
@@ -149,6 +155,7 @@ extern "C" {
     #define faceAddMeshQuads        faceAddMeshQuads_c
     #define faceAddMeshTriangles    faceAddMeshTriangles_c
     #define rasterize               rasterize_c
+    #define clearFB(fb)             dmaFill(fb, 0, FRAME_WIDTH * FRAME_HEIGHT)
 
 X_INLINE bool checkBackface(const Vertex* a, const Vertex* b, const Vertex* c)
 {
@@ -805,7 +812,7 @@ void faceAddMesh(const MeshQuad* quads, const MeshTriangle* triangles, int32 qCo
 
 void clear()
 {
-    dmaFill((void*)fb, 0, FRAME_WIDTH * FRAME_HEIGHT);
+    clearFB((void*)fb);
 }
 
 void renderRoom(Room* room)

@@ -77,7 +77,7 @@
 .equ VIEW_MAX,      (10 << 10)
 .equ VIEW_OFF,      4096
 .equ FOG_SHIFT,     4
-.equ FOG_MIN,       (VIEW_MAX - 4096)
+.equ FOG_MIN,       (VIEW_MAX - 2048)
 
 .equ OT_SHIFT,      4
 .equ OT_SIZE,       ((VIEW_MAX >> OT_SHIFT) + 1)

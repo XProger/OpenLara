@@ -29,10 +29,6 @@ EWRAM_DATA const char* const* STR = STR_EN;
 
 EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
 
-#if defined(USE_VRAM_MESH) || defined(USE_VRAM_ROOM)
-uint8* vramPtr = (uint8*)0x06014000;
-#endif
-
 #if defined(__GBA__)
     #include "TRACKS_IMA.h"
     #include "TITLE_SCR.h"

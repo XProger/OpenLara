@@ -189,6 +189,7 @@ void readLevel(const uint8* data)
 
 #ifdef USE_VRAM_MESH // experimental, should be per level or dynamic
     vramMeshesCount = 0;
+    vramPtr = (uint8*)0x06014000;
     vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA);
     vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_PISTOLS);
     vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_SHOTGUN);

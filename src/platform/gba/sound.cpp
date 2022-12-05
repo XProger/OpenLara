@@ -27,8 +27,10 @@ int8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun w
     #define sndIMA_fill sndIMA_fill_asm
     #define sndPCM_fill sndPCM_fill_asm
     #define sndPCM_mix  sndPCM_mix_asm
+    #define sndClear    sndClear_asm
 
     extern "C" {
+        void sndClear_asm(int8* buffer);
         void sndIMA_fill_asm(IMA_STATE &state, int8* buffer, const uint8* data, int32 size);
         int32 sndPCM_fill_asm(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer);
         int32 sndPCM_mix_asm(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer);
@@ -37,6 +39,7 @@ int8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun w
     #define sndIMA_fill sndIMA_c
     #define sndPCM_fill sndPCM_c
     #define sndPCM_mix  sndPCM_c
+    #define sndClear(b) dmaFill(b, SND_ENCODE(0), SND_SAMPLES * sizeof(b[0]))
 
 #define DECODE_IMA_4(n)\
     step = IMA_STEP[idx];\
@@ -286,7 +289,7 @@ void sndFill(int8* buffer)
     if (mix) {
         music.fill(buffer);
     } else {
-        dmaFill(buffer, SND_ENCODE(0), SND_SAMPLES * sizeof(buffer[0]));
+        sndClear(buffer);
     }
 
     int32 ch = channelsCount;

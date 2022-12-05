@@ -91,3 +91,26 @@ sndPCM_mix_asm:
 
     ldmfd sp!, {r4-r6}
     bx lr
+
+.global sndClear_asm
+sndClear_asm:
+    // 4 words
+    mov r1, #0
+    mov r2, #0
+    mov r3, #0
+    mov r12, #0
+
+    // fill 11 * 4 * 4 = 176 bytes
+    stmia r0!, {r1-r3, r12}
+    stmia r0!, {r1-r3, r12}
+    stmia r0!, {r1-r3, r12}
+    stmia r0!, {r1-r3, r12}
+    stmia r0!, {r1-r3, r12}
+    stmia r0!, {r1-r3, r12}
+    stmia r0!, {r1-r3, r12}
+    stmia r0!, {r1-r3, r12}
+    stmia r0!, {r1-r3, r12}
+    stmia r0!, {r1-r3, r12}
+    stmia r0!, {r1-r3, r12}
+
+    bx lr

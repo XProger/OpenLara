@@ -462,7 +462,7 @@ extern uint8* vramPtr;
 #define FOV_SHIFT       3
 #define FOG_SHIFT       1
 #define FOG_MAX         VIEW_DIST
-#define FOG_MIN         (FOG_MAX - 4096)
+#define FOG_MIN         (FOG_MAX - 2048)
 #define VIEW_MIN_F      (64 << FIXED_SHIFT)
 #define VIEW_MAX_F      (VIEW_DIST << FIXED_SHIFT)
 
