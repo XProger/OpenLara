@@ -12,6 +12,7 @@ flags       .req r8
 vp0         .req r9
 vp1         .req r10
 vp2         .req r11
+vp3         .req vg3
 vertices    .req r12
 ot          .req r13
 face        .req r14
@@ -39,23 +40,27 @@ faceAddRoomTriangles_asm:
     ldr vp, =gVerticesBase
     ldr vp, [vp]
 
+    ldr vertices, =gVertices
+    lsr vertices, #3
+
     ldr face, =gFacesBase
     ldr face, [face]
 
     ldr ot, =gOT
-    ldr vertices, =gVertices
-    lsr vertices, #3
-
-    add polys, #2   // skip flags
 
 .loop:
-    ldrh vp0, [polys], #2
-    ldrh vp1, [polys], #2
-    ldrh vp2, [polys], #4   // + flags
+    // sizeof(RoomTriangle) = 8
+    ldr vp1, [polys], #4
+    ldr vp3, [polys], #4    // + flags
 
-    add vp0, vp, vp0, lsl #3
-    add vp1, vp, vp1, lsl #3
-    add vp2, vp, vp2, lsl #3
+    // prepare to unpack indices
+    lsl vp0, vp1, #16
+    lsl vp2, vp3, #16
+
+    // assume that vertex index will never exceed 8191
+    add vp0, vp, vp0, lsr #(16 - 3)
+    add vp1, vp, vp1, lsr #(16 - 3)
+    add vp2, vp, vp2, lsr #(16 - 3)
 
     // fetch ((clip << 8) | g)
     ldrh vg0, [vp0, #VERTEX_G]
@@ -72,7 +77,7 @@ faceAddRoomTriangles_asm:
     orr tmp, vg0, vg1
     orr tmp, vg2
     tst tmp, #CLIP_FRAME
-    ldrh flags, [polys, #-10]
+    mov flags, vp3, lsr #16
     orrne flags, #FACE_CLIPPED
 
     // shift and compare VERTEX_G for gouraud rasterization

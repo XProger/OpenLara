@@ -2,16 +2,16 @@
 
 polys       .req r0     // arg
 count       .req r1     // arg
-vp          .req r2
-vg0         .req r3
-vg1         .req r4
-vg2         .req r5
-vg3         .req r6
+mask        .req r2
+flags       .req r3
+vp0         .req r4
+vp1         .req r5
+vp2         .req r6
 // FIQ regs
-flags       .req r8
-vp0         .req r9
-vp1         .req r10
-vp2         .req r11
+vg0         .req r8
+vg1         .req r9
+vg2         .req r10
+vg3         .req r11
 vertices    .req r12
 ot          .req r13
 face        .req r14
@@ -25,6 +25,12 @@ vy2         .req vg2
 
 depth       .req vg0
 
+i0          .req vg1
+i1          .req vg2
+i2          .req vg3    // vg to save vp2 value between iterations
+
+vp01        .req vp1
+
 tmp         .req flags
 next        .req vp0
 
@@ -33,29 +39,31 @@ faceAddMeshTriangles_asm:
     stmfd sp!, {r4-r6}
     fiq_on
 
-    ldr vp, =gVerticesBase
-    ldr vp, [vp]
+    ldr vp2, =gVerticesBase
+    ldr vp2, [vp2]
+
+    ldr vertices, =gVertices
+    lsr vertices, #3
 
     ldr face, =gFacesBase
     ldr face, [face]
 
     ldr ot, =gOT
-    ldr vertices, =gVertices
-    lsr vertices, #3
-
-    add polys, #2   // skip flags
+    mov mask, #(0xFF << 24)
+    orr mask, #(3 << 8)     // div 4 mul 4 for depth
 
 .loop:
-    ldrh vp0, [polys], #2
-    ldrh vp2, [polys], #4   // + flags
+    // sizeof(MeshTriangle) == 8
+    ldr tmp, [polys], #8    // skip flags
 
-    lsr vp1, vp0, #8
-    and vp0, #0xFF
-    and vp2, #0xFF
+    // unpack index deltas
+    and vg0, mask, tmp, lsl #24
+    and vg1, mask, tmp, lsl #16
 
-    add vp0, vp, vp0, lsl #3
-    add vp1, vp, vp1, lsl #3
-    add vp2, vp, vp2, lsl #3
+    // sizeof(Vertex) = (1 << 3)
+    add vp0, vp2, vg0, asr #(24 - 3)
+    add vp1, vp0, vg1, asr #(24 - 3)
+    add vp2, vp1, tmp, asr #(24 - 3)    // 3rd vertex in 4th byte after zero byte to save one masking op
 
     CCW .skip
 
@@ -74,27 +82,26 @@ faceAddMeshTriangles_asm:
     orr tmp, vg0, vg1
     orr tmp, vg2
     tst tmp, #(CLIP_FRAME << 16)
-    ldrh flags, [polys, #-8]
+    ldrh flags, [polys, #-4]
     orrne flags, #FACE_CLIPPED
 
     // depth = AVG_Z3
-    lsl vg0, #16                    // clip g part (high half)
-    add depth, vg0, vg1, lsl #16    // depth = vz0 + vz1
-    add depth, vg2, lsl #17         // depth += vz2 * 2
-    lsr depth, #(16 + 2)            // depth /= 4
+    add depth, vg0, vg1             // depth = vz0 + vz1
+    add depth, vg2, lsl #1          // depth += vz2 * 2
+    bic depth, depth, mask, asr #8  // clear high half (g & clip flags) and low 2 bits
 
     // faceAdd
-    rsb vp0, vertices, vp0, lsr #3
-    rsb vp1, vertices, vp1, lsr #3
-    rsb vp2, vertices, vp2, lsr #3
+    rsb i0, vertices, vp0, lsr #3
+    rsb i1, vertices, vp1, lsr #3
+    rsb i2, vertices, vp2, lsr #3
 
-    orr vp1, vp0, vp1, lsl #16
+    orr vp01, i0, i1, lsl #16
 
     orr flags, #FACE_TRIANGLE
 
-    ldr next, [ot, depth, lsl #2]
-    str face, [ot, depth, lsl #2]
-    stmia face!, {flags, next, vp1, vp2}
+    ldr next, [ot, depth]
+    str face, [ot, depth]
+    stmia face!, {flags, next, vp01, i2}
 .skip:
     subs count, #1
     bne .loop

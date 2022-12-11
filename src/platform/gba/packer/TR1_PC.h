@@ -20,6 +20,11 @@ struct TR1_PC
     {
         uint16 indices[4];
         uint16 flags;
+
+        static int cmp(const Quad* a, const Quad* b)
+        {
+            return a->indices[0] - b->indices[0];
+        }
     };
 
     struct Triangle

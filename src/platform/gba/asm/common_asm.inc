@@ -38,10 +38,9 @@
 .equ CLIP_RIGHT,    ((1 << 1) << 8)
 .equ CLIP_TOP,      ((1 << 2) << 8)
 .equ CLIP_BOTTOM,   ((1 << 3) << 8)
-.equ CLIP_FAR,      ((1 << 4) << 8)
-.equ CLIP_NEAR,     ((1 << 5) << 8)
-.equ CLIP_FRAME,    ((1 << 6) << 8)
-.equ CLIP_DISCARD,  (CLIP_LEFT + CLIP_RIGHT + CLIP_TOP + CLIP_BOTTOM + CLIP_FAR + CLIP_NEAR)
+.equ CLIP_PLANE,    ((1 << 4) << 8)
+.equ CLIP_FRAME,    ((1 << 5) << 8)
+.equ CLIP_DISCARD,  (CLIP_LEFT + CLIP_RIGHT + CLIP_TOP + CLIP_BOTTOM + CLIP_PLANE)
 .equ CLIP_MASK,     0xFF00
 
 .equ FACE_TYPE_SHIFT,   14
@@ -121,15 +120,17 @@
     ble \skip
 .endm
 
-.macro scaleUV uv, tmp, tmp2, f
-    smullne \tmp2, \tmp, \uv, \f      // u = (f * uv) >> 32
+.macro scaleUV uv, tmp, unused, f
+    asrs \tmp, \uv, #16
+    mulne \tmp, \f, \tmp            // u = f * int16(uv >> 16)
+    lsrne \tmp, #16
+    lslne \tmp, #16
 
-    lsl \uv, #16
-    asrs \uv, #16
-    mulne \uv, \f                     // v = f * int16(uv)
-    lsr \uv, #16
+    lsls \uv, \uv, #16
+    asrne \uv, #16
+    mulne \uv, \f, \uv              // v = f * int16(uv)
 
-    orr \uv, \uv, \tmp, lsl #16     // uv = (u & 0xFFFF0000) | (v >> 16)
+    orr \uv, \tmp, \uv, lsr #16     // uv = (u & 0xFFFF0000) | (v >> 16)
 .endm
 
 .macro tex index, uv

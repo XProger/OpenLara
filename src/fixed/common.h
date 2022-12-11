@@ -641,8 +641,9 @@ struct RoomQuad
     uint32 flags;
     uint16 indices[4];
 #else
+    int8 indices[4];
     uint16 flags;
-    uint16 indices[4];
+    uint16 padding;
 #endif
 };
 
@@ -652,8 +653,8 @@ struct RoomTriangle
     uint32 flags;
     uint16 indices[4];
 #else
-    uint16 flags;
     uint16 indices[3];
+    uint16 flags;
 #endif
 };
 
@@ -663,8 +664,9 @@ struct MeshQuad
     uint32 flags;
     uint32 indices;
 #else
+    int8 indices[4];
     uint16 flags;
-    uint8  indices[4];
+    uint16 padding;
 #endif
 };
 
@@ -674,8 +676,9 @@ struct MeshTriangle
     uint32 flags;
     uint32 indices;
 #else
+    int8 indices[4];
     uint16 flags;
-    uint8  indices[4];
+    uint16 padding;
 #endif
 };
 

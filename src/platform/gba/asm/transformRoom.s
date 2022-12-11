@@ -103,10 +103,10 @@ transformRoom_asm:
     // z clipping
     cmp z, #(VIEW_MIN >> OT_SHIFT)
     movle z, #(VIEW_MIN >> OT_SHIFT)
-    orrle vg, #CLIP_NEAR
+    orrle vg, #CLIP_PLANE
     cmp z, #(VIEW_MAX >> OT_SHIFT)
     movge z, #(VIEW_MAX >> OT_SHIFT)
-    orrge vg, #CLIP_FAR
+    orrge vg, #CLIP_PLANE
 
     // project
     add dz, z, z, lsr #2

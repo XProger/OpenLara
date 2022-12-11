@@ -79,16 +79,15 @@ enum ClipFlags {
     CLIP_RIGHT   = 1 << 1,
     CLIP_TOP     = 1 << 2,
     CLIP_BOTTOM  = 1 << 3,
-    CLIP_FAR     = 1 << 4,
-    CLIP_NEAR    = 1 << 5,
-    CLIP_FRAME   = 1 << 6,
-    CLIP_DISCARD = (CLIP_LEFT | CLIP_RIGHT | CLIP_TOP | CLIP_BOTTOM | CLIP_FAR | CLIP_NEAR),
+    CLIP_PLANE   = 1 << 4,
+    CLIP_FRAME   = 1 << 5,
+    CLIP_DISCARD = (CLIP_LEFT | CLIP_RIGHT | CLIP_TOP | CLIP_BOTTOM | CLIP_PLANE),
 };
 
 const MeshQuad gShadowQuads[] = {
-    { (FACE_TYPE_SHADOW << FACE_TYPE_SHIFT), {0, 1, 2, 7} },
-    { (FACE_TYPE_SHADOW << FACE_TYPE_SHIFT), {7, 2, 3, 6} },
-    { (FACE_TYPE_SHADOW << FACE_TYPE_SHIFT), {6, 3, 4, 5} }
+    { {0, 1, 1, 5}, (FACE_TYPE_SHADOW << FACE_TYPE_SHIFT) },    // abs idx {0, 1, 2, 7}
+    { {0,-5, 1, 3}, (FACE_TYPE_SHADOW << FACE_TYPE_SHIFT) },    // abs idx {7, 2, 3, 6}
+    { {0,-3, 1, 1}, (FACE_TYPE_SHADOW << FACE_TYPE_SHIFT) }     // abs idx {6, 3, 4, 5}
 };
 
 void setViewport(const RectMinMax &vp)
@@ -183,12 +182,12 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
         uint32 clip = 0;
 
         if (z <= VIEW_MIN_F) {
-            clip = CLIP_NEAR;
+            clip = CLIP_PLANE;
             z = VIEW_MIN_F;
         }
 
         if (z >= VIEW_MAX_F) {
-            clip = CLIP_FAR;
+            clip = CLIP_PLANE;
             z = VIEW_MAX_F;
         }
 
@@ -253,12 +252,12 @@ void transformRoomUW_c(const RoomVertex* vertices, int32 count)
         uint32 clip = 0;
 
         if (z <= VIEW_MIN_F) {
-            clip = CLIP_NEAR;
+            clip = CLIP_PLANE;
             z = VIEW_MIN_F;
         }
 
         if (z >= VIEW_MAX_F) {
-            clip = CLIP_FAR;
+            clip = CLIP_PLANE;
             z = VIEW_MAX_F;
         }
 
@@ -307,9 +306,9 @@ void transformMesh_c(const MeshVertex* vertices, int32 count, int32 intensity)
 
     for (int32 i = 0; i < count; i++, res++)
     {
-        int32 vx = vertices->x;
-        int32 vy = vertices->y;
-        int32 vz = vertices->z;
+        int32 vx = vertices->x << 2;
+        int32 vy = vertices->y << 2;
+        int32 vz = vertices->z << 2;
         vertices++;
 
         const Matrix &m = matrixGet();
@@ -320,12 +319,12 @@ void transformMesh_c(const MeshVertex* vertices, int32 count, int32 intensity)
         uint32 clip = 0;
 
         if (z <= VIEW_MIN_F) {
-            clip = CLIP_NEAR;
+            clip = CLIP_PLANE;
             z = VIEW_MIN_F;
         }
 
         if (z >= VIEW_MAX_F) {
-            clip = CLIP_FAR;
+            clip = CLIP_PLANE;
             z = VIEW_MAX_F;
         }
 
@@ -352,15 +351,18 @@ void transformMesh_c(const MeshVertex* vertices, int32 count, int32 intensity)
 
 void faceAddRoomQuads_c(const RoomQuad* polys, int32 count)
 {
-    const Vertex* v = gVerticesBase;
+    const Vertex* v0;
+    const Vertex* v1;
+    const Vertex* v2;
+    const Vertex* v3 = gVerticesBase;
 
     for (int32 i = 0; i < count; i++, polys++)
     {
         uint32 flags = polys->flags;
-        const Vertex* v0 = v + polys->indices[0];
-        const Vertex* v1 = v + polys->indices[1];
-        const Vertex* v2 = v + polys->indices[2];
-        const Vertex* v3 = v + polys->indices[3];
+        v0 = v3 + polys->indices[0];
+        v1 = v0 + polys->indices[1];
+        v2 = v1 + polys->indices[2];
+        v3 = v2 + polys->indices[3];
 
         uint32 c0 = v0->clip;
         uint32 c1 = v1->clip;
@@ -443,15 +445,17 @@ void faceAddRoomTriangles_c(const RoomTriangle* polys, int32 count)
 
 void faceAddMeshQuads_c(const MeshQuad* polys, int32 count)
 {
-    const Vertex* v = gVerticesBase;
+    const Vertex* v0;
+    const Vertex* v1;
+    const Vertex* v2;
+    const Vertex* v3 = gVerticesBase;
 
     for (int32 i = 0; i < count; i++, polys++)
     {
-        uint32 flags = polys->flags;
-        const Vertex* v0 = v + polys->indices[0];
-        const Vertex* v1 = v + polys->indices[1];
-        const Vertex* v2 = v + polys->indices[2];
-        const Vertex* v3 = v + polys->indices[3];
+        v0 = v3 + polys->indices[0];
+        v1 = v0 + polys->indices[1];
+        v2 = v1 + polys->indices[2];
+        v3 = v2 + polys->indices[3];
 
         if (checkBackface(v0, v1, v2))
             continue;
@@ -464,6 +468,7 @@ void faceAddMeshQuads_c(const MeshQuad* polys, int32 count)
         if (c0 & c1 & c2 & c3 & CLIP_DISCARD)
             continue;
 
+        uint32 flags = polys->flags;
         if ((c0 | c1 | c2 | c3) & CLIP_FRAME) {
             flags |= FACE_CLIPPED;
         }
@@ -481,14 +486,15 @@ void faceAddMeshQuads_c(const MeshQuad* polys, int32 count)
 
 void faceAddMeshTriangles_c(const MeshTriangle* polys, int32 count)
 {
-    const Vertex* v = gVerticesBase;
+    const Vertex* v0;
+    const Vertex* v1;
+    const Vertex* v2 = gVerticesBase;
 
     for (int32 i = 0; i < count; i++, polys++)
     {
-        uint32 flags = polys->flags;
-        const Vertex* v0 = v + polys->indices[0];
-        const Vertex* v1 = v + polys->indices[1];
-        const Vertex* v2 = v + polys->indices[2];
+        v0 = v2 + polys->indices[0];
+        v1 = v0 + polys->indices[1];
+        v2 = v1 + polys->indices[3];
 
         if (checkBackface(v0, v1, v2))
             continue;
@@ -500,6 +506,7 @@ void faceAddMeshTriangles_c(const MeshTriangle* polys, int32 count)
         if (c0 & c1 & c2 & CLIP_DISCARD)
             continue;
 
+        uint32 flags = polys->flags;
         if ((c0 | c1 | c2) & CLIP_FRAME) {
             flags |= FACE_CLIPPED;
         }
@@ -886,13 +893,13 @@ void renderMesh(const Mesh* mesh)
 
     const uint8* ptr = (uint8*)mesh + sizeof(Mesh);
 
-    const MeshVertex* vertices = (MeshVertex*)ptr;
-    ptr += vCount * sizeof(vertices[0]);
-
     MeshQuad* quads = (MeshQuad*)ptr;
     ptr += mesh->rCount * sizeof(MeshQuad);
 
     MeshTriangle* triangles = (MeshTriangle*)ptr;
+    ptr += mesh->tCount * sizeof(MeshTriangle);
+
+    const MeshVertex* vertices = (MeshVertex*)ptr;
 
     {
         PROFILE(CNT_TRANSFORM);

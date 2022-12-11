@@ -383,10 +383,10 @@ bool Room::checkPortal(const Portal* portal)
         return false;
 //#endif
 
-    int32 x0 = clip.x1;
-    int32 y0 = clip.y1;
-    int32 x1 = clip.x0;
-    int32 y1 = clip.y0;
+    int32 x0 = clip.x1 - (FRAME_WIDTH >> 1);
+    int32 y0 = clip.y1 - (FRAME_HEIGHT >> 1);
+    int32 x1 = clip.x0 - (FRAME_WIDTH >> 1);
+    int32 y1 = clip.y0 - (FRAME_HEIGHT >> 1);
 
     int32 znear = 0, zfar = 0;
 
@@ -419,17 +419,7 @@ bool Room::checkPortal(const Portal* portal)
         y >>= FIXED_SHIFT;
         z >>= FIXED_SHIFT;
 
-        int32 dz = PERSPECTIVE_DZ(z);
-
-        if (dz > 0) {
-            PERSPECTIVE(x, y, z);
-
-            x += FRAME_WIDTH  >> 1;
-            y += FRAME_HEIGHT >> 1;
-        } else {
-            x = (x < 0) ? viewport.x0 : viewport.x1;
-            y = (y < 0) ? viewport.y0 : viewport.y1;
-        }
+        PERSPECTIVE(x, y, z);
 
         if (x < x0) x0 = x;
         if (x > x1) x1 = x;
@@ -439,6 +429,11 @@ bool Room::checkPortal(const Portal* portal)
 
     if (znear == 4 || zfar == 4)
         return false;
+
+    x0 += (FRAME_WIDTH >> 1);
+    y0 += (FRAME_HEIGHT >> 1);
+    x1 += (FRAME_WIDTH >> 1);
+    y1 += (FRAME_HEIGHT >> 1);
 
     if (znear)
     {

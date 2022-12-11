@@ -187,14 +187,18 @@ void readLevel(const uint8* data)
         m->start = spriteSeq->start;
     }
 
-#ifdef USE_VRAM_MESH // experimental, should be per level or dynamic
-    vramMeshesCount = 0;
+// experimental
+#if defined(USE_VRAM_MESH) || defined(USE_VRAM_ROOM)
     vramPtr = (uint8*)0x06014000;
+#endif
+
+#ifdef USE_VRAM_MESH // should be per level or dynamic
+    vramMeshesCount = 0;
     vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA);
     vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_PISTOLS);
     vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_SHOTGUN);
-    vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_MAGNUMS);
-    vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_UZIS);
+    //vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_MAGNUMS);
+    //vramPtr = pushToVRAM(vramPtr, models + ITEM_LARA_UZIS);
     vramPtr = pushToVRAM(vramPtr, models + ITEM_WOLF);
     vramPtr = pushToVRAM(vramPtr, models + ITEM_BAT);
     vramPtr = pushToVRAM(vramPtr, models + ITEM_BRIDGE_FLAT);

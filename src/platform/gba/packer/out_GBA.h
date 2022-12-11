@@ -211,60 +211,72 @@ struct out_GBA
 
     struct RoomQuad
     {
+        int8 indices[4];
         uint16 flags;
-        uint16 indices[4];
+        uint16 unused;
 
         void write(FileStream &f) const
         {
-            f.write(flags);
             f.write(indices[0]);
             f.write(indices[1]);
             f.write(indices[2]);
             f.write(indices[3]);
+            f.write(flags);
+
+            uint16 padding = 0;
+            f.write(padding);
         }
     };
 
     struct RoomTriangle
     {
-        uint16 flags;
         uint16 indices[3];
+        uint16 flags;
         
         void write(FileStream &f) const
         {
-            f.write(flags);
             f.write(indices[0]);
             f.write(indices[1]);
             f.write(indices[2]);
+            f.write(flags);
         }
     };
 
     struct MeshQuad
     {
+        int8 indices[4];
         uint16 flags;
-        uint8 indices[4];
+        uint16 unused;
 
         void write(FileStream &f) const
         {
-            f.write(flags);
             f.write(indices[0]);
             f.write(indices[1]);
             f.write(indices[2]);
             f.write(indices[3]);
+            f.write(flags);
+
+            uint16 padding = 0;
+            f.write(padding);
         }
     };
 
     struct MeshTriangle
     {
+        int8 indices[4];
         uint16 flags;
-        uint8 indices[4];
- 
+        uint16 unused;
+
         void write(FileStream &f) const
         {
-            f.write(flags);
             f.write(indices[0]);
             f.write(indices[1]);
             f.write(indices[2]);
             f.write(indices[3]);
+            f.write(flags);
+
+            uint16 padding = 0;
+            f.write(padding);
         }
     };
 
@@ -686,69 +698,99 @@ struct out_GBA
             f.write(int16(0));
             f.write(int16(0));
 
-            for (int32 j = 0; j < vCount; j++)
-            {
-                struct MeshVertexGBA {
-                    int16 x, y, z;
-                } v;
 
-                v.x = vertices[j].x >> 2;
-                v.y = vertices[j].y >> 2;
-                v.z = vertices[j].z >> 2;
-
-                f.write(v.x);
-                f.write(v.y);
-                f.write(v.z);
-            }
+            Array<const TR1_PC::Quad> sortedQuads;
 
             for (int32 j = 0; j < rCount; j++)
             {
-                TR1_PC::Quad q = rFaces[j];
-                uint16 texIndex = q.flags & FACE_TEXTURE;
+                sortedQuads.add(rFaces + j);
+            }
+
+            for (int32 j = 0; j < crCount; j++)
+            {
+                sortedQuads.add(crFaces + j);
+            }
+
+            sortedQuads.sort(); // sort quads by indices for consistent deltas
+
+            int32 prev = 0;
+
+            for (int32 j = 0; j < sortedQuads.count; j++)
+            {
+                const TR1_PC::Quad* q = sortedQuads[j];
+
+                int32 i0 = q->indices[0];
+                int32 i1 = q->indices[1];
+                int32 i2 = q->indices[2];
+                int32 i3 = q->indices[3];
+
+                int32 p0 = i0 - prev;
+                int32 p1 = i1 - i0;
+                int32 p2 = i2 - i1;
+                int32 p3 = i3 - i2;
+                prev = i3;
+
+                ASSERT(p0 >= -128 && p0 <= 127);
+                ASSERT(p1 >= -128 && p1 <= 127);
+                ASSERT(p2 >= -128 && p2 <= 127);
+                ASSERT(p3 >= -128 && p3 <= 127);
 
                 MeshQuad comp;
-                comp.indices[0] = uint8(q.indices[0]);
-                comp.indices[1] = uint8(q.indices[1]);
-                comp.indices[2] = uint8(q.indices[2]);
-                comp.indices[3] = uint8(q.indices[3]);
-                comp.flags = remap ? remap->textures[texIndex] : texIndex;
+                comp.indices[0] = p0;
+                comp.indices[1] = p1;
+                comp.indices[2] = p2;
+                comp.indices[3] = p3;
 
-                if (level->objectTextures[texIndex].attribute & TEX_ATTR_AKILL) {
-                    comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);
-                } else {
-                    comp.flags |= (FACE_TYPE_FT << FACE_TYPE_SHIFT);
+                bool textured = (q >= rFaces) && (q < (rFaces + rCount));
+
+                if (textured)
+                {
+                    uint16 texIndex = q->flags & FACE_TEXTURE;
+                    comp.flags = remap ? remap->textures[texIndex] : texIndex;
+                    if (level->objectTextures[texIndex].attribute & TEX_ATTR_AKILL)
+                    {
+                        comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);
+                    }
+                    else
+                    {
+                        comp.flags |= (FACE_TYPE_FT << FACE_TYPE_SHIFT);
+                    }
+                }
+                else
+                {
+                    comp.flags = q->flags & FACE_TEXTURE;
+                    comp.flags |= (FACE_TYPE_F << FACE_TYPE_SHIFT);
                 }
 
                 comp.write(f);
             }
 
-            for (int32 j = 0; j < crCount; j++)
-            {
-                TR1_PC::Quad q = crFaces[j];
-
-                MeshQuad comp;
-                comp.indices[0] = uint8(q.indices[0]);
-                comp.indices[1] = uint8(q.indices[1]);
-                comp.indices[2] = uint8(q.indices[2]);
-                comp.indices[3] = uint8(q.indices[3]);
-                comp.flags = q.flags & FACE_TEXTURE;
-                comp.flags |= (FACE_TYPE_F << FACE_TYPE_SHIFT);
-
-                comp.write(f);
-            }
-
+            prev = 0;
             for (int32 j = 0; j < tCount; j++)
             {
                 TR1_PC::Triangle t = tFaces[j];
                 uint16 texIndex = t.flags & FACE_TEXTURE;
 
-                MeshTriangle comp;
-                comp.indices[0] = uint8(t.indices[0]);
-                comp.indices[1] = uint8(t.indices[1]);
-                comp.indices[2] = uint8(t.indices[2]);
-                comp.indices[3] = 0;
-                comp.flags = remap ? remap->textures[texIndex] : texIndex;
+                int32 i0 = t.indices[0];
+                int32 i1 = t.indices[1];
+                int32 i2 = t.indices[2];
 
+                int32 p0 = i0 - prev;
+                int32 p1 = i1 - i0;
+                int32 p2 = i2 - i1;
+                prev = i2;
+
+                ASSERT(p0 >= -128 && p0 <= 127);
+                ASSERT(p1 >= -128 && p1 <= 127);
+                ASSERT(p2 >= -128 && p2 <= 127);
+
+                MeshTriangle comp;
+                comp.indices[0] = p0;
+                comp.indices[1] = p1;
+                comp.indices[2] = 0;    // asr hack
+                comp.indices[3] = p2;
+
+                comp.flags = remap ? remap->textures[texIndex] : texIndex;
                 if (level->objectTextures[texIndex].attribute & TEX_ATTR_AKILL) {
                     comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);
                 } else {
@@ -762,15 +804,44 @@ struct out_GBA
             {
                 TR1_PC::Triangle t = ctFaces[j];
 
+                int32 i0 = t.indices[0];
+                int32 i1 = t.indices[1];
+                int32 i2 = t.indices[2];
+
+                int32 p0 = i0 - prev;
+                int32 p1 = i1 - i0;
+                int32 p2 = i2 - i1;
+                prev = i2;
+
+                ASSERT(p0 >= -128 && p0 <= 127);
+                ASSERT(p1 >= -128 && p1 <= 127);
+                ASSERT(p2 >= -128 && p2 <= 127);
+
                 MeshTriangle comp;
-                comp.indices[0] = uint8(t.indices[0]);
-                comp.indices[1] = uint8(t.indices[1]);
-                comp.indices[2] = uint8(t.indices[2]);
-                comp.indices[3] = 0;
+                comp.indices[0] = p0;
+                comp.indices[1] = p1;
+                comp.indices[2] = 0;    // asr hack
+                comp.indices[3] = p2;
+
                 comp.flags = t.flags & FACE_TEXTURE;
                 comp.flags |= (FACE_TYPE_F << FACE_TYPE_SHIFT);
 
                 comp.write(f);
+            }
+
+            for (int32 j = 0; j < vCount; j++)
+            {
+                struct MeshVertexGBA {
+                    int16 x, y, z;
+                } v;
+
+                v.x = vertices[j].x >> 2;
+                v.y = vertices[j].y >> 2;
+                v.z = vertices[j].z >> 2;
+
+                f.write(v.x);
+                f.write(v.y);
+                f.write(v.z);
             }
         }
     };
@@ -1598,18 +1669,37 @@ struct out_GBA
             roomVerticesCount = 0;
 
             info.quads = f.align4();
+
+            int32 prev = 0;
+
             for (int32 i = 0; i < room->qCount; i++)
             {
                 TR1_PC::Quad q = room->quads[i];
                 uint16 texIndex = q.flags & FACE_TEXTURE;
 
-                RoomQuad comp;
-                comp.indices[0] = addRoomVertex(info.yTop, room->vertices[q.indices[0]]);
-                comp.indices[1] = addRoomVertex(info.yTop, room->vertices[q.indices[1]]);
-                comp.indices[2] = addRoomVertex(info.yTop, room->vertices[q.indices[2]]);
-                comp.indices[3] = addRoomVertex(info.yTop, room->vertices[q.indices[3]]);
-                comp.flags = remap ? remap->textures[texIndex] : texIndex;
+                int32 i0 = addRoomVertex(info.yTop, room->vertices[q.indices[0]]);
+                int32 i1 = addRoomVertex(info.yTop, room->vertices[q.indices[1]]);
+                int32 i2 = addRoomVertex(info.yTop, room->vertices[q.indices[2]]);
+                int32 i3 = addRoomVertex(info.yTop, room->vertices[q.indices[3]]);
 
+                int32 p0 = i0 - prev;
+                int32 p1 = i1 - i0;
+                int32 p2 = i2 - i1;
+                int32 p3 = i3 - i2;
+                prev = i3;
+
+                ASSERT(p0 >= -128 && p0 <= 127);
+                ASSERT(p1 >= -128 && p1 <= 127);
+                ASSERT(p2 >= -128 && p2 <= 127);
+                ASSERT(p3 >= -128 && p3 <= 127);
+
+                RoomQuad comp;
+                comp.indices[0] = p0;
+                comp.indices[1] = p1;
+                comp.indices[2] = p2;
+                comp.indices[3] = p3;
+
+                comp.flags = remap ? remap->textures[texIndex] : texIndex;
                 if (level->objectTextures[texIndex].attribute & TEX_ATTR_AKILL) {
                     comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);
                 } else {
