@@ -637,9 +637,12 @@ struct Matrix
 
 struct RoomQuad
 {
-#ifdef __3DO__
+#if defined(__3DO__)
     uint32 flags;
     uint16 indices[4];
+#elif defined(__32X__)
+    uint32 flags;
+    int8 indices[4];
 #else
     int8 indices[4];
     uint16 flags;
@@ -649,9 +652,12 @@ struct RoomQuad
 
 struct RoomTriangle
 {
-#ifdef __3DO__
+#if defined(__3DO__)
     uint32 flags;
     uint16 indices[4];
+#elif defined(__32X__)
+    uint16 flags;
+    uint16 indices[3];
 #else
     uint16 indices[3];
     uint16 flags;
@@ -660,9 +666,12 @@ struct RoomTriangle
 
 struct MeshQuad
 {
-#ifdef __3DO__
+#if defined(__3DO__)
     uint32 flags;
     uint32 indices;
+#elif defined(__32X__)
+    uint16 flags;
+    uint8  indices[4];
 #else
     int8 indices[4];
     uint16 flags;
@@ -672,9 +681,12 @@ struct MeshQuad
 
 struct MeshTriangle
 {
-#ifdef __3DO__
+#if defined(__3DO__)
     uint32 flags;
     uint32 indices;
+#elif defined(__32X__)
+    uint16 flags;
+    uint8  indices[4];
 #else
     int8 indices[4];
     uint16 flags;
@@ -743,7 +755,7 @@ struct Face
 {
     uint32 flags;
     Face* next;
-    uint16 indices[4];
+    int16 indices[4];
 };
 #endif
 

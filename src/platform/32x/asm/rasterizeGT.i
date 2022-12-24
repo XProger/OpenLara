@@ -93,8 +93,6 @@ _rasterizeGT_asm:
         add     #-SP_SIZE, sp
 
         mov     gtile, TILE
-        nop
-
         mov     #0, Rh
 
 .loop_gt:
@@ -102,14 +100,13 @@ _rasterizeGT_asm:
 
         tst     Lh, Lh
         bf/s    .calc_left_end_gt
+        shlr16  Rh              // [delay slot] Rh = (Rh >> 16)
 
 .calc_left_start_gt:
-        mov.b   @(VERTEX_PREV, L), tmp  // [delay slot]
+        mov.b   @(VERTEX_PREV, L), tmp
         mov     tmp, N
 
         mov.w   @(VERTEX_Y, L), tmp
-        shll2   N
-        shll2   N
         add     L, N            // N = L + (L->prev << VERTEX_SIZEOF_SHIFT)
         mov     tmp, Ly
         mov.w   @(VERTEX_Y, N), tmp
@@ -159,9 +156,9 @@ _rasterizeGT_asm:
         // calc Ldt
         scaleUV Ldt, tmp, ih
         mov.l   tmp, @(SP_LDT, sp)
+        nop
 .calc_left_end_gt:
 
-        shlr16  Rh              // Rh = (Rh >> 16)
         tst     Rh, Rh
         bf/s    .calc_right_end_gt
 
@@ -170,8 +167,6 @@ _rasterizeGT_asm:
         mov     tmp, N
 
         mov.w   @(VERTEX_Y, R), tmp
-        shll2   N
-        shll2   N
         add     R, N            // N = R + (R->next << VERTEX_SIZEOF_SHIFT)
         mov     tmp, Ry
         mov.w   @(VERTEX_Y, N), tmp
@@ -221,6 +216,7 @@ _rasterizeGT_asm:
         // calc Rdt
         scaleUV Rdt, tmp, ih
         mov.l   tmp, @(SP_RDT, sp)
+        nop
 .calc_right_end_gt:
 
         // bake gLightmap address into g value
@@ -233,6 +229,7 @@ _rasterizeGT_asm:
         bf/s    .scanline_prepare_gt
         mov     Lh, h           // [delay slot]
         mov     Rh, h
+        nop
 
 .scanline_prepare_gt:
         sub     h, Lh
@@ -330,10 +327,8 @@ _rasterizeGT_asm:
         shll    dgdx
 
 .block_2px_gt:
-        swap.b  t, index        // UUuuvvVV
-        swap.w  index, index    // vvVVUUuu
-        shll8   index           // VVUUuu00
-        shlr16  index           // 0000VVUU
+        getUV   t, index
+
         mov.b   @(index, TILE), index
 
         mov     g, LMAP

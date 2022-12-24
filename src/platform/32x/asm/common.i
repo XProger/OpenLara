@@ -54,22 +54,20 @@
 
 #define FACE_SIZEOF             16
 
-#define VIEW_DIST       (1024 * 10)   // max = DIV_TABLE_END << PROJ_SHIFT
-#define FOG_SHIFT       1
-#define FOG_MAX         VIEW_DIST
-#define FOG_MIN         (FOG_MAX - (8192 >> FOG_SHIFT))
-#define VIEW_MIN        (64)
-#define VIEW_MAX        (VIEW_DIST)
-#define VIEW_OFF        4096
+#define VIEW_MIN        64
+#define VIEW_MAX        (10 << 10)
+#define FOG_SHIFT       4
+#define FOG_MIN         (VIEW_MAX - 2048)
+
+#define OT_SHIFT        4
 
 #define CLIP_FRAME      (1 << 0)
 #define CLIP_LEFT       (1 << 1)
 #define CLIP_RIGHT      (1 << 2)
 #define CLIP_TOP        (1 << 3)
 #define CLIP_BOTTOM     (1 << 4)
-#define CLIP_FAR        (1 << 5)
-#define CLIP_NEAR       (1 << 6)
-#define CLIP_DISCARD    (CLIP_LEFT + CLIP_RIGHT + CLIP_TOP + CLIP_BOTTOM + CLIP_FAR + CLIP_NEAR)
+#define CLIP_PLANE      (1 << 5)
+#define CLIP_DISCARD    (CLIP_LEFT + CLIP_RIGHT + CLIP_TOP + CLIP_BOTTOM + CLIP_PLANE)
 
 #define VP_MINX         0
 #define VP_MINY         4

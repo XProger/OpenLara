@@ -25,7 +25,7 @@
 #define vz1         vg1
 #define vz2         vg2
 
-#define depth       vg0     // == vz0
+#define depth       tmp
 #define next        vg1
 
 .align 4
@@ -41,6 +41,7 @@ _faceAddRoomTriangles_asm:
         mov.l   r14, @-sp
 
         mov.l   var_gVertices_far, vertices
+        add     #VERTEX_Z, vertices
 
         mov.l   var_gVerticesBase_far, vp
         mov.l   @vp, vp
@@ -49,21 +50,19 @@ _faceAddRoomTriangles_asm:
         mov.l   @face, face
 
         mov.l   var_gOT_far, ot
-        nop
 
 .loop_fart:
         // read flags and indices
-        mov.w   @polys+, flags
-        mov.w   @polys+, vp0
-        mov.w   @polys+, vp1
-        mov.w   @polys+, vp2
-        extu.w  flags, flags
-        // indices never exceed 32k, no need for extu.w
+        mov.l   @polys+, flags
+        mov.l   @polys+, vp1
 
-        // p = gVerticesBase + index * VERTEX_SIZEOF (index is already multiplied by 2)
-        shll2   vp0
-        shll2   vp1
-        shll2   vp2
+        extu.w  flags, vp0
+        shlr16  flags
+
+        extu.w  vp1, vp2
+        shlr16  vp1
+
+        // vp[0..2] alreay multiplied by VERTEX_SIZEOF
 
         // get vertex address
         add     vp, vp0
@@ -90,7 +89,7 @@ _faceAddRoomTriangles_asm:
         or      vg2, tmp
         tst     #CLIP_FRAME, tmp
         bt/s    1f
-        mov.l   const_FACE_CLIPPED_far, tmp     // [delay slot]
+        mov.l   const_FACE_CLIPPED_far, tmp     // [delay slot] mov #1, tmp; rotr x2
         or      tmp, flags
 
 1:      // compare VERTEX_G for gouraud rasterization
@@ -100,60 +99,47 @@ _faceAddRoomTriangles_asm:
         shlr8   vg1             // shift down for g only
         tst     vg1, vg1
         bt/s    2f
-        mov.l   const_FACE_GOURAUD_far, tmp     // [delay slot]
+        mov.l   const_FACE_GOURAUD_far, tmp     // [delay slot] mov #128, tmp; shll8
         add     tmp, flags
 
 2:      // check_backface
         ccw     vp0, vp1, vp2, vx0, vy0, vx1, vy1, vx2, vy2
         bt/s    .skip_fart
-        mov.l   const_FACE_TRIANGLE_far, tmp    // [delay slot]
+        mov.l   const_FACE_TRIANGLE_far, tmp    // [delay slot] mov #1, tmp; rotr
         or      tmp, flags
 
         // max_z3
-        mov.w   @vp0, vz0
+        mov.w   @vp0, depth     // depth = vz0
         mov.w   @vp1, vz1
         // check_z1
-        cmp/gt  vz0, vz1
+        cmp/gt  depth, vz1
         bf/s    3f
         mov.w   @vp2, vz2       // [delay slot]
-        mov     vz1, vz0        // if (z1 > z0) z0 = z1
+        mov     vz1, depth      // if (z1 > depth) depth = z1
 3:      // check_z2
-        cmp/gt  vz0, vz2
-        bf      .face_add_fart  // TODO use delay slot but not for OT! )
-        mov     vz2, vz0        // if (z2 > z0) z0 = z2
+        cmp/gt  depth, vz2
+        bf/s    .face_add_fart  // TODO use delay slot but not for OT! )
+        sub     vertices, vp0   // [delay slot] get the first offset
+        mov     vz2, depth      // if (z2 > depth) depth = z2
 
 .face_add_fart:
-        // get absolute indices
-        // p address is 4 bytes ahead but it's fine for shlr3
-        // index = (p - vertices) / VERTEX_SIZEOF
-        sub     vertices, vp0
+        // offset = (p - vertices)
         sub     vertices, vp1
         sub     vertices, vp2
-        shlr2   vp0
-        shlr2   vp1
-        shlr2   vp2
-        shlr    vp0
-        shlr    vp1
-        shlr    vp2
-
-        // depth (vz0) >>= OT_SHIFT (4)
-        shlr2   depth
-        shlr2   depth
 
         shll2   depth
-        add     ot, depth   // depth = gOT[depth]
-        mov.l   @depth, next
-        mov.l   face, @depth
+        mov.l   @(depth, ot), next
+        mov.l   face, @(depth, ot)
 
+        shll16  vp2
+        shll16  vp1
+        xtrct   vp0, vp1
+
+        mov.l   flags, @(0, face)
+        mov.l   next, @(4, face)
+        mov.l   vp1, @(8, face)
+        mov.l   vp2, @(12, face)
         add     #FACE_SIZEOF, face
-        mov     face, tmp
-        add     #-2, tmp        // skip 4th index
-
-        mov.w   vp2, @-tmp
-        mov.w   vp1, @-tmp
-        mov.w   vp0, @-tmp
-        mov.l   next, @-tmp
-        mov.l   flags, @-tmp
 .skip_fart:
         dt      count
         bf      .loop_fart

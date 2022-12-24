@@ -26,9 +26,9 @@
 #define vz2         vg2
 #define vz3         vg3
 
-#define depth       vg0     // == vz0
+#define depth       tmp
 #define next        vg1
-#define ot          tmp
+#define ot          vg0
 
 .align 4
 .global _faceAddMeshQuads_asm
@@ -43,26 +43,30 @@ _faceAddMeshQuads_asm:
         mov.l   r14, @-sp
 
         mov.l   var_gVertices_fam, vertices
+        add     #VERTEX_Z, vertices
 
         mov.l   var_gVerticesBase_fam, vp
         mov.l   @vp, vp
 
         mov.l   var_gFacesBase_fam, face
         mov.l   @face, face
+        nop
 
 .loop_famq:
         // read flags and indices
         mov.w   @polys+, flags
-        mov.b   @polys+, vp0
-        mov.b   @polys+, vp1
-        mov.b   @polys+, vp2
-        mov.b   @polys+, vp3
+        mov.w   @polys+, vp0
+        mov.w   @polys+, vp2
 
-        extu.w  flags, flags
+        extu.w  flags, flags // TODO packer free high bit
+
+        extu.b  vp0, vp1
+        shlr8   vp0
         extu.b  vp0, vp0
-        extu.b  vp1, vp1
+
+        extu.b  vp2, vp3
+        shlr8   vp2
         extu.b  vp2, vp2
-        extu.b  vp3, vp3
 
         // p = gVerticesBase + index * VERTEX_SIZEOF
         shll2   vp0
@@ -111,50 +115,40 @@ _faceAddMeshQuads_asm:
         or      tmp, flags
 
 .avg_z4_famq:
-        mov.w   @vp0, vz0
+        mov.w   @vp0, depth
         mov.w   @vp1, vz1
         mov.w   @vp2, vz2
         mov.w   @vp3, vz3
-        add     vz1, vz0
-        add     vz2, vz0
-        add     vz3, vz0
-        shlr2   vz0             // div by 4
+        add     vz1, depth
+        add     vz2, depth
+        add     vz3, depth
+        shlr2   depth           // depth /= 4
 
         mov.l   var_gOT_fam, ot
 
  .face_add_famq:
-        // index = (p - vertices) / VERTEX_SIZEOF
+        // offset = (p - vertices)
         sub     vertices, vp0
         sub     vertices, vp1
         sub     vertices, vp2
         sub     vertices, vp3
-        shlr2   vp0
-        shlr2   vp1
-        shlr2   vp2
-        shlr2   vp3
-        shlr    vp0
-        shlr    vp1
-        shlr    vp2
-        shlr    vp3
-
-        // depth (vz0) >>= OT_SHIFT (4)
-        shlr2   depth
-        shlr2   depth
 
         shll2   depth
-        add     ot, depth   // depth = gOT[depth]
-        mov.l   @depth, next
-        mov.l   face, @depth
+        mov.l   @(depth, ot), next
+        mov.l   face, @(depth, ot)
 
+        shll16  vp3
+        xtrct   vp2, vp3
+        shll16  vp1
+        xtrct   vp0, vp1
+
+        mov.l   flags, @(0, face)
+        mov.l   next, @(4, face)
+        mov.l   vp1, @(8, face)
+        mov.l   vp3, @(12, face)
         add     #FACE_SIZEOF, face
-        mov     face, tmp
+        nop
 
-        mov.w   vp3, @-tmp
-        mov.w   vp2, @-tmp
-        mov.w   vp1, @-tmp
-        mov.w   vp0, @-tmp
-        mov.l   next, @-tmp
-        mov.l   flags, @-tmp
 .skip_famq:
         dt      count
         bf      .loop_famq

@@ -26,9 +26,9 @@
 #define vz2         vg2
 #define vz3         vg3
 
-#define depth       vg0     // == vz0
+#define depth       tmp
 #define next        vg1
-#define ot          tmp
+#define ot          vg0
 
 .align 4
 .global _faceAddRoomQuads_asm
@@ -43,34 +43,44 @@ _faceAddRoomQuads_asm:
         mov.l   r14, @-sp
 
         mov.l   var_gVertices_far, vertices
+        add     #VERTEX_Z, vertices
 
         mov.l   var_gVerticesBase_far, vp
         mov.l   @vp, vp
 
         mov.l   var_gFacesBase_far, face
         mov.l   @face, face
+        nop
 
 .loop_farq:
         // read flags and indices
-        mov.w   @polys+, flags
-        mov.w   @polys+, vp0
-        mov.w   @polys+, vp1
-        mov.w   @polys+, vp2
-        mov.w   @polys+, vp3
-        extu.w  flags, flags
-        // indices never exceed 32k, no need for extu.w
+        mov.l   @polys+, flags
+        mov.l   @polys+, vp0
 
-        // p = gVerticesBase + index * VERTEX_SIZEOF (index is already multiplied by 2)
+        exts.b  vp0, vp3
+        shlr8   vp0
+        exts.b  vp0, vp2
+        shlr8   vp0
+        exts.b  vp0, vp1
+        shlr8   vp0
+        exts.b  vp0, vp0
+
+        // index *= 8 (VERTEX_SIZEOF)
         shll2   vp0
         shll2   vp1
         shll2   vp2
         shll2   vp3
+        shll    vp0
+        shll    vp1
+        shll    vp2
+        shll    vp3
 
         // get vertex address
         add     vp, vp0
-        add     vp, vp1
-        add     vp, vp2
-        add     vp, vp3
+        add     vp0, vp1
+        add     vp1, vp2
+        add     vp2, vp3
+        mov     vp3, vp
 
         // fetch ((g << 8) | clip)
         mov     #VERTEX_G, tmp
@@ -116,59 +126,45 @@ _faceAddRoomQuads_asm:
         add     #VERTEX_Z, vp3  // [delay slot] ccw shifts p[0..2] address to VERTEX_Z, shift p3 too
 
         // max_z4
-        mov.w   @vp0, vz0
+        mov.w   @vp0, depth
         mov.w   @vp1, vz1 
         // check_z1
-        cmp/gt  vz0, vz1
+        cmp/gt  depth, vz1
         bf/s    3f
         mov.w   @vp2, vz2       // [delay slot]
-        mov     vz1, vz0        // if (z1 > z0) z0 = z1
+        mov     vz1, depth      // if (z1 > z0) z0 = z1
 3:      // check_z2
-        cmp/gt  vz0, vz2
+        cmp/gt  depth, vz2
         bf/s    4f
         mov.w   @vp3, vz3       // [delay slot]
-        mov     vz2, vz0        // if (z2 > z0) z0 = z2
+        mov     vz2, depth      // if (z2 > z0) z0 = z2
 4:      // check_z3
-        cmp/gt  vz0, vz3
-        bf      .face_add_farq  // TODO use delay slot but not for OT! )
-        mov     vz3, vz0        // if (z3 > z0) z0 = z3
+        cmp/gt  depth, vz3
+        bf/s    .face_add_farq
+        sub     vertices, vp0   // [delay slot] get the first offset
+        mov     vz3, depth      // if (z3 > z0) z0 = z3
 
 .face_add_farq:
-        mov.l   var_gOT_far, ot // [delay slot]
-        // get absolute indices
-        // p address is 4 bytes ahead but it's fine for shlr3
-        // index = (p - vertices) / VERTEX_SIZEOF
-        sub     vertices, vp0
+        mov.l   var_gOT_far, ot
+        // offset = (p - vertices)
         sub     vertices, vp1
         sub     vertices, vp2
         sub     vertices, vp3
-        shlr2   vp0
-        shlr2   vp1
-        shlr2   vp2
-        shlr2   vp3
-        shlr    vp0
-        shlr    vp1
-        shlr    vp2
-        shlr    vp3
-
-        // depth (vz0) >>= OT_SHIFT (4)
-        shlr2   depth
-        shlr2   depth
 
         shll2   depth
-        add     ot, depth   // depth = gOT[depth]
-        mov.l   @depth, next
-        mov.l   face, @depth
+        mov.l   @(depth, ot), next
+        mov.l   face, @(depth, ot)
 
+        shll16  vp3
+        xtrct   vp2, vp3
+        shll16  vp1
+        xtrct   vp0, vp1
+
+        mov.l   flags, @(0, face)
+        mov.l   next, @(4, face)
+        mov.l   vp1, @(8, face)
+        mov.l   vp3, @(12, face)
         add     #FACE_SIZEOF, face
-        mov     face, tmp
-
-        mov.w   vp3, @-tmp
-        mov.w   vp2, @-tmp
-        mov.w   vp1, @-tmp
-        mov.w   vp0, @-tmp
-        mov.l   next, @-tmp
-        mov.l   flags, @-tmp
 .skip_farq:
         dt      count
         bf      .loop_farq

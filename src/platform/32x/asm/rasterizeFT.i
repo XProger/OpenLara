@@ -66,6 +66,7 @@
         mov.l   @sp+, r9
         rts
         mov.l   @sp+, r8
+        nop
 
 .global _rasterizeFT_asm
 _rasterizeFT_asm:
@@ -95,14 +96,13 @@ _rasterizeFT_asm:
 
         tst     Lh, Lh
         bf/s    .calc_left_end_ft
+        nop
 
 .calc_left_start_ft:
         mov.b   @(VERTEX_PREV, L), tmp  // [delay slot]
         mov     tmp, N
 
         mov.w   @(VERTEX_Y, L), tmp
-        shll2   N
-        shll2   N
         add     L, N            // N = L + (L->prev << VERTEX_SIZEOF_SHIFT)
         mov     tmp, Ly
         mov.w   @(VERTEX_Y, N), tmp
@@ -144,14 +144,13 @@ _rasterizeFT_asm:
         shlr16  Rh              // Rh = (Rh >> 16)
         tst     Rh, Rh
         bf/s    .calc_right_end_ft
+        nop
 
 .calc_right_start_ft:
         mov.b   @(VERTEX_NEXT, R), tmp  // [delay slot]
         mov     tmp, N
 
         mov.w   @(VERTEX_Y, R), tmp
-        shll2   N
-        shll2   N
         add     R, N            // N = R + (R->next << VERTEX_SIZEOF_SHIFT)
         mov     tmp, Ry
         mov.w   @(VERTEX_Y, N), tmp
@@ -206,7 +205,8 @@ _rasterizeFT_asm:
         mov.l   tmp, @(SP_H, sp)
         mov.l   L, @(SP_L, sp)
         mov.l   R, @(SP_R, sp)
-        
+        nop
+
 .scanline_start_ft:
         mov     Lx, Lptr
         mov     Rx, Rptr
@@ -263,15 +263,15 @@ _rasterizeFT_asm:
 
         cmp/gt  Lptr, Rptr
         bf/s    .scanline_end_ft
+        nop
 
 .block_prepare_ft:
         shll    dtdx            // [delay slot] optional
+        nop
 
 .block_2px_ft:
-        swap.b  t, index        // UUuuvvVV
-        swap.w  index, index    // vvVVUUuu
-        shll8   index           // VVUUuu00
-        shlr16  index           // 0000VVUU
+        getUV   t, index
+
         mov.b   @(index, TILE), index
         mov.b   @(index, LMAP), index
 
@@ -283,6 +283,7 @@ _rasterizeFT_asm:
         cmp/gt  Lptr, Rptr
         bt/s    .block_2px_ft
         sub     dtdx, t         // [delay slot] t -= dtdx
+        nop
 
 .scanline_end_ft:
         mov.l   @(SP_LDX, sp), sLdx

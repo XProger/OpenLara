@@ -78,10 +78,10 @@ _transformMesh_asm:
         // pre-transform the matrix offset
         add     #M03, m
         mov.w   @m+, mx
-        shll16  mx
         mov.w   @m+, my
-        shll16  my
         mov.w   @m+, mz
+        shll16  mx
+        shll16  my
         shll16  mz
         add     #-MATRIX_SIZEOF, m
 
@@ -99,22 +99,24 @@ _transformMesh_asm:
 
         // z clipping
 .clip_z_near_m:
-        mov     #VIEW_MIN, minZ // 64
+        mov     #VIEW_MIN, minZ
         cmp/gt  z, minZ
         bf/s    .clip_z_far_m
         cmp/ge  maxZ, z         // [delay slot]
         mov     minZ, z
-        add     #CLIP_NEAR, vg
+        add     #CLIP_PLANE, vg
 .clip_z_far_m:
-        bf/s    .project_m
-        mov     z, dz           // [delay slot] dz = z
+        bf      .project_m
         mov     maxZ, z
-        add     #CLIP_FAR, vg
+        add     #CLIP_PLANE, vg
 
 .project_m:
-        // dz = divTable[z >> (PROJ_SHIFT = 4)]
-        shlr2   dz
-        shlr2   dz
+        // z >>= OT_SHIFT
+        shlr2   z
+        shlr2   z
+
+        // dz = divTable[z]
+        mov     z, dz
         shll    dz
         mov.w   @(dz, divLUT), dz
 

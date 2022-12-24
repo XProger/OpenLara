@@ -4,9 +4,9 @@
 #define res             r3
 #define vertices        r4      // arg
 #define count           r5      // arg
-#define stackVtx        r6
-#define stackMtx        r7
-#define vp              r8
+#define vp              r6
+#define m               r7
+#define vg              r8
 #define x               r9
 #define y               r10
 #define z               r11
@@ -18,13 +18,14 @@
 #define minY            tmp
 #define maxX            tmp
 #define maxY            tmp
-#define minZ            tmp
+#define minZ            x
 #define dz              tmp
-#define vg              stackVtx
-#define fog             stackMtx
-#define cnt             stackVtx
+#define stackVtx        tmp
+#define fog             x
+#define minFog          y
+#define maxG            y
 
-#define SP_SIZE         (18 + 6)        // mat3x3 + vec3
+#define SP_SIZE         (8)        // vec3s + padding
 
 .align 4
 .global _transformRoom_asm
@@ -37,7 +38,6 @@ _transformRoom_asm:
         mov.l   r12, @-sp
         mov.l   r13, @-sp
         mov.l   r14, @-sp
-        mov     sp, stackMtx 
         add     #-SP_SIZE, sp
 
         mov.l   var_viewportRel, vp
@@ -49,139 +49,111 @@ _transformRoom_asm:
 
         // store matrix into stack (in reverse order)
         mov.l   var_gMatrixPtr, tmp
-        mov.l   @tmp, tmp
+        mov.l   @tmp, m
 
-        // copy 3x3 matrix rotation part
-        mov     #9, cnt
-.copyMtx_r:
-        mov.w   @tmp+, mx
-        dt      cnt
-        bf/s    .copyMtx_r
-        mov.w   mx, @-stackMtx  // [delay slot]
-
-        // prepare offsets (const)
-        mov.w   @tmp+, mx
-        mov.w   @tmp+, my
-        mov.w   @tmp+, mz
+        // pre-transform the matrix offset
+        add     #M03, m
+        mov.w   @m+, mx
+        mov.w   @m+, my
+        mov.w   @m+, mz
         shll8   mx
         shll8   my
         shll8   mz
+        add     #-12, m         // offset to z-row
+
+        // maxZ = VIEW_MAX = (1024 * 10) >> OT_SHIFT = (40 << 8) >> OT_SHIFT
+        mov     #40, maxZ
+        shll2   maxZ
+        shll2   maxZ
 
         add     #8, res         // extra offset for @-Rn
-        nop
 
 .loop_r:
         // unpack vertex
         mov.b   @vertices+, x
         mov.b   @vertices+, y
         mov.b   @vertices+, z
-
         shll2   x
         shll2   y
         shll2   z
 
-        // upload vertex coords into stack (in reverse order)
+        // upload vertex coords into stack
         mov     sp, stackVtx
         add     #6, stackVtx
-        mov     stackVtx, stackMtx
 
-        //shll16  x
-        //xtrct   y, x
-        mov.w   x, @-stackVtx
-        mov.w   y, @-stackVtx
         mov.w   z, @-stackVtx
+        mov.w   y, @-stackVtx
+        mov.w   x, @-stackVtx
 
-        //transform z
+.transform_z:
         lds     mz, MACL
-        mac.w   @stackVtx+, @stackMtx+
-        mac.w   @stackVtx+, @stackMtx+
-        mac.w   @stackVtx+, @stackMtx+
+        mac.w   @stackVtx+, @m+
+        mac.w   @stackVtx+, @m+
+        mac.w   @stackVtx+, @m+
         sts     MACL, z
           add     #-6, stackVtx
+          add     #-18, m       // offset to x-row
         shlr8   z
+
+        // z >>= OT_SHIFT
+        shlr2   z
+        shlr2   z
+
         exts.w  z, z
 
-
-        // check if z in [-VIEW_OFF..VIEW_MAX + VIEW_OFF]
-        // tmp = z + VIEW_OFF = z + 4096
-        mov     #16, tmp
-        shll8   tmp
-        add     z, tmp
-        // maxZ = VIEW_OFF + VIEW_MAX + VIEW_OFF = 18432
-        mov     #72, maxZ
-        shll8   maxZ
-        // check if z in [-VIEW_OFF..VIEW_MAX + VIEW_OFF]
-        cmp/hi  maxZ, tmp
-        bf/s    .visible_r
-        mov     #40, maxZ       // [delay slot] maxZ = 40
-        mov     #(CLIP_NEAR + CLIP_FAR), vg
-        mov.w   vg, @-res
-        add     #1, vertices
-        dt      count
-        bf/s    .loop_r
-        add     #10, res        // [delay slot]
-        bra     .done_r
-        nop
-
-.visible_r:
-        //transform y
-        lds     my, MACL
-        mac.w   @stackVtx+, @stackMtx+
-        mac.w   @stackVtx+, @stackMtx+
-        mac.w   @stackVtx+, @stackMtx+
-        sts     MACL, y
-          add     #-6, stackVtx
-        shlr8   y
-        exts.w  y, y
-
-        //transform x
-        lds     mx, MACL
-        mac.w   @stackVtx+, @stackMtx+
-        mac.w   @stackVtx+, @stackMtx+
-        mac.w   @stackVtx+, @stackMtx+
-        sts     MACL, x
-          shll8   maxZ  // maxZ = VIEW_MAX = (1024 * 10) = (40 << 8)
-        shlr8   x
-        exts.w  x, x
-
-        mov.b   @vertices+, vg
-
-        // tmp = FOG_MIN = 6144 = (24 << 8)
-        mov     #24, tmp
-        shll8   tmp
+.calc_fog:
         // if z <= FOG_MIN -> skip fog calc
-        cmp/gt  tmp, z
-        bf/s    .clip_z_near_r
-        mov     z, fog          // [delay slot]
-        sub     tmp, fog        // fog = z - FOG_MIN
-        shll    fog             // FOG_SHIFT
-        shlr8   fog             // shift down to 0..31 range
+        mov     #(32 >> OT_SHIFT), minFog // minFog = FOG_MIN >> OT_SHIFT
+        shll8   minFog
+        mov     z, fog
+        subc    minFog, fog     // TODO need to clear T before?
+        bt/s    .clip_z_near_r
+        mov.b   @vertices+, vg  // [delay slot]
+        shlr2   fog
+        shlr    fog             // shift down to 0..31 range
         add     fog, vg
         // vg = min(vg, 31)
-        mov     #31, tmp
-        cmp/gt  tmp, vg
+        mov     #31, maxG
+        cmp/gt  maxG, vg
         bf      .clip_z_near_r
         mov     #31, vg
 
         // z clipping
 .clip_z_near_r:
         add     #1, vg          // +1 for signed lightmap fetch
-        mov     #VIEW_MIN, minZ // minZ = VIEW_MIN = 64
+        mov     #(VIEW_MIN >> OT_SHIFT), minZ
         cmp/gt  z, minZ
         bf/s    .clip_z_far_r
         shll8   vg              // [delay slot] clear lower 8-bits of vg for clipping flags
         mov     minZ, z
-        add     #CLIP_NEAR, vg
+        add     #CLIP_PLANE, vg
 .clip_z_far_r:
         cmp/ge  maxZ, z
-        bf/s    .project_r
-        mov     z, dz           // [delay slot]
+        bf      .transform_x
         mov     maxZ, z
-        add     #CLIP_FAR, vg
+        add     #CLIP_PLANE, vg
 
-.project_r: // dz = divTable[z >> (PROJ_SHIFT = 4)]
-        shlr2   dz
-        shlr2   dz
+.transform_x:
+        lds     mx, MACL
+        mac.w   @stackVtx+, @m+
+        mac.w   @stackVtx+, @m+
+        mac.w   @stackVtx+, @m+
+        sts     MACL, x
+          add     #-6, stackVtx
+        shlr8   x
+        exts.w  x, x
+
+.transform_y:
+        lds     my, MACL
+        mac.w   @stackVtx+, @m+
+        mac.w   @stackVtx+, @m+
+        mac.w   @stackVtx+, @m+
+        sts     MACL, y
+          mov     z, dz         // [delay slot]
+        shlr8   y
+        exts.w  y, y
+
+.project_r: // dz = divTable[z]
         shll    dz
         mov.w   @(dz, divLUT), dz
 
@@ -266,7 +238,6 @@ _transformRoom_asm:
 #undef vertices
 #undef count
 #undef stackVtx
-#undef stackMtx
 #undef vp
 #undef x
 #undef y
@@ -282,5 +253,4 @@ _transformRoom_asm:
 #undef dz
 #undef vg
 #undef fog
-#undef cnt
 #undef SP_SIZE

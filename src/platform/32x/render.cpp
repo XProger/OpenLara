@@ -65,9 +65,8 @@ enum ClipFlags {
     CLIP_RIGHT   = 1 << 2,
     CLIP_TOP     = 1 << 3,
     CLIP_BOTTOM  = 1 << 4,
-    CLIP_FAR     = 1 << 5,
-    CLIP_NEAR    = 1 << 6,
-    CLIP_DISCARD = (CLIP_LEFT | CLIP_RIGHT | CLIP_TOP | CLIP_BOTTOM | CLIP_FAR | CLIP_NEAR),
+    CLIP_PLANE   = 1 << 5,
+    CLIP_DISCARD = (CLIP_LEFT | CLIP_RIGHT | CLIP_TOP | CLIP_BOTTOM | CLIP_PLANE)
 };
 
 const MeshQuad gShadowQuads[] = {
@@ -183,12 +182,12 @@ void transformRoom_c(const RoomVertex* vertices, int32 count)
         uint32 clip = 0;
 
         if (z <= VIEW_MIN_F) {
-            clip = CLIP_NEAR;
+            clip = CLIP_PLANE;
             z = VIEW_MIN_F;
         }
 
         if (z >= VIEW_MAX_F) {
-            clip = CLIP_FAR;
+            clip = CLIP_PLANE;
             z = VIEW_MAX_F;
         }
 
@@ -330,12 +329,12 @@ void transformMesh_c(const MeshVertex* vertices, int32 count, int32 intensity)
         uint32 clip = 0;
 
         if (z <= (VIEW_MIN_F >> FIXED_SHIFT)) {
-            clip = CLIP_NEAR;
+            clip = CLIP_PLANE;
             z = VIEW_MIN_F >> FIXED_SHIFT;
         }
 
         if (z >= (VIEW_MAX_F >> FIXED_SHIFT)) {
-            clip = CLIP_FAR;
+            clip = CLIP_PLANE;
             z = VIEW_MAX_F >> FIXED_SHIFT;
         }
 
@@ -598,25 +597,25 @@ int32 sphereIsVisible_c(int32 sx, int32 sy, int32 sz, int32 r)
 
 void flush_ot(int32 bit)
 {
-    VertexLink v[4 + 3];
+    VertexLink v[4 + 4];
     VertexLink* q = v;
     VertexLink* t = v + 4;
     // quad
-    q[0].prev = 3;
-    q[0].next = 1;
-    q[1].prev = -1;
-    q[1].next = 1;
-    q[2].prev = -1;
-    q[2].next = 1;
-    q[3].prev = -1;
-    q[3].next = -3;
+    q[0].prev = (3 << 4);
+    q[0].next = (1 << 4);
+    q[1].prev = -(1 << 4);
+    q[1].next = (1 << 4);
+    q[2].prev = -(1 << 4);
+    q[2].next = (1 << 4);
+    q[3].prev = -(1 << 4);
+    q[3].next = -(3 << 4);
     // triangle
-    t[0].prev = 2;
-    t[0].next = 1;
-    t[1].prev = -1;
-    t[1].next = 1;
-    t[2].prev = -1;
-    t[2].next = -2;
+    t[0].prev = (2 << 4);
+    t[0].next = (1 << 4);
+    t[1].prev = -(1 << 4);
+    t[1].next = (1 << 4);
+    t[2].prev = -(1 << 4);
+    t[2].next = -(2 << 4);
 
     int32 index = 0;
     const ColorIndex* tile = NULL;
@@ -654,12 +653,29 @@ void flush_ot(int32 bit)
                     ptr[3].t.t = 0xFF00FF00 & (tex.uv23 << 8);
                 }
 
-                ptr[0].v = gVertices[face->indices[0]];
-                ptr[1].v = gVertices[face->indices[1]];
-                ptr[2].v = gVertices[face->indices[2]];
+            #if 1
+                uint8* vPtr = (uint8*)gVertices;
+                ((uint32*)&ptr[0].v)[0] = ((uint32*)(vPtr + face->indices[0]))[0];
+                ((uint32*)&ptr[0].v)[1] = ((uint32*)(vPtr + face->indices[0]))[1];
+
+                ((uint32*)&ptr[1].v)[0] = ((uint32*)(vPtr + face->indices[1]))[0];
+                ((uint32*)&ptr[1].v)[1] = ((uint32*)(vPtr + face->indices[1]))[1];
+
+                ((uint32*)&ptr[2].v)[0] = ((uint32*)(vPtr + face->indices[2]))[0];
+                ((uint32*)&ptr[2].v)[1] = ((uint32*)(vPtr + face->indices[2]))[1];
+
                 if (!(flags & FACE_TRIANGLE)) {
-                    ptr[3].v = gVertices[face->indices[3]];
+                    ((uint32*)&ptr[3].v)[0] = ((uint32*)(vPtr + face->indices[3]))[0];
+                    ((uint32*)&ptr[3].v)[1] = ((uint32*)(vPtr + face->indices[3]))[1];
                 }
+            #else
+                ptr[0].v = gVertices[face->indices[0] >> 3];
+                ptr[1].v = gVertices[face->indices[1] >> 3];
+                ptr[2].v = gVertices[face->indices[2] >> 3];
+                if (!(flags & FACE_TRIANGLE)) {
+                    ptr[3].v = gVertices[face->indices[3] >> 3];
+                }
+            #endif
 
                 if (flags & FACE_CLIPPED) {
                     drawPoly(flags, ptr, tile);
@@ -855,10 +871,10 @@ extern "C" X_NOINLINE void drawPoly(uint32 flags, VertexLink* v, const ColorInde
     bool skip = (first->v.y == last->v.y);
 
     VertexLink* top = (first->v.y < last->v.y) ? first : last;
-    first->prev = count - 1;
-    first->next = 1;
-    last->prev = -1;
-    last->next = 1 - count;
+    first->prev = (count - 1) << 4;
+    first->next = (1 << 4);
+    last->prev = -(1 << 4);
+    last->next = (1 - count) << 4;
 
     for (int32 i = 1; i < count - 1; i++)
     {
@@ -873,8 +889,8 @@ extern "C" X_NOINLINE void drawPoly(uint32 flags, VertexLink* v, const ColorInde
             skip = false;
         }
 
-        p->prev = -1;
-        p->next = 1;
+        p->prev = -(1 << 4);
+        p->next = (1 << 4);
     }
 
     if (skip)
@@ -910,7 +926,7 @@ void clear()
     MARS_SYS_COMM4 = MARS_CMD_CLEAR;
 }
 
-void renderRoom(const Room* room)
+void renderRoom(Room* room)
 {
     int32 vCount = room->info->verticesCount;
     if (vCount <= 0)
@@ -1225,14 +1241,8 @@ const int32 BAR_COLORS[BAR_MAX][5] = {
     { 43, 44, 43, 42, 41 },
 };
 
-X_NOINLINE void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 shade, int32 color1, int32 color2, int32 z)
+X_NOINLINE void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 color1, int32 color2, int32 z)
 {
-    // background
-    if (shade >= 0) {
-        renderFill(x + 1, y + 1, width - 2, height - 2, shade, z);
-    }
-
-    // frame
     renderLine(x + 1, y, width - 2, 1, color1, z);
     renderLine(x + 1, y + height - 1, width - 2, 1, color2, z);
     renderLine(x, y, 1, height, color1, z);
@@ -1242,9 +1252,9 @@ X_NOINLINE void renderBorder(int32 x, int32 y, int32 width, int32 height, int32 
 void renderBar(int32 x, int32 y, int32 width, int32 value, BarType type)
 {
     // colored bar
-    int32 ix = x + 2;
-    int32 iy = y + 2;
-    int32 w = value * width >> 8;
+    int32 ix = x + 1;
+    int32 iy = y + 1;
+    int32 w = value* width >> 8;
 
     if (w > 0)
     {
@@ -1254,7 +1264,12 @@ void renderBar(int32 x, int32 y, int32 width, int32 value, BarType type)
         }
     }
 
-    renderBorder(x, y, width + 4, BAR_HEIGHT + 4, 27, 19, 17, 0);
+    if (w < width)
+    {
+        renderFill(x + 1 + w, y + 1, width - w, BAR_HEIGHT, 27, 0);
+    }
+
+    renderBorder(x, y, width + 2, BAR_HEIGHT + 2, 19, 17, 0);
 }
 
 void renderBackground(const void* background)

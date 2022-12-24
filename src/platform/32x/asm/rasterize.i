@@ -40,8 +40,8 @@ _rasterize_asm:
 
 .align 2
 var_fb:
-        // overwrite image frame buffer address has the same
-        // write per but allow transparent write for byte & word
+        // overwrite image frame buffer address, it has the same
+        // write latency but allow transparent write for byte & word
         .long 0x24020200
 var_table:
 #ifdef ON_CHIP_RENDER

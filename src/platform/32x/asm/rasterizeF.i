@@ -5,25 +5,22 @@
 #define pixel   r4      // arg
 #define L       r5      // arg
 #define index   r6      // arg
-#define gtile   r7      // arg (unused)
-#define N       gtile
+#define h       r7
 #define Lx      r8
 #define Rx      r9
 #define Ldx     r10
 #define Rdx     r11
 #define dup     r12     // const
 #define inv     r13
-#define divLUT  r14
+#define R       r14
 
-#define R       index
-#define h       N
+#define divLUT  inv
 
 #define Ry      inv
 #define Ly      inv
 
-#define Rptr    R
+#define Rptr    index
 
-#define iw      inv
 #define ih      inv
 #define LMAP    inv
 
@@ -38,7 +35,6 @@
         mov.l   @sp+, r9
         rts
         mov.l   @sp+, r8
-        nop
 
 .global _rasterizeF_asm
 _rasterizeF_asm:
@@ -63,37 +59,30 @@ _rasterizeF_asm:
 
         mov     L, R
 
-        mov.l   var_divTable_fs, divLUT
-
         mov     #0, Rh
-        mov     #0, Lh
-.loop_f:
-        tst     Lh, Lh
-        bf/s    .calc_left_end_f
 
 .calc_left_start_f:
         mov.b   @(VERTEX_PREV, L), tmp  // [delay slot]
-        mov     tmp, N
-        shll2   N
-        shll2   N
-        add     L, N            // N = L + (L->prev << VERTEX_SIZEOF_SHIFT)
+        add     L, tmp          // tmp = L + (L->prev << VERTEX_SIZEOF_SHIFT)
 
-        mov.w   @L+, Lx
-        mov.w   @L+, Ly
+        mov.l   @L, Lx
+        extu.w  Lx, Ly
+        shlr16  Lx
 
-        mov     N, tmp
-        mov.w   @tmp+, Ldx
-        mov.w   @tmp+, Lh
+        mov.l   @tmp, Ldx
+        extu.w  Ldx, Lh
+        shlr16  Ldx
 
         cmp/ge  Ly, Lh
         bf/s    .exit_f
         cmp/eq  Ly, Lh          // [delay slot]
         bt/s    .calc_left_start_f      // if (L->v.y == N->v.y) check next vertex
-        mov     N, L            // [delay slot]
+        mov     tmp, L          // [delay slot]
 
         sub     Lx, Ldx
         sub     Ly, Lh
 
+        mov.l   var_divTable_fs, divLUT
         mov     Lh, tmp
         shll    tmp
         mov.w   @(tmp, divLUT), ih
@@ -104,31 +93,30 @@ _rasterizeF_asm:
 .calc_left_end_f:
 
         tst     Rh, Rh
-        bf/s    .calc_right_end_f
+        bf      .calc_right_end_f
 
 .calc_right_start_f:
-        mov.b   @(VERTEX_NEXT, R), tmp  // [delay slot]
-        mov     tmp, N
-        shll2   N
-        shll2   N
-        add     R, N            // N = R + (R->next << VERTEX_SIZEOF_SHIFT)
+        mov.b   @(VERTEX_NEXT, R), tmp
+        add     R, tmp          // tmp = R + (R->next << VERTEX_SIZEOF_SHIFT)
 
-        mov.w   @R+, Rx
-        mov.w   @R+, Ry
+        mov.l   @R, Rx
+        extu.w  Rx, Ry
+        shlr16  Rx
 
-        mov     N, tmp
-        mov.w   @tmp+, Rdx
-        mov.w   @tmp+, Rh
+        mov.l   @tmp, Rdx
+        extu.w  Rdx, Rh
+        shlr16  Rdx
 
         cmp/ge  Ry, Rh
         bf/s    .exit_f
         cmp/eq  Ry, Rh          // [delay slot]
         bt/s    .calc_right_start_f     // if (R->v.y == N->v.y) check next vertex
-        mov     N, R            // [delay slot]
+        mov     tmp, R          // [delay slot]
 
         sub     Rx, Rdx
         sub     Ry, Rh
 
+        mov.l   var_divTable_fs, divLUT
         mov     Rh, tmp
         shll    tmp
         mov.w   @(tmp, divLUT), ih
@@ -148,8 +136,6 @@ _rasterizeF_asm:
         sub     h, Lh
         sub     h, Rh
 
-        mov.l   R, @-sp
-        
 .scanline_start_f:
         mov     Lx, Lptr
         mov     Rx, Rptr
@@ -159,12 +145,6 @@ _rasterizeF_asm:
         shlr16  Rptr            // Rptr = (Rx >> 16)
         cmp/gt  Lptr, Rptr      // if (!(Rptr > Lptr)) skip zero length scanline
         bf/s    .scanline_end_f
-
-        // iw = divTable[Rptr - Lptr]
-        mov     Rptr, tmp       // [delay slot]
-        sub     Lptr, tmp
-        shll    tmp
-        mov.w   @(tmp, divLUT), iw
 
         add     pixel, Lptr   // Lptr = pixel + (Lx >> 16)
         add     pixel, Rptr   // Rptr = pixel + (Rx >> 16)
@@ -178,10 +158,10 @@ _rasterizeF_asm:
         mov.b   dup, @Lptr
         add     #1, Lptr
 
-        mov     #1, tmp         // tmp = 1 (for align_right)
         cmp/gt  Lptr, Rptr
         bf/s    .scanline_end_f
         tst     tmp, Rptr
+        nop
 
 .align_right_f:
         bt      .block_2px_f
@@ -192,17 +172,20 @@ _rasterizeF_asm:
 .block_2px_f:
         mov.w   dup, @-Rptr
         cmp/gt  Lptr, Rptr
-        bt      .block_2px_f
+        bt/s    .block_2px_f
+        nop
 
 .scanline_end_f:
         dt      h
 
         mov.w   var_frameWidth_fs, tmp
         bf/s    .scanline_start_f
-        add     tmp, pixel      // [delay slot] pixel += 120 + 120 + 80
+        add     tmp, pixel      // [delay slot] pixel += FRAME_WIDTH
 
-        bra     .loop_f
-        mov.l   @sp+, R
+        tst     Lh, Lh
+        bf      .calc_right_start_f
+        bra     .calc_left_start_f
+        nop
 
 #undef tmp
 #undef Lh
@@ -211,7 +194,6 @@ _rasterizeF_asm:
 #undef pixel
 #undef L
 #undef index
-#undef N
 #undef Lx
 #undef Rx
 #undef Ldx
@@ -224,6 +206,5 @@ _rasterizeF_asm:
 #undef Ry
 #undef Ly
 #undef Rptr
-#undef iw
 #undef ih
 #undef LMAP

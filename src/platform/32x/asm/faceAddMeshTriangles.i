@@ -25,7 +25,7 @@
 #define vz1         vg1
 #define vz2         vg2
 
-#define depth       vg0     // == vz0
+#define depth       tmp
 #define next        vg1
 
 .align 4
@@ -41,6 +41,7 @@ _faceAddMeshTriangles_asm:
         mov.l   r14, @-sp
 
         mov.l   var_gVertices_fam, vertices
+        add     #VERTEX_Z, vertices
 
         mov.l   var_gVerticesBase_fam, vp
         mov.l   @vp, vp
@@ -49,19 +50,20 @@ _faceAddMeshTriangles_asm:
         mov.l   @face, face
 
         mov.l   var_gOT_fam, ot
-        nop
 
 .loop_famt:
         // read flags and indices
         mov.w   @polys+, flags
-        mov.b   @polys+, vp0
-        mov.b   @polys+, vp1
-        mov.b   @polys+, vp2
-        add     #1, polys       // skup 4th index
+        mov.w   @polys+, vp0
+        mov.w   @polys+, vp2
 
-        extu.w  flags, flags
+        extu.w  flags, flags // TODO packer free high bit
+
+        extu.b  vp0, vp1
+        shlr8   vp0
         extu.b  vp0, vp0
-        extu.b  vp1, vp1
+
+        shlr8   vp2
         extu.b  vp2, vp2
 
         // p = gVerticesBase + index * VERTEX_SIZEOF
@@ -80,11 +82,9 @@ _faceAddMeshTriangles_asm:
         // check_backface
         ccw     vp0, vp1, vp2, vx0, vy0, vx1, vy1, vx2, vy2
         bt/s    .skip_famt
-        mov.l   const_FACE_TRIANGLE_fam, tmp    // [delay slot]
-        or      tmp, flags
 
         // fetch clip masks
-        mov     #(VERTEX_CLIP - 4), tmp
+        mov     #(VERTEX_CLIP - 4), tmp         // [delay slot]
         mov.b   @(tmp, vp0), vg0
         mov.b   @(tmp, vp1), vg1
         mov.b   @(tmp, vp2), vg2
@@ -95,8 +95,11 @@ _faceAddMeshTriangles_asm:
         tst     #CLIP_DISCARD, tmp
         bf/s    .skip_famt
 
+        mov.l   const_FACE_TRIANGLE_fam, tmp    // [delay slot]
+        or      tmp, flags
+
         // mark if should be clipped by frame
-        mov     vg0, tmp        // [delay slot]
+        mov     vg0, tmp
         or      vg1, tmp
         or      vg2, tmp
         tst     #CLIP_FRAME, tmp
@@ -105,44 +108,35 @@ _faceAddMeshTriangles_asm:
         or      tmp, flags
 
 .avg_z3_famt:
-        mov.w   @vp0, vz0
+        mov.w   @vp0, depth
         mov.w   @vp1, vz1
         mov.w   @vp2, vz2
-        add     vz1, vz0
-        add     vz2, vz0
-        add     vz2, vz0        // approx.
-        shlr2   vz0             // div by 4
+        add     vz1, depth
+        add     vz2, depth
+        add     vz2, depth      // approx.
+        shlr2   depth           // depth /= 4
 
 .face_add_famt:
-        // index = (p - vertices) / VERTEX_SIZEOF
+        // offset = (p - vertices)
         sub     vertices, vp0
         sub     vertices, vp1
         sub     vertices, vp2
-        shlr2   vp0
-        shlr2   vp1
-        shlr2   vp2
-        shlr    vp0
-        shlr    vp1
-        shlr    vp2
-
-        // depth (vz0) >>= OT_SHIFT (4)
-        shlr2   depth
-        shlr2   depth
 
         shll2   depth
-        add     ot, depth   // depth = gOT[depth]
-        mov.l   @depth, next
-        mov.l   face, @depth
+        mov.l   @(depth, ot), next
+        mov.l   face, @(depth, ot)
 
+        shll16  vp2
+        shll16  vp1
+        xtrct   vp0, vp1
+
+        mov.l   flags, @(0, face)
+        mov.l   next, @(4, face)
+        mov.l   vp1, @(8, face)
+        mov.l   vp2, @(12, face)
         add     #FACE_SIZEOF, face
-        mov     face, tmp
-        add     #-2, tmp        // skip 4th index
+        nop
 
-        mov.w   vp2, @-tmp
-        mov.w   vp1, @-tmp
-        mov.w   vp0, @-tmp
-        mov.l   next, @-tmp
-        mov.l   flags, @-tmp
 .skip_famt:
         dt      count
         bf      .loop_famt
