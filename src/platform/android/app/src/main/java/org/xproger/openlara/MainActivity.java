@@ -85,8 +85,8 @@ public class MainActivity extends GvrActivity implements OnTouchListener, OnKeyL
         gvrView = view;
 
         try {
-            String content = Environment.getExternalStorageDirectory().getAbsolutePath();
-            wrapper.onCreate(content + "/OpenLara/", getCacheDir().getAbsolutePath() + "/");
+            String content = getExternalFilesDir(null).getAbsolutePath();
+            wrapper.onCreate(content + "/", getCacheDir().getAbsolutePath() + "/");
         } catch (Exception e) {
             e.printStackTrace();
             finish();
