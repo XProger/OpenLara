@@ -41,7 +41,7 @@
     extern Microsoft::WRL::ComPtr<IDXGISwapChain1>      osSwapChain;
 #else
     extern ID3D11Device          *osDevice;
-    extern ID3D11DeviceContext   *osDeviceContext;
+    extern ID3D11DeviceContext   *osContext;
     #ifdef _OS_XB1
         extern IDXGISwapChain1   *osSwapChain;
     #else

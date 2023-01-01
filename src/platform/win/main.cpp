@@ -56,7 +56,6 @@ int osGetTimeMS() {
     QueryPerformanceCounter(&Count);
     return int(Count.QuadPart * 1000L / Freq.QuadPart);
 #else
-    timeBeginPeriod(0);
     return int(timeGetTime()) - osStartTime;
 #endif
 }
@@ -498,6 +497,7 @@ HWND hWnd;
     void ContextResize() {}
 
     void ContextSwap() {
+        timeBeginPeriod(1); // fix for Intel HD Graphics 4000 OGL driver bug in SwapBuffers timing
         SwapBuffers(hDC);
     }
 #elif _GAPI_D3D9
@@ -544,9 +544,9 @@ HWND hWnd;
             GAPI::resetDevice();
     }
 #elif _GAPI_D3D11
-    ID3D11Device        *device;
-    ID3D11DeviceContext *deviceContext;
-    IDXGISwapChain      *swapChain;
+    ID3D11Device        *osDevice;
+    ID3D11DeviceContext *osContext;
+    IDXGISwapChain      *osSwapChain;
 
     void ContextCreate() {
         DXGI_SWAP_CHAIN_DESC desc = { 0 };
@@ -569,7 +569,7 @@ HWND hWnd;
 
         HRESULT ret;
 
-        ret = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_DEBUG, featureLevels, ARRAYSIZE(featureLevels), D3D11_SDK_VERSION, &desc, &swapChain, &device, NULL, &deviceContext);
+        ret = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_DEBUG, featureLevels, ARRAYSIZE(featureLevels), D3D11_SDK_VERSION, &desc, &osSwapChain, &osDevice, NULL, &osContext);
         ASSERT(ret == S_OK);
 
         GAPI::defRTV = NULL;
@@ -578,23 +578,23 @@ HWND hWnd;
 
     void ContextDelete() {
         GAPI::deinit();
-        SAFE_RELEASE(swapChain);
-        SAFE_RELEASE(deviceContext);
-        SAFE_RELEASE(device);
+        SAFE_RELEASE(osSwapChain);
+        SAFE_RELEASE(osContext);
+        SAFE_RELEASE(osDevice);
     }
 
     void ContextResize() {
-        if (swapChain == NULL || Core::width <= 0 || Core::height <= 0)
+        if (osSwapChain == NULL || Core::width <= 0 || Core::height <= 0)
             return;
 
         GAPI::resetDevice();
 
-        HRESULT ret = swapChain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
+        HRESULT ret = osSwapChain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
         ASSERT(ret == S_OK);
     }
 
     void ContextSwap() {
-        HRESULT ret = swapChain->Present(Core::settings.detail.vsync ? 1 : 0, 0);
+        HRESULT ret = osSwapChain->Present(Core::settings.detail.vsync ? 1 : 0, 0);
     }
 #endif
 
