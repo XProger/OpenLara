@@ -17,11 +17,11 @@ struct Texture : GAPI::Texture {
         #elif defined(_GAPI_GU)
             Tile4 *tiles;
             CLUT  *cluts;
-
+		// TODO: PSP depth ??
             Texture(Tile4 *tiles, int tilesCount, CLUT *cluts, int clutsCount) : GAPI::Texture(256, 256, 1, OPT_PROXY) {
                 #ifdef EDRAM_TEX
-                    this->tiles = (TR::Tile4*)GAPI::allocEDRAM(tilesCount * sizeof(tiles[0]));
-                    this->cluts =  (TR::CLUT*)GAPI::allocEDRAM(clutsCount * sizeof(cluts[0]));
+                    this->tiles = (Tile4*)GAPI::allocEDRAM(tilesCount * sizeof(tiles[0]));
+                    this->cluts =  (CLUT*)GAPI::allocEDRAM(clutsCount * sizeof(cluts[0]));
                     memcpy(this->cluts, cluts, clutsCount * sizeof(cluts[0]));
                     #ifdef TEX_SWIZZLE
                         for (int i = 0; i < tilesCount; i++)

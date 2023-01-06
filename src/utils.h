@@ -2047,6 +2047,37 @@ public:
         strcpy(path, contentDir);
         readDirectory(path);
     }
+#elif _OS_PSP  //vita isnt called "psp2" by coincidence
+//dunno if this is used (?)
+    static void readDirectory(char* path) {
+        SceUID dd = sceIoDopen(path);
+
+        size_t len = strlen(path);
+
+        SceIoDirent entry;
+        while (sceIoDread(dd, &entry) > 0)
+        {
+            strcat(path, entry.d_name);
+
+            if (FIO_S_ISDIR(entry.d_stat.st_mode))
+            {
+                strcat(path, "/");
+                readDirectory(path);
+            } else {
+                fileList.push(StrUtils::copy(path + strlen(contentDir)));
+            }
+
+            path[len] = 0;
+        }
+
+        sceIoClose(dd);
+    }
+
+    static void readFileList() {
+        char path[255];
+        strcpy(path, contentDir);
+        readDirectory(path);
+    }  
 #else
     static void readFileList() {};
 #endif
