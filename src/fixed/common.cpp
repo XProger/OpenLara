@@ -30,7 +30,7 @@ EWRAM_DATA const char* const* STR = STR_EN;
 EWRAM_DATA ExtraInfoLara playersExtra[MAX_PLAYERS];
 
 #if defined(__GBA__)
-    #include "TRACKS_IMA.h"
+    #include "TRACKS_AD4.h"
     #include "TITLE_SCR.h"
     #include "TITLE_PKD.h"
     #include "GYM_PKD.h"

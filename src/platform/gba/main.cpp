@@ -6,7 +6,7 @@ EWRAM_DATA int32 fpsCounter = 0;
 EWRAM_DATA uint32 curSoundBuffer = 0;
 
 #ifdef __GBA_WIN__
-const void* TRACKS_IMA;
+const void* TRACKS_AD4;
 const void* TITLE_SCR;
 const void* levelData;
 
@@ -233,9 +233,9 @@ const void* osLoadLevel(LevelID id)
     }
 
 // tracks
-    if (!TRACKS_IMA)
+    if (!TRACKS_AD4)
     {
-        FILE *f = fopen("data/TRACKS.IMA", "rb");
+        FILE *f = fopen("data/TRACKS.AD4", "rb");
         if (!f)
             return NULL;
 
@@ -246,7 +246,7 @@ const void* osLoadLevel(LevelID id)
         fread(data, 1, size, f);
         fclose(f);
 
-        TRACKS_IMA = data;
+        TRACKS_AD4 = data;
     }
 
     if (!TITLE_SCR)
