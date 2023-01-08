@@ -653,7 +653,7 @@ namespace Sound {
         }
 
         virtual int decode(Frame *frames, int count) {
-        #if _OS_PSV // TODO crash
+        #if defined(_OS_PSV) || defined(_OS_PSP) // TODO crash
             memset(frames, 0, count * sizeof(Frame));
             return count;
         #endif

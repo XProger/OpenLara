@@ -33,11 +33,12 @@ namespace GAPI {
 // Texture
     struct Texture {
         uint8      *memory;
-        int        width, height, origWidth, origHeight;
+        int        width, height, depth, origWidth, origHeight, origDepth;//todo: depth
         TexFormat  fmt;
         uint32     opt;
 
-        Texture(int width, int height, uint32 opt) : memory(0), width(width), height(height), origWidth(width), origHeight(height), fmt(FMT_RGBA), opt(opt) {}
+        /*depth*/
+        Texture(int width, int height, int depth, uint32 opt) : memory(0), width(width), height(height), depth(depth), origWidth(width), origHeight(height), origDepth(depth), fmt(FMT_RGBA), opt(opt) {}
 
         void init(void *data) {
             ASSERT((opt & OPT_PROXY) == 0);
@@ -238,19 +239,22 @@ namespace GAPI {
         support.maxVectors     = 0;
         support.shaderBinary   = false;
         support.VAO            = false;
+        support.VBO            = false;
         support.depthTexture   = false;
         support.shadowSampler  = false;
         support.discardFrame   = false;
         support.texNPOT        = false;
+        support.tex3D          = false;
         support.texRG          = false;
         support.texBorder      = false;
+        support.texMaxLevel    = false;
         support.colorFloat     = false;
         support.colorHalf      = false;
         support.texFloatLinear = false;
         support.texFloat       = false;
         support.texHalfLinear  = false;
         support.texHalf        = false;
-        support.clipDist       = false;
+        //support.clipDist       = false;
 
         Core::width  = 480;
         Core::height = 272;
@@ -351,9 +355,33 @@ namespace GAPI {
         sceGuClearColor(*((uint32*)&c));
     }
 
-    void setViewport(const Viewport &vp) {
-        sceGuOffset(2048 - vp.width / 2, 2048 - vp.height / 2);
-        sceGuViewport(2048 + vp.x, 2048 + vp.y, vp.width, vp.height);
+    // Previous: struct Viewport
+    void setViewport(const short4 &vp) {
+        sceGuOffset(2048 - vp.z / 2, 2048 - vp.w / 2);
+        sceGuViewport(2048 + vp.x, 2048 + vp.y, vp.z, vp.w);
+    }
+    
+    /*this was giving errors on menu rendering when method was empty, see RT_ flags too*/
+    void setFog(const vec4 &params) {
+	uint32 color;
+	if(params.w > 0.0f){
+		sceGuEnable(GU_FOG);
+		// FFP TODO
+		color = 0xFF000000
+                | (uint32(clamp(params.x * 255.0f, 0.0f, 255.0f)) << 0)
+                | (uint32(clamp(params.y * 255.0f, 0.0f, 255.0f)) << 8)
+                | (uint32(clamp(params.z * 255.0f, 0.0f, 255.0f)) << 16);
+                // from 3DS
+		sceGuFog(24.0f, 32.0f * 1024.0f, color);
+	}
+	else{
+		sceGuDisable(GU_FOG);
+	}
+    }
+    
+    // from other gapi, could be improved??
+    void setScissor(const short4 &s) {
+        sceGuScissor(s.x, Core::viewportDef.w - (s.y + s.w), s.x + s.z, Core::viewportDef.w - s.y);
     }
 
     void setDepthTest(bool enable) {
@@ -458,6 +486,7 @@ namespace GAPI {
     }
 
     vec4 copyPixel(int x, int y) {
+	//pspgu.h, pspdisplay.h ??
         return vec4(0.0f); // TODO: read from framebuffer
     }
 }
