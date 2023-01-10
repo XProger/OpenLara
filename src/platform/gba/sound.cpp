@@ -98,7 +98,7 @@ struct Music
         if (pos >= size)
         {
             data = NULL;
-            memset(buffer, 0, (SND_SAMPLES - (len << 1)) * sizeof(buffer[0]));
+            memset(buffer + (len << 1), 0, (SND_SAMPLES - (len << 1)) * sizeof(buffer[0]));
         }
     }
 };
