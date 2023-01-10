@@ -1,5 +1,9 @@
 #include "common_asm.inc"
 
+// Clamping is only required if the encoder gives overflow warnings.
+// To improve on speed, the music volume has been reduced to avoid this.
+#define CLAMP_OUTPUT 0
+
 // Unrolling saves 3.75 cycles per sample, but uses a lot more RAM.
 #define UNROLL 0
 
@@ -21,8 +25,10 @@ temp    .req r12
     sub   tap, tap, tap, asr #3
     add   tap, tap, \zM2
     mov   temp, tap, asr #8
+#if CLAMP_OUTPUT
     teq   temp, temp, lsl #32-8
     eormi temp, mask, temp, asr #31
+#endif
     strb  temp, [buffer], #1
     mov   n, n, ror #4
     mov   temp, n, asr #32-4
