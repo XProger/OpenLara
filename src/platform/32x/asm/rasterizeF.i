@@ -146,8 +146,8 @@ _rasterizeF_asm:
         cmp/gt  Lptr, Rptr      // if (!(Rptr > Lptr)) skip zero length scanline
         bf/s    .scanline_end_f
 
-        add     pixel, Lptr   // Lptr = pixel + (Lx >> 16)
-        add     pixel, Rptr   // Rptr = pixel + (Rx >> 16)
+        add     pixel, Lptr     // Lptr = pixel + (Lx >> 16)
+        add     pixel, Rptr     // Rptr = pixel + (Rx >> 16)
 
 .align_left_f:
         mov     #1, tmp

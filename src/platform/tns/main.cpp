@@ -1,8 +1,6 @@
-#if defined(_WIN32) || defined(__DOS__)
-    const void* TRACKS_IMA;
-    const void* TITLE_SCR;
-    const void* levelData;
-#endif
+const void* TRACKS_IMA;
+const void* TITLE_SCR;
+unsigned char* levelData;
 
 #include "game.h"
 
@@ -106,7 +104,7 @@ void inputUpdate()
         if (tx < -0.5f) keys |= IK_LEFT;
         if (tx >  0.5f) keys |= IK_RIGHT;
         if (ty >  0.5f) keys |= IK_UP;
-        if (ty < -0.5f) keys |= IK_DOWN];
+        if (ty < -0.5f) keys |= IK_DOWN;
     }
 
     if (keyDown(KEY_NSPIRE_2)) keys |= IK_A;

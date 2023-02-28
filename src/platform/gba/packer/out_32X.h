@@ -215,8 +215,8 @@ struct out_32X
 
     struct RoomQuad
     {
-        uint16 flags;
-        uint16 indices[4];
+        uint32 flags;
+        int8 indices[4];
 
         void write(FileStream &f) const
         {
@@ -1605,23 +1605,43 @@ struct out_32X
             roomVerticesCount = 0;
 
             info.quads = f.align4();
+
+            int32 prev = 0;
+
             for (int32 i = 0; i < room->qCount; i++)
             {
                 TR1_PC::Quad q = room->quads[i];
                 uint16 texIndex = q.flags & FACE_TEXTURE;
 
-                RoomQuad comp;
-                comp.indices[0] = addRoomVertex(info.yTop, room->vertices[q.indices[0]]);
-                comp.indices[1] = addRoomVertex(info.yTop, room->vertices[q.indices[1]]);
-                comp.indices[2] = addRoomVertex(info.yTop, room->vertices[q.indices[2]]);
-                comp.indices[3] = addRoomVertex(info.yTop, room->vertices[q.indices[3]]);
-                comp.flags = remap ? remap->textures[texIndex] : texIndex;
+                int32 i0 = addRoomVertex(info.yTop, room->vertices[q.indices[0]]);
+                int32 i1 = addRoomVertex(info.yTop, room->vertices[q.indices[1]]);
+                int32 i2 = addRoomVertex(info.yTop, room->vertices[q.indices[2]]);
+                int32 i3 = addRoomVertex(info.yTop, room->vertices[q.indices[3]]);
+
+                int32 p0 = i0 - prev;
+                int32 p1 = i1 - i0;
+                int32 p2 = i2 - i1;
+                int32 p3 = i3 - i2;
+                prev = i3;
 
                 // pre-shift
-                comp.indices[0] <<= 1;
-                comp.indices[1] <<= 1;
-                comp.indices[2] <<= 1;
-                comp.indices[3] <<= 1;
+                //p0 <<= 1;
+                //p1 <<= 1;
+                //p2 <<= 1;
+                //p3 <<= 1;
+
+                ASSERT(p0 >= -128 && p0 <= 127);
+                ASSERT(p1 >= -128 && p1 <= 127);
+                ASSERT(p2 >= -128 && p2 <= 127);
+                ASSERT(p3 >= -128 && p3 <= 127);
+
+                RoomQuad comp;
+                comp.indices[0] = p0;
+                comp.indices[1] = p1;
+                comp.indices[2] = p2;
+                comp.indices[3] = p3;
+
+                comp.flags = remap ? remap->textures[texIndex] : texIndex;
 
                 if (level->objectTextures[texIndex].attribute & TEX_ATTR_AKILL) {
                     comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);
@@ -1639,15 +1659,23 @@ struct out_32X
                 uint16 texIndex = t.flags & FACE_TEXTURE;
 
                 RoomTriangle comp;
-                comp.indices[0] = addRoomVertex(info.yTop, room->vertices[t.indices[0]]);
-                comp.indices[1] = addRoomVertex(info.yTop, room->vertices[t.indices[1]]);
-                comp.indices[2] = addRoomVertex(info.yTop, room->vertices[t.indices[2]]);
+                int32 i0 = addRoomVertex(info.yTop, room->vertices[t.indices[0]]);
+                int32 i1 = addRoomVertex(info.yTop, room->vertices[t.indices[1]]);
+                int32 i2 = addRoomVertex(info.yTop, room->vertices[t.indices[2]]);
                 comp.flags = remap ? remap->textures[texIndex] : texIndex;
 
                 // pre-shift
-                comp.indices[0] <<= 1;
-                comp.indices[1] <<= 1;
-                comp.indices[2] <<= 1;
+                i0 <<= 3;
+                i1 <<= 3;
+                i2 <<= 3;
+
+                ASSERT(i0 >= 0 && i0 <= 0xFFFF);
+                ASSERT(i1 >= 0 && i1 <= 0xFFFF);
+                ASSERT(i2 >= 0 && i2 <= 0xFFFF);
+
+                comp.indices[0] = i0;
+                comp.indices[1] = i1;
+                comp.indices[2] = i2;
 
                 if (level->objectTextures[texIndex].attribute & TEX_ATTR_AKILL) {
                     comp.flags |= (FACE_TYPE_FTA << FACE_TYPE_SHIFT);

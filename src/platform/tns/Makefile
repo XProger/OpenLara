@@ -6,7 +6,7 @@ GXX = nspire-g++
 LD  = nspire-ld
 GENZEHN = genzehn
 
-GCCFLAGS = -marm -march=armv5te -mtune=arm926ej-s -std=c++11 -flto -ffast-math -fomit-frame-pointer -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -D__TNS__ -I../../
+GCCFLAGS = -marm -march=armv5te -mtune=arm926ej-s -std=c++11 -flto -ffast-math -fomit-frame-pointer -fno-exceptions -fno-rtti -ffunction-sections -fdata-sections -D__TNS__ -I../../fixed/
 LDFLAGS = -Wl,--gc-sections -Wl,--as-needed -flto -Wno-alloc-size-larger-than
 ZEHNFLAGS = --name "OpenLara"
 
@@ -36,7 +36,7 @@ all: $(EXE).prg.tns
 	$(AS) -c $<
 
 $(EXE).elf: $(OBJS)
-	copy ../gba/render.iwram.cpp render.cpp /Y
+	cp ../gba/render.iwram.cpp render.cpp
 	mkdir -p $(DISTDIR)
 	$(LD) $^ -o $(DISTDIR)/$@ $(LDFLAGS)
 
