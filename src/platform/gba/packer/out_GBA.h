@@ -2199,7 +2199,7 @@ struct out_GBA
 
         struct Track {
             int32 size;
-            char* data;
+            uint8* data;
         };
         Track tracks[MAX_TRACKS];
         memset(tracks, 0, sizeof(tracks));
@@ -2238,7 +2238,7 @@ struct out_GBA
                     fseek(f, 0, SEEK_END);
                     int32 size = ftell(f);
                     fseek(f, 0, SEEK_SET);
-                    tracks[index].data = new char[size];
+                    tracks[index].data = new uint8[size];
                     fread(tracks[index].data, 1, size, f);
                     fclose(f);
 
@@ -2268,8 +2268,7 @@ struct out_GBA
         {
             if (tracks[i].size == 0)
                 continue;
-            ASSERT((tracks[i].size % 4) == 0);
-            f.write(tracks[i].data, tracks[i].size / 4);
+            f.write(tracks[i].data, tracks[i].size);
             delete[] tracks[i].data;
         }
     }

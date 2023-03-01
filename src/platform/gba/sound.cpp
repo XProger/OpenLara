@@ -1,6 +1,6 @@
 #include "common.h"
 
-uint8_t ADPCM4_ADAPT[] = { // IWRAM !
+uint8 ADPCM4_ADAPT[] = { // IWRAM !
     192,192,136,136,128,128,128,128, // -8..-1
     112,128,128,128,128,136,136,192, //  0..+7
 };
