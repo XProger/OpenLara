@@ -620,7 +620,7 @@ struct out_GBA
             radius = *(int16*)ptr; ptr += sizeof(radius);
             uint16 flags = *(uint16*)ptr; ptr += sizeof(flags);
 
-            vCount = *(int16*)ptr; ptr += 2;
+            vCount = (uint8)*(int16*)ptr; ptr += 2;
             vertices = (vec3s*)ptr;
             ptr += vCount * sizeof(vec3s);
 
@@ -2268,7 +2268,8 @@ struct out_GBA
         {
             if (tracks[i].size == 0)
                 continue;
-            f.write(tracks[i].data, tracks[i].size);
+            ASSERT((tracks[i].size % 4) == 0);
+            f.write(tracks[i].data, tracks[i].size / 4);
             delete[] tracks[i].data;
         }
     }
