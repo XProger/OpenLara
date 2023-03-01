@@ -144,7 +144,7 @@ $(OFILES_SOURCES) : $(HFILES)
 	@echo $(notdir $<)
 	@$(bin2o)
 
-%.IMA.o	%_IMA.h :	%.IMA
+%.AD4.o	%_AD4.h :	%.AD4
 	@echo $(notdir $<)
 	@$(bin2o)
 

@@ -1,81 +1,65 @@
 #include "common.h"
 
-int32 IMA_STEP[] = { // IWRAM !
-    7,     8,     9,     10,    11,    12,    13,    14,
-    16,    17,    19,    21,    23,    25,    28,    31,
-    34,    37,    41,    45,    50,    55,    60,    66,
-    73,    80,    88,    97,    107,   118,   130,   143,
-    157,   173,   190,   209,   230,   253,   279,   307,
-    337,   371,   408,   449,   494,   544,   598,   658,
-    724,   796,   876,   963,   1060,  1166,  1282,  1411,
-    1552,  1707,  1878,  2066,  2272,  2499,  2749,  3024,
-    3327,  3660,  4026,  4428,  4871,  5358,  5894,  6484,
-    7132,  7845,  8630,  9493,  10442, 11487, 12635, 13899,
-    15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794,
-    32767
+uint8_t ADPCM4_ADAPT[] = { // IWRAM !
+    192,192,136,136,128,128,128,128, // -8..-1
+    112,128,128,128,128,136,136,192, //  0..+7
 };
 
 #if defined(__GBA__) && defined(USE_ASM)
-    extern const uint8_t TRACKS_IMA[];
+    extern const uint8_t TRACKS_AD4[];
 #else
-    extern const void* TRACKS_IMA;
+    extern const void* TRACKS_AD4;
 #endif
 
 int8 soundBuffer[2 * SND_SAMPLES + 32]; // 32 bytes of silence for DMA overrun while interrupt
 
 #ifdef USE_ASM
-    #define sndIMA_fill sndIMA_fill_asm
-    #define sndPCM_fill sndPCM_fill_asm
-    #define sndPCM_mix  sndPCM_mix_asm
-    #define sndClear    sndClear_asm
+    #define sndADPCM4_fill sndADPCM4_fill_asm
+    #define sndPCM_fill    sndPCM_fill_asm
+    #define sndPCM_mix     sndPCM_mix_asm
+    #define sndClear       sndClear_asm
 
     extern "C" {
         void sndClear_asm(int8* buffer);
-        void sndIMA_fill_asm(IMA_STATE &state, int8* buffer, const uint8* data, int32 size);
+        void sndADPCM4_fill_asm(ADPCM4_STATE &state, int8* buffer, const uint8* data, int32 size);
         int32 sndPCM_fill_asm(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer);
         int32 sndPCM_mix_asm(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer);
     }
 #else
-    #define sndIMA_fill sndIMA_c
-    #define sndPCM_fill sndPCM_c
-    #define sndPCM_mix  sndPCM_c
-    #define sndClear(b) dmaFill(b, SND_ENCODE(0), SND_SAMPLES * sizeof(b[0]))
+    #define sndADPCM4_fill sndADPCM4_c
+    #define sndPCM_fill    sndPCM_c
+    #define sndPCM_mix     sndPCM_c
+    #define sndClear(b)    dmaFill(b, SND_ENCODE(0), SND_SAMPLES * sizeof(b[0]))
 
-#define DECODE_IMA_4(n)\
-    step = IMA_STEP[idx];\
-    index = n & 7;\
-    step += index * step << 1;\
-    if (index < 4) {\
-        idx = X_MAX(idx - 1, 0);\
-    } else {\
-        idx = X_MIN(idx + ((index - 3) << 1), X_COUNT(IMA_STEP) - 1);\
-    }\
-    if (n & 8) {\
-        smp -= step >> 3;\
-    } else {\
-        smp += step >> 3;\
-    }\
-    amp = smp >> 8;\
-    *buffer++ = SND_ENCODE(X_CLAMP(amp, SND_MIN, SND_MAX));
+#define DECODE_ADPCM4(n)\
+    tap = zM2 + tap - (tap >> 3);\
+    *buffer++ = SND_ENCODE(X_CLAMP(tap >> 8, SND_MIN, SND_MAX));\
+    res = ((n&0xF) ^ 8) - 8;\
+    out = res*quant + (zM1 - zM2);\
+    zM2 = zM1;\
+    zM1 = out;\
+    quant = (quant*(int32)ADPCM4_ADAPT[res+8] + 127) >> 7;\
 
-void sndIMA_c(IMA_STATE &state, int8* buffer, const uint8* data, int32 size)
+void sndADPCM4_c(ADPCM4_STATE &state, int8* buffer, const uint8* data, int32 size)
 {
-    uint32 step, index;
-
-    int32 smp = state.smp;
-    int32 idx = state.idx;
-    int32 amp;
-
-    for (int32 i = 0; i < size; i++)
+    int32 zM1   = state.zM1;
+    int32 zM2   = state.zM2;
+    int32 tap   = state.tap;
+    int32 quant = state.quant;
+    int32 res, out;
+    
+    for (int32 i=0; i < size; i++)
     {
         uint32 n = *data++;
-        DECODE_IMA_4(n);
+        DECODE_ADPCM4(n);
         n >>= 4;
-        DECODE_IMA_4(n);
+        DECODE_ADPCM4(n);
     }
-
-    state.smp = smp;
-    state.idx = idx;
+    
+    state.zM1   = zM1;
+    state.zM2   = zM2;
+    state.tap   = tap;
+    state.quant = quant;
 }
 
 int32 sndPCM_c(int32 pos, int32 inc, int32 size, int32 volume, const uint8* data, int8* buffer)
@@ -101,20 +85,20 @@ struct Music
     const uint8*  data;
     int32         size;
     int32         pos;
-    IMA_STATE     state;
+    ADPCM4_STATE  state;
 
     void fill(int8* buffer)
     {
         int32 len = X_MIN(size - pos, SND_SAMPLES >> 1);
 
-        sndIMA_fill(state, buffer, data + pos, len);
+        sndADPCM4_fill(state, buffer, data + pos, len);
 
         pos += len;
 
         if (pos >= size)
         {
             data = NULL;
-            memset(buffer, 0, (SND_SAMPLES - (len << 1)) * sizeof(buffer[0]));
+            memset(buffer + (len << 1), 0, (SND_SAMPLES - (len << 1)) * sizeof(buffer[0]));
         }
     }
 };
@@ -232,17 +216,22 @@ void sndPlayTrack(int32 track)
         int32 size;
     };
     
-    const TrackInfo* info = (const TrackInfo*)TRACKS_IMA + track;
+    const TrackInfo* info = (const TrackInfo*)TRACKS_AD4 + track;
 
     if (!info->size)
         return;
 
-    music.data = (uint8*)TRACKS_IMA + info->offset;
+    // Clear music.data before setup, and write it after to ensure
+    // music.fill() has a consistent state at any point in time
+    music.data = NULL;
     music.size = info->size;
     music.pos = 0;
     //music.volume = (1 << SND_VOL_SHIFT);
-    music.state.smp = 0;
-    music.state.idx = 0;
+    music.state.zM1   = 0;
+    music.state.zM2   = 0;
+    music.state.tap   = 0;
+    music.state.quant = 0x0800;
+    music.data = (const uint8*)TRACKS_AD4 + info->offset;
 }
 
 void sndStopTrack()

@@ -2142,6 +2142,14 @@ struct IMA_STATE
     int32 idx;
 };
 
+// Currently only used for GBA
+struct ADPCM4_STATE
+{
+    int32 zM1, zM2;
+    int32 tap;
+    int32 quant;
+};
+
 #if defined(GAPI_GL1)
     #define PERSPECTIVE_DZ(z) z
 
