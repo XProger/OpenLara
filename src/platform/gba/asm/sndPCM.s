@@ -16,8 +16,8 @@ out     .req size
 .macro clamp
     // Aikku93's quick-and-dirty clamp (-128..+127)
     // This only works for inputs of -256..+255
-    TEQ out, out, lsl #32-8       // If the sign of 8bit value does not match...
-    EORMI out, mask, out, asr #31 // ... then clip using the real sign
+    teq out, out, lsl #32-8       // If the sign of 8bit value does not match...
+    eormi out, mask, out, asr #31 // ... then clip using the real sign
 .endm
 
 .macro calc_last
@@ -51,7 +51,8 @@ out     .req size
 .global sndPCM_fill_asm
 sndPCM_fill_asm:
     mov tmpSP, sp
-    stmfd sp!, {r4-r5}
+    stmfd sp!, {r4-r5, r7}
+    mov mask, #127
 
     ldmia tmpSP, {data, buffer}
 
@@ -67,15 +68,15 @@ sndPCM_fill_asm:
     cmp pos, last
     blt .loop_fill
 
-    ldmfd sp!, {r4-r5}
+    ldmfd sp!, {r4-r5, r7}
     bx lr
 
 
 .global sndPCM_mix_asm
 sndPCM_mix_asm:
-    mov mask, #127
     mov tmpSP, sp
     stmfd sp!, {r4-r7} // tmp reg required
+    mov mask, #127
 
     ldmia tmpSP, {data, buffer}
 
