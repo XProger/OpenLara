@@ -90,7 +90,7 @@ InputKey keyToInputKey(Display *dpy, XKeyEvent event) {
         XK_0, XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9,
         XK_a, XK_b, XK_c, XK_d, XK_e, XK_f, XK_g, XK_h, XK_i, XK_j, XK_k, XK_l, XK_m,
         XK_n, XK_o, XK_p, XK_q, XK_r, XK_s, XK_t, XK_u, XK_v, XK_w, XK_x, XK_y, XK_z,
-        XK_KP_0, XK_KP_1, XK_KP_2, XK_KP_3, XK_KP_4, XK_KP_5, XK_KP_6, XK_KP_7, XK_KP_8, XK_KP_9, XK_KP_Add, XK_KP_Subtract, XK_KP_Multiply, XK_KP_Divide, XK_KP_Separator, 
+        XK_KP_0, XK_KP_1, XK_KP_2, XK_KP_3, XK_KP_4, XK_KP_5, XK_KP_6, XK_KP_7, XK_KP_8, XK_KP_9, XK_KP_Add, XK_KP_Subtract, XK_KP_Multiply, XK_KP_Divide, XK_KP_Separator,
         XK_F1, XK_F2, XK_F3, XK_F4, XK_F5, XK_F6, XK_F7, XK_F8, XK_F9, XK_F10, XK_F11, XK_F12,
         XK_minus, XK_equal, XK_bracketleft, XK_bracketright, XK_slash, XK_backslash, XK_comma, XK_period, XK_grave, XK_semicolon, XK_apostrophe, XK_Page_Up, XK_Page_Down, XK_Home, XK_End, XK_Delete, XK_Insert, XK_BackSpace
     };
@@ -155,7 +155,7 @@ void joyInit() {
         ioctl(joy.fd, JSIOCGAXES,    &axes);
         ioctl(joy.fd, JSIOCGBUTTONS, &buttons);
         ioctl(joy.fd, JSIOCGAXMAP, joy.axismap);
-        
+
         if (axes < 4 || buttons < 11) { // is it really a gamepad?
             close(joy.fd);
             joy.fd = -1;
@@ -169,7 +169,7 @@ void joyInit() {
         LOG(" name : %s\n", name);
         LOG(" btns : %d\n", int(buttons));
         LOG(" axes : %d\n", int(axes));
-        
+
         joy.fe = -1;
         for (int j = 0; j < 99; j++) {
             sprintf(name, "/sys/class/input/js%d/device/event%d", i, j);
@@ -180,13 +180,13 @@ void joyInit() {
             joy.fe = open(name, O_RDWR);
             break;
         }
-        
+
         uint32 features[4];
         if (joy.fe > -1 && (ioctl(joy.fe, EVIOCGBIT(EV_FF, sizeof(features)), features) == -1 || !TEST_BIT(features, FF_RUMBLE))) {
             close(joy.fe);
             joy.fe = -1;
         }
-        
+
         if (joy.fe > -1) {
             int n_effects;
             if (ioctl(joy.fe, EVIOCGEFFECTS, &n_effects) == -1) {
@@ -230,13 +230,13 @@ vec2 joyDir(const vec2 &value) {
 
 void joyRumble(JoyDevice &joy) {
     if (joy.fe == -1) return;
- 
+
     if (joy.oL == 0.0f && joy.vL == 0.0f && joy.oR == 0.0f && joy.vR == 0.0f)
         return;
- 
+
     if (Core::getTime() <= joy.time)
         return;
-     
+
     input_event event;
     event.type = EV_FF;
 
@@ -245,28 +245,28 @@ void joyRumble(JoyDevice &joy) {
         joy.fx.u.rumble.strong_magnitude = int(joy.vL * 65535);
         joy.fx.u.rumble.weak_magnitude   = int(joy.vR * 65535);
         joy.fx.replay.length             = int(max(JOY_MIN_UPDATE_FX_TIME, 1000.0f / Core::stats.fps));
-        
+
         if (ioctl(joy.fe, EVIOCSFF, &joy.fx) == -1) {
             LOG("! joy update fx\n");
         }
 
     // play effect
         event.value = 1;
-        event.code  = joy.fx.id; 
+        event.code  = joy.fx.id;
         if (write(joy.fe, &event, sizeof(event)) == -1)
             LOG("! joy play fx\n");
     } else
         if (joy.oL != 0.0f || joy.oR != 0.0f) {
         // stop effect
             event.value = 0;
-            event.code  = joy.fx.id; 
+            event.code  = joy.fx.id;
             if (write(joy.fe, &event, sizeof(event)) == -1)
                 LOG("! joy stop fx\n");
         }
-    
+
     joy.oL = joy.vL;
     joy.oR = joy.vR;
-    
+
     joy.time = Core::getTime() + joy.fx.replay.length;
 }
 
@@ -275,12 +275,12 @@ void joyUpdate() {
 
     for (int i = 0; i < INPUT_JOY_COUNT; i++) {
         JoyDevice &joy = joyDevice[i];
-    
+
         if (joy.fd == -1)
             continue;
 
         joyRumble(joy);
-        
+
         js_event event;
         while (read(joy.fd, &event, sizeof(event)) != -1) {
         // buttons
@@ -288,7 +288,7 @@ void joyUpdate() {
                 Input::setJoyDown(i, event.number >= COUNT(keys) ? jkNone : keys[event.number], event.value == 1);
         // axes
             if (event.type & JS_EVENT_AXIS) {
-            
+
                 switch (joy.axismap[event.number]) {
                 // Left stick
                     case ABS_X  : joy.L.x = joyAxisValue(event.value); break;
@@ -312,7 +312,7 @@ void joyUpdate() {
                         Input::setJoyDown(i, jkDown,  event.value >  0x4000);
                         break;
                 }
-                
+
                 Input::setJoyPos(i, jkL, joyDir(joy.L));
                 Input::setJoyPos(i, jkR, joyDir(joy.R));
             }
@@ -320,6 +320,76 @@ void joyUpdate() {
     }
 }
 
+// filesystem
+#define MAX_FILES 4096
+char* gFiles[MAX_FILES];
+int32 gFilesCount;
+
+void addDir(char* path)
+{
+    char* fileName;
+    struct dirent* e;
+    DIR* dir = opendir(path);
+
+    int32 pathLen = strlen(path);
+    path[pathLen] = '/';
+
+    while ((e = readdir(dir)))
+    {
+        if (e->d_type == DT_DIR)
+        {
+            if (e->d_name[0] != '.')
+            {
+                strcpy(path + 1 + pathLen, e->d_name);
+                addDir(path);
+            }
+        }
+        else
+        {
+            ASSERT(gFilesCount < MAX_FILES);
+            if (gFilesCount < MAX_FILES)
+            {
+                strcpy(path + 1 + pathLen, e->d_name);
+                fileName = (char*)malloc(strlen(path) + 1 - 2);
+                gFiles[gFilesCount++] = strcpy(fileName, path + 2);
+            }
+        }
+    }
+
+    path[pathLen] = '\0';
+}
+
+void fsInit()
+{
+    char path[1024];
+    strcpy(path, ".");
+    addDir(path);
+    LOG("scan %d files\n", gFilesCount);
+}
+
+void fsFree()
+{
+    int32 i;
+    for (i = 0; i < gFilesCount; i++)
+    {
+        free(gFiles[i]);
+    }
+}
+
+const char* osFixFileName(const char* fileName)
+{
+    int32 i;
+    for (i = 0; i < gFilesCount; i++)
+    {
+        if (!strcasecmp(fileName, gFiles[i]))
+        {
+            return gFiles[i];
+        }
+    }
+    return NULL;
+}
+
+// system
 void toggle_fullscreen(Display* dpy, Window win) {
     const size_t _NET_WM_STATE_TOGGLE=2;
 
@@ -447,6 +517,8 @@ int main(int argc, char **argv) {
 
     Core::defLang = checkLanguage();
 
+    fsInit();
+
     joyInit();
     sndInit();
     Game::init(argc > 1 ? argv[1] : NULL);
@@ -460,18 +532,20 @@ int main(int argc, char **argv) {
             WndProc(event, dpy, wnd);
         } else {
             joyUpdate();
-			bool updated = Game::update();
+            bool updated = Game::update();
             if (updated) {
-				Game::render();
+                Game::render();
                 Core::waitVBlank();
-				glXSwapBuffers(dpy, wnd);
-			}
+                glXSwapBuffers(dpy, wnd);
+            }
         }
     };
 
     joyFree();
     sndFree();
     Game::deinit();
+
+    fsFree();
 
     glXMakeCurrent(dpy, 0, 0);
     XCloseDisplay(dpy);

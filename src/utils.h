@@ -13,7 +13,7 @@
     #elif defined(_OS_LINUX) || defined(_OS_RPI) || defined(_OS_CLOVER)
         #define debugBreak() raise(SIGTRAP);
     #elif defined(_OS_3DS)
-        #define debugBreak() svcBreak(USERBREAK_ASSERT); 
+        #define debugBreak() svcBreak(USERBREAK_ASSERT);
     #else
         #define debugBreak() _asm { int 3 }
     #endif
@@ -213,7 +213,7 @@ inline float lerp(float a, float b, float t) {
 float lerpAngle(float a, float b, float t) {
     if (t <= 0.0f) return a;
     if (t >= 1.0f) return b;
-    return a + shortAngle(a, b) * t; 
+    return a + shortAngle(a, b) * t;
 }
 
 int nextPow2(uint32 x) {
@@ -322,9 +322,9 @@ namespace Noise { // based on https://github.com/Auburns/FastNoise
         float fy = quintic(dy0);
         float fz = quintic(dz0);
 
-        return lerp(lerp(lerp(noise(x0, y0, z0, dx0, dy0, dz0), noise(x1, y0, z0, dx1, dy0, dz0), fx), 
+        return lerp(lerp(lerp(noise(x0, y0, z0, dx0, dy0, dz0), noise(x1, y0, z0, dx1, dy0, dz0), fx),
                          lerp(noise(x0, y1, z0, dx0, dy1, dz0), noise(x1, y1, z0, dx1, dy1, dz0), fx), fy),
-                    lerp(lerp(noise(x0, y0, z1, dx0, dy0, dz1), noise(x1, y0, z1, dx1, dy0, dz1), fx), 
+                    lerp(lerp(noise(x0, y0, z1, dx0, dy0, dz1), noise(x1, y0, z1, dx1, dy0, dz1), fx),
                          lerp(noise(x0, y1, z1, dx0, dy1, dz1), noise(x1, y1, z1, dx1, dy1, dz1), fx), fy), fz);
     }
 
@@ -413,7 +413,7 @@ struct vec2 {
     vec2 lerp(const vec2 &v, const float t) const {
         if (t <= 0.0f) return *this;
         if (t >= 1.0f) return v;
-        return *this + (v - *this) * t; 
+        return *this + (v - *this) * t;
     }
 };
 
@@ -473,7 +473,7 @@ struct vec3 {
     vec3 lerp(const vec3 &v, const float t) const {
         if (t <= 0.0f) return *this;
         if (t >= 1.0f) return v;
-        return *this + (v - *this) * t; 
+        return *this + (v - *this) * t;
     }
 
     vec3 rotateY(float angle) const {
@@ -518,7 +518,7 @@ struct vec4 {
     vec4 lerp(const vec4 &v, const float t) const {
         if (t <= 0.0f) return *this;
         if (t >= 1.0f) return v;
-        return *this + (v - *this) * t; 
+        return *this + (v - *this) * t;
     }
 };
 
@@ -546,16 +546,16 @@ struct quat {
         return quat(-x, -y, -z, -w);
     }
 
-    quat operator + (const quat &q) const { 
-        return quat(x + q.x, y + q.y, z + q.z, w + q.w); 
+    quat operator + (const quat &q) const {
+        return quat(x + q.x, y + q.y, z + q.z, w + q.w);
     }
 
-    quat operator - (const quat &q) const { 
-        return quat(x - q.x, y - q.y, z - q.z, w - q.w); 
+    quat operator - (const quat &q) const {
+        return quat(x - q.x, y - q.y, z - q.z, w - q.w);
     }
 
-    quat operator * (const float s) const { 
-        return quat(x * s, y * s, z * s, w * s); 
+    quat operator * (const float s) const {
+        return quat(x * s, y * s, z * s, w * s);
     }
 
     quat operator * (const quat &q) const {
@@ -573,11 +573,11 @@ struct quat {
         return x * q.x + y * q.y + z * q.z + w * q.w;
     }
 
-    float length2() const { 
-        return dot(*this); 
+    float length2() const {
+        return dot(*this);
     }
 
-    float length() const { 
+    float length() const {
         return sqrtf(length2());
     }
 
@@ -601,7 +601,7 @@ struct quat {
         if (t <= 0.0f) return *this;
         if (t >= 1.0f) return q;
 
-        return dot(q) < 0 ? (*this - (q + *this) * t) : 
+        return dot(q) < 0 ? (*this - (q + *this) * t) :
                             (*this + (q - *this) * t);
     }
 
@@ -656,7 +656,7 @@ struct mat4 {
     mat4(float e00, float e10, float e20, float e30,
          float e01, float e11, float e21, float e31,
          float e02, float e12, float e22, float e32,
-         float e03, float e13, float e23, float e33) : 
+         float e03, float e13, float e23, float e33) :
          e00(e00), e10(e10), e20(e20), e30(e30),
          e01(e01), e11(e11), e21(e21), e31(e31),
          e02(e02), e12(e12), e22(e22), e32(e32),
@@ -781,9 +781,9 @@ struct mat4 {
     }
 
     mat4(const vec4 &reflectPlane) {
-        float a = reflectPlane.x, 
-              b = reflectPlane.y, 
-              c = reflectPlane.z, 
+        float a = reflectPlane.x,
+              b = reflectPlane.y,
+              c = reflectPlane.z,
               d = reflectPlane.w;
 
         right()  = vec4(1 - 2*a*a,   - 2*b*a,   - 2*c*a, 0);
@@ -825,7 +825,7 @@ struct mat4 {
             e10 * v.x + e11 * v.y + e12 * v.z + e13,
             e20 * v.x + e21 * v.y + e22 * v.z + e23);
     }
-    
+
     vec4 operator * (const vec4 &v) const {
         return vec4(
             e00 * v.x + e01 * v.y + e02 * v.z + e03 * v.w,
@@ -1286,7 +1286,7 @@ struct Box {
         max.x = ::max(max.x, box.max.x);
         max.y = ::max(max.y, box.max.y);
         max.z = ::max(max.z, box.max.z);
-        return *this; 
+        return *this;
     }
 
     Box& operator += (const vec3 &v) {
@@ -1296,7 +1296,7 @@ struct Box {
         max.x = ::max(max.x, v.x);
         max.y = ::max(max.y, v.y);
         max.z = ::max(max.z, v.z);
-        return *this; 
+        return *this;
     }
 
     Box& operator -= (const Box &box) {
@@ -1306,13 +1306,13 @@ struct Box {
         max.x = ::min(max.x, box.max.x);
         max.y = ::min(max.y, box.max.y);
         max.z = ::min(max.z, box.max.z);
-        return *this; 
+        return *this;
     }
 
     Box operator * (const mat4 &m) const {
         Box res(vec3(+INF), vec3(-INF));
         for (int i = 0; i < 8; i++) {
-            vec4 v = m * vec4((*this)[i], 1.0f);            
+            vec4 v = m * vec4((*this)[i], 1.0f);
             res += v.xyz() /= v.w;
         }
         return res;
@@ -1408,7 +1408,7 @@ struct Box {
     bool intersect(const vec3 &rayPos, const vec3 &rayDir, float &t) const {
         float tMax = INF, tMin = -tMax;
 
-        for (int i = 0; i < 3; i++) 
+        for (int i = 0; i < 3; i++)
             if (rayDir[i] != 0) {
                 float lo = (min[i] - rayPos[i]) / rayDir[i];
                 float hi = (max[i] - rayPos[i]) / rayDir[i];
@@ -1598,7 +1598,7 @@ struct Array {
 
     Array(int capacity = 32) : capacity(capacity), length(0), items(NULL) {}
 
-    ~Array() { 
+    ~Array() {
         clear();
     }
 
@@ -1668,7 +1668,7 @@ struct Array {
 
     T& operator[] (int index) {
         ASSERT(index >= 0 && index < length);
-        return items[index]; 
+        return items[index];
     };
 };
 
@@ -1680,6 +1680,10 @@ extern void osCacheRead  (Stream *stream);
 
 extern void osReadSlot   (Stream *stream);
 extern void osWriteSlot  (Stream *stream);
+
+#ifdef _OS_LINUX
+extern const char* osFixFileName(const char* fileName);
+#endif;
 
 #ifdef _OS_WEB
 extern void osDownload   (Stream *stream);
@@ -1767,7 +1771,7 @@ struct Stream {
                     nameLen = stream->readLE16();
                     extraLen = stream->readLE16();
 
-                    info.offset += 4 + 22 + 2 + 2 + nameLen + extraLen; 
+                    info.offset += 4 + 22 + 2 + 2 + nameLen + extraLen;
 
                     return true;
                 }
@@ -1786,7 +1790,7 @@ struct Stream {
             stream->buffering = false;
             stream->setPos(stream->size - 22);
             uint32 magic = stream->readLE32();
-            
+
             if (magic != 0x06054B50)
             {
                 ASSERT(false);
@@ -1864,7 +1868,13 @@ private:
         if (contentDir[0] && (!cacheDir[0] || !strstr(name, cacheDir))) {
             strcpy(path, contentDir);
         }
+
+    #ifdef _OS_LINUX
+        strcat(path, osFixFileName(name));
+    #else
         strcat(path, name);
+    #endif
+
         fixBackslash(path);
 
         f = fopen(path, "rb");
@@ -2077,7 +2087,7 @@ public:
         char path[255];
         strcpy(path, contentDir);
         readDirectory(path);
-    }  
+    }
 #else
     static void readFileList() {};
 #endif
@@ -2116,10 +2126,15 @@ public:
     }
 
     static bool exists(const char *name) {
+    #ifdef _OS_LINUX
+       name = osFixFileName(name);
+       return (name != NULL);
+    #else
         FILE *f = fopen(name, "rb");
         if (!f) return false;
         fclose(f);
         return true;
+    #endif
     }
 
     static bool existsContent(const char *name) {

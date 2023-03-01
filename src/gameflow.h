@@ -24,7 +24,7 @@ namespace TR {
         VER_SDC      = 0x8000,
 
         VER_TR1      = 0x01,
-        VER_TR2      = 0x02, 
+        VER_TR2      = 0x02,
         VER_TR3      = 0x04,
         VER_TR4      = 0x08,
         VER_TR5      = 0x10,
@@ -1027,14 +1027,14 @@ namespace TR {
 
     bool isCutsceneLevel(LevelID id) {
         return id == LVL_TR1_CUT_1 || id == LVL_TR1_CUT_2 || id == LVL_TR1_CUT_3 || id == LVL_TR1_CUT_4 ||
-               id == LVL_TR2_CUT_1 || id == LVL_TR2_CUT_2 || id == LVL_TR2_CUT_3 || id == LVL_TR2_CUT_4 || 
+               id == LVL_TR2_CUT_1 || id == LVL_TR2_CUT_2 || id == LVL_TR2_CUT_3 || id == LVL_TR2_CUT_4 ||
                id == LVL_TR3_CUT_1 || id == LVL_TR3_CUT_2  || id == LVL_TR3_CUT_3  || id == LVL_TR3_CUT_4 ||
                id == LVL_TR3_CUT_5 || id == LVL_TR3_CUT_6  || id == LVL_TR3_CUT_7  || id == LVL_TR3_CUT_8 ||
                id == LVL_TR3_CUT_9 || id == LVL_TR3_CUT_11 || id == LVL_TR3_CUT_12;
     }
 
     bool isTitleLevel(LevelID id) {
-        return id == LVL_TR1_TITLE || 
+        return id == LVL_TR1_TITLE ||
                id == LVL_TR2_TITLE ||
                id == LVL_TR3_TITLE ||
                id == LVL_TR4_TITLE;
@@ -1081,21 +1081,8 @@ namespace TR {
                     break;
                 case VER_TR1_PSX : sprintf(dst, "PSXDATA/%s.PSX", LEVEL_INFO[id].name); break;
                 case VER_TR1_SAT : sprintf(dst, "DATA/%s.SAT",    LEVEL_INFO[id].name); break;
-                case VER_TR2_PC  : { // oh FFFFUUUUUUCKing CaTaComB.Tr2!
-                    if (id == LVL_TR2_VENICE || id == LVL_TR2_CUT_2 || id == LVL_TR2_PLATFORM || id == LVL_TR2_CUT_3 || id == LVL_TR2_UNWATER || 
-                        id == LVL_TR2_KEEL || id == LVL_TR2_LIVING || id == LVL_TR2_DECK || id == LVL_TR2_CATACOMB || id == LVL_TR2_ICECAVE ||
-                        id == LVL_TR2_CUT_4 || id == LVL_TR2_XIAN || id == LVL_TR2_HOUSE) {
-                        char buf[64];
-                        strcpy(buf, LEVEL_INFO[id].name);
-                        StrUtils::toLower(buf);
-                        sprintf(dst, "DATA/%s.TR2", buf);
-                    } else if (id == LVL_TR2_TITLE) {
-                        sprintf(dst, "DATA/%s.tr2", LEVEL_INFO[id].name);
-                    } else if (id == LVL_TR2_EMPRTOMB) {
-                        strcpy(dst, "DATA/Emprtomb.tr2");
-                    } else {
-                        sprintf(dst, "DATA/%s.TR2", LEVEL_INFO[id].name);
-                    }
+                case VER_TR2_PC  : {
+                    sprintf(dst, "DATA/%s.TR2", LEVEL_INFO[id].name);
                     if (Stream::existsContent(dst)) break;
                     strcpy(dst, LEVEL_INFO[id].name);
                     StrUtils::toLower(dst);
@@ -1120,13 +1107,13 @@ namespace TR {
             #else
                 switch (version) {
                     case VER_TR1_PC  : strcat(dst, ".PHD"); break;
-                    case VER_TR2_PC  : 
+                    case VER_TR2_PC  :
                     case VER_TR3_PC  : strcat(dst, ".TR2"); break;
                     case VER_TR1_PSX :
-                    case VER_TR2_PSX : 
+                    case VER_TR2_PSX :
                     case VER_TR3_PSX : strcat(dst, ".PSX"); break;
                     case VER_TR1_SAT : strcat(dst, ".SAT"); break;
-                    case VER_UNKNOWN : 
+                    case VER_UNKNOWN :
                         if (Stream::existsContent("level/1/TITLE.PSX")) {
                             strcpy(dst, "level/1/TITLE.PSX");
                             return;
@@ -1186,8 +1173,8 @@ namespace TR {
             47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 28, 4, 5, 6
         };
 
-        static const uint8 TR2_TRACK_MAPPING[] = { 
-            2, 2, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 18, 18, 19, 20, 
+        static const uint8 TR2_TRACK_MAPPING[] = {
+            2, 2, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 18, 18, 19, 20,
             21, 22, 23, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
             41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61
         };
@@ -1425,28 +1412,28 @@ namespace TR {
                 return "level/2/TITLEUS.PNG";       // WEB
             case LVL_TR2_ASSAULT :
             case LVL_TR2_HOUSE   :
-                CHECK_FILE("PIX/MANSION.RAW"); 
+                CHECK_FILE("PIX/MANSION.RAW");
                 return "level/2/MANSION.PNG";
             case LVL_TR2_WALL     :
             case LVL_TR2_EMPRTOMB :
             case LVL_TR2_FLOATING :
             case LVL_TR2_XIAN     :
-                CHECK_FILE("PIX/CHINA.RAW"); 
+                CHECK_FILE("PIX/CHINA.RAW");
                 return "level/2/CHINA.PNG";
             case LVL_TR2_BOAT   :
             case LVL_TR2_VENICE :
             case LVL_TR2_OPERA  :
-                CHECK_FILE("PIX/VENICE.RAW"); 
+                CHECK_FILE("PIX/VENICE.RAW");
                 return "level/2/VENICE.PNG";
             case LVL_TR2_RIG      :
             case LVL_TR2_PLATFORM :
-                CHECK_FILE("PIX/RIG.RAW"); 
+                CHECK_FILE("PIX/RIG.RAW");
                 return "level/2/RIG.PNG";
             case LVL_TR2_UNWATER :
             case LVL_TR2_KEEL    :
             case LVL_TR2_LIVING  :
             case LVL_TR2_DECK    :
-                CHECK_FILE("PIX/TITAN.RAW"); 
+                CHECK_FILE("PIX/TITAN.RAW");
                 return "level/2/TITAN.PNG";
             case LVL_TR2_SKIDOO   :
             case LVL_TR2_MONASTRY :
@@ -1461,43 +1448,43 @@ namespace TR {
                 CHECK_FILE("PIXJAP/TITLEJAP.RAW");  // PSX
                 return "level/3/TITLEUK.PNG";       // WEB
             case LVL_TR3_HOUSE  :
-                CHECK_FILE("pix/HOUSE.BMP"); 
-                CHECK_FILE("PIX/HOUSE.RAW"); 
+                CHECK_FILE("pix/HOUSE.BMP");
+                CHECK_FILE("PIX/HOUSE.RAW");
                 return "level/3/HOUSE.PNG";
             case LVL_TR3_JUNGLE   :
             case LVL_TR3_TEMPLE   :
             case LVL_TR3_QUADCHAS :
             case LVL_TR3_TONYBOSS :
-                CHECK_FILE("pix/INDIA.BMP"); 
-                CHECK_FILE("PIX/INDIA.RAW"); 
+                CHECK_FILE("pix/INDIA.BMP");
+                CHECK_FILE("PIX/INDIA.RAW");
                 return "level/3/INDIA.PNG";
             case LVL_TR3_SHORE   :
             case LVL_TR3_CRASH   :
             case LVL_TR3_RAPIDS  :
             case LVL_TR3_TRIBOSS :
-                CHECK_FILE("pix/SOUTHPAC.BMP"); 
-                CHECK_FILE("PIX/SOUTHPAC.RAW"); 
+                CHECK_FILE("pix/SOUTHPAC.BMP");
+                CHECK_FILE("PIX/SOUTHPAC.RAW");
                 return "level/3/SOUTHPAC.PNG";
             case LVL_TR3_ROOFS  :
             case LVL_TR3_SEWER  :
             case LVL_TR3_TOWER  :
             case LVL_TR3_OFFICE :
             case LVL_TR3_STPAUL :
-                CHECK_FILE("pix/LONDON.BMP"); 
-                CHECK_FILE("PIX/LONDON.RAW"); 
+                CHECK_FILE("pix/LONDON.BMP");
+                CHECK_FILE("PIX/LONDON.RAW");
                 return "level/3/LONDON.PNG";
             case LVL_TR3_NEVADA   :
             case LVL_TR3_COMPOUND :
             case LVL_TR3_AREA51   :
-                CHECK_FILE("pix/NEVADA.BMP"); 
-                CHECK_FILE("PIX/NEVADA.RAW"); 
+                CHECK_FILE("pix/NEVADA.BMP");
+                CHECK_FILE("PIX/NEVADA.RAW");
                 return "level/3/NEVADA.PNG";
             case LVL_TR3_ANTARC  :
             case LVL_TR3_MINES   :
             case LVL_TR3_CITY    :
             case LVL_TR3_CHAMBER :
-                CHECK_FILE("pix/ANTARC.BMP"); 
-                CHECK_FILE("PIX/ANTARC.RAW"); 
+                CHECK_FILE("pix/ANTARC.BMP");
+                CHECK_FILE("PIX/ANTARC.RAW");
                 return "level/3/ANTARC.PNG";
 
             default : return NULL;
