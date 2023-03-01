@@ -51,8 +51,7 @@ out     .req size
 .global sndPCM_fill_asm
 sndPCM_fill_asm:
     mov tmpSP, sp
-    stmfd sp!, {r4-r5, r7}
-    mov mask, #127
+    stmfd sp!, {r4-r5}
 
     ldmia tmpSP, {data, buffer}
 
@@ -68,7 +67,7 @@ sndPCM_fill_asm:
     cmp pos, last
     blt .loop_fill
 
-    ldmfd sp!, {r4-r5, r7}
+    ldmfd sp!, {r4-r5}
     bx lr
 
 
