@@ -107,33 +107,43 @@ float joyAxisValue(IOHIDValueRef value) {
 }
 
 static const struct { uint32 vendorId, productId; } JOY_VENDORS[] = {
-    { 0x045E, 0x0000 }, // Microsoft
+    { 0x045E, 0x02FD }, // Microsoft Xbox One
+    { 0x045E, 0x0000 }, // Microsoft x360
     { 0x2DC8, 0x0000 }, // 8Bitdo
+    { 0x054C, 0x0CE6 }, // Sony DualSense
     { 0x054C, 0x05C4 }, // Sony DS4 CUH-ZCT1x
     { 0x054C, 0x09CC }, // Sony DS4 CUH-ZCT2x
     { 0x054C, 0x0000 }, // Sony DS3
     { 0x2717, 0x0000 }, // Xiaomi
-} ;
+    { 0x18D1, 0x9400 }, // Google Stadia Controller
+};
 
 #define JOY_MAX_VENDORS COUNT(JOY_VENDORS)
 #define JOY_MAX_BUTTONS 17
 
 static const uint32 joyAxisTable[][6] = {
+    { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, kHIDUsage_GD_Z, kHIDUsage_GD_Rz },
     { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Rx, kHIDUsage_GD_Ry, kHIDUsage_GD_Z, kHIDUsage_GD_Rz },
+    { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
     { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
     { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
     { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, kHIDUsage_GD_Rx, kHIDUsage_GD_Ry },
     { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
     { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, 0, 0 },
+    { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, kHIDUsage_GD_Z, kHIDUsage_GD_Rz },
+    { kHIDUsage_GD_X, kHIDUsage_GD_Y, kHIDUsage_GD_Z,  kHIDUsage_GD_Rz, kHIDUsage_GD_Z, kHIDUsage_GD_Rz }
 };
 
 static const uint32 joyButtonsTable[][JOY_MAX_BUTTONS] = {
+    { jkA, jkB, jkNone, jkX, jkY, jkNone, jkLB, jkRB, jkNone, jkNone, jkNone, jkStart, jkNone, jkL, jkR, jkNone, jkNone },
     { jkA, jkB, jkX, jkY, jkLB, jkRB, jkLT, jkRT, jkStart, jkSelect, jkNone, jkUp, jkDown, jkLeft, jkRight, jkNone, jkNone },
     { jkB, jkA, jkNone, jkY, jkX, jkNone, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkNone, jkL, jkR, jkNone, jkNone },
     { jkX, jkA, jkB, jkY, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkL, jkR, jkNone, jkNone, jkNone, jkNone, jkNone },
     { jkX, jkA, jkB, jkY, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkL, jkR, jkNone, jkNone, jkNone, jkNone, jkNone },
+    { jkX, jkA, jkB, jkY, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkL, jkR, jkNone, jkNone, jkNone, jkNone, jkNone },
     { jkSelect, jkL, jkR, jkStart, jkUp, jkRight, jkDown, jkLeft, jkLT, jkRT, jkLB, jkRB, jkY, jkB, jkA, jkX, jkNone },
     { jkA, jkB, jkNone, jkX, jkY, jkNone, jkLB, jkRB, jkLT, jkRT, jkSelect, jkStart, jkNone, jkL, jkR, jkNone, jkNone },
+    { jkA, jkB, jkNone, jkX, jkY, jkNone, jkLB, jkRB, jkNone, jkNone, jkSelect, jkStart, jkNone, jkL, jkR, jkNone, jkNone }
 };
 
 JoyKey joyButtonToKey(const uint32 *btns, uint32 button) {
@@ -199,13 +209,25 @@ void hidValueCallback(void *context, IOReturn result, void *sender, IOHIDValueRe
                 Input::setJoyPos(joyIndex, jkRT, vec2(joyAxisValue(value) * 0.5f + 0.5f, 0.0f));
             else if (usage == kHIDUsage_GD_Hatswitch) {
                 CFIndex p = IOHIDValueGetIntegerValue(value);
-                Input::setJoyDown(joyIndex, jkUp,    p == 7 || p == 0 || p == 1);
-                Input::setJoyDown(joyIndex, jkRight, p == 1 || p == 2 || p == 3);
-                Input::setJoyDown(joyIndex, jkDown,  p == 3 || p == 4 || p == 5);
-                Input::setJoyDown(joyIndex, jkLeft,  p == 5 || p == 6 || p == 7);
+                CFIndex min = IOHIDElementGetLogicalMin(element);
+                if (min == 0)
+                {
+                    p++;
+                }
+                Input::setJoyDown(joyIndex, jkUp,    p == 8 || p == 1 || p == 2);
+                Input::setJoyDown(joyIndex, jkRight, p == 2 || p == 3 || p == 4);
+                Input::setJoyDown(joyIndex, jkDown,  p == 4 || p == 5 || p == 6);
+                Input::setJoyDown(joyIndex, jkLeft,  p == 6 || p == 7 || p == 8);
             }
             //if (usage != axis[0] && usage != axis[1] && usage != axis[2] && usage != axis[3])
             //    LOG("! joy: axis 0x%x (%d)\n", usage, (int)IOHIDValueGetIntegerValue(value));
+            break;
+        }
+        case kHIDPage_Simulation : {
+            if (usage == kHIDUsage_Sim_Accelerator)
+                Input::setJoyPos(joyIndex, jkRT, vec2(joyAxisValue(value) * 0.5f + 0.5f, 0.0f));
+            else if (usage == kHIDUsage_Sim_Brake)
+                Input::setJoyPos(joyIndex, jkLT, vec2(joyAxisValue(value) * 0.5f + 0.5f, 0.0f));
             break;
         }
         case kHIDPage_Button : {
@@ -429,6 +451,13 @@ BOOL allowFrameUpdate = YES;
     [inv setTarget:self];
     [inv setArgument:&arg atIndex:2];
     [inv performSelector:@selector(invoke) withObject:self afterDelay:nextDelaySec];
+    
+    if (Core::isQuit)
+    {
+        NSApplication *application = [NSApplication sharedApplication];
+        [application stop:nil];
+        [application abortModal]; // generate UI event
+    }
 }
 
 @end
