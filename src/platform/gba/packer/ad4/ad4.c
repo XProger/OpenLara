@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "AD4.h"
 
 int main(int argc, const char *argv[]) {
