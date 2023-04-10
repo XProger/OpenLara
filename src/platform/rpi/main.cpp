@@ -359,11 +359,13 @@ void inputFree() {
 }
 
 #define JOY_DEAD_ZONE_STICK      8192
+#define JOY_CENTRE              32768
 
 float joyAxisValue(int value) {
+    value -= JOY_CENTRE;
     if (value > -JOY_DEAD_ZONE_STICK && value < JOY_DEAD_ZONE_STICK)
         return 0.0f;
-    return value / 32767.0f;
+    return value / 32768.0f;
 }
 
 float joyTrigger(int value) {
