@@ -1683,7 +1683,7 @@ extern void osWriteSlot  (Stream *stream);
 
 #ifdef _OS_LINUX
 extern const char* osFixFileName(const char* fileName);
-#endif;
+#endif
 
 #ifdef _OS_WEB
 extern void osDownload   (Stream *stream);
