@@ -1,6 +1,9 @@
 name: Continuous build and release
 on: [push, pull_request]
 
+permissions:
+  contents: write
+
 jobs:
   nix_x86_64:
     name: Linux x86_64
@@ -33,3 +36,10 @@ jobs:
           printf "Discord: https://discord.gg/EF8JaQB\n" >> ${{ env.RELEASE_FILE_README }}
           printf "Telegram: https://t.me/openlara\n" >> ${{ env.RELEASE_FILE_README }}
           cd ${{ env.RELEASE_DIRECTORY }} && zip OpenLara_nix.zip *
+      - name: Release (only when pushing to the master branch)
+        uses: softprops/action-gh-release@v1
+        if: ${{ github.ref == 'refs/heads/master' }}
+        with:
+          files: ${{ env.RELEASE_DIRECTORY }}/OpenLara_nix.zip
+          name: Continuous build
+          tag_name: continuous-build
