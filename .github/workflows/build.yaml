@@ -1,0 +1,35 @@
+name: Continuous build and release
+on: [push, pull_request]
+
+jobs:
+  nix_x86_64:
+    name: Linux x86_64
+    runs-on: ubuntu-latest
+    container: ubuntu:20.04
+    env:
+      RELEASE_DIRECTORY: /tmp/OpenLara_Release
+      RELEASE_FILE_README: /tmp/OpenLara_Release/readme.txt
+    steps:
+      - name: Retrieve sources
+        uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          apt update
+          DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y clang libgl-dev libpulse-dev libx11-dev zip
+      - name: Build
+        run: ./build.sh
+        working-directory: src/platform/nix
+      - name: Create archive
+        run: |
+          mkdir -p ${{ env.RELEASE_DIRECTORY }}
+          cp bin/OpenLara ${{ env.RELEASE_DIRECTORY }}
+          printf "Instructions:\n" > ${{ env.RELEASE_FILE_README }}
+          printf "STEP 1: Let's assume that you own the original game, so download and unzip (\"extract here\") these archives:\n" >> ${{ env.RELEASE_FILE_README }}
+          printf "    http://xproger.info/projects/OpenLara/files/TR1_data.7z\n" >> ${{ env.RELEASE_FILE_README }}
+          printf "    http://xproger.info/projects/OpenLara/files/TR1_audio.7z\n" >> ${{ env.RELEASE_FILE_README }}
+          printf "STEP 2: Copy the extracted folders (audio, PSXDATA, DELDATA & FMV) next to the OpenLara file\n" >> ${{ env.RELEASE_FILE_README }}
+          printf "STEP 3: Run OpenLara application and enjoy the game!\n\n" >> ${{ env.RELEASE_FILE_README }}
+          printf "YouTube: https://youtube.com/c/TimurGagiev\n" >> ${{ env.RELEASE_FILE_README }}
+          printf "Discord: https://discord.gg/EF8JaQB\n" >> ${{ env.RELEASE_FILE_README }}
+          printf "Telegram: https://t.me/openlara\n" >> ${{ env.RELEASE_FILE_README }}
+          cd ${{ env.RELEASE_DIRECTORY }} && zip OpenLara_nix.zip *
