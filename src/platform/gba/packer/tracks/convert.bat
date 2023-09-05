@@ -6,7 +6,7 @@ set DEMO_FOLDER=conv_demo\
 
 for /r %IN_FOLDER% %%i in (*.wav) do (
 	ffmpeg -v panic -y -i %%i -ar 10512 -f s16le -acodec pcm_s16le temp.raw
-	ad4 temp.raw %OUT_FOLDER%%%~ni.ad4 -0.8
+	ad4 temp.raw %OUT_FOLDER%%%~ni.ad4 -0.5
 )
 del /f temp.raw
 
