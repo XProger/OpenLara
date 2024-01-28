@@ -87,6 +87,7 @@ struct sdl_input *sdl_inputs;
 int sdl_numjoysticks, sdl_numcontrollers;
 SDL_Joystick *sdl_joysticks[MAX_JOYS];
 SDL_GameController *sdl_controllers[MAX_JOYS];
+SDL_Haptic *sdl_haptics[MAX_JOYS];
 SDL_Window *sdl_window;
 SDL_DisplayMode sdl_displaymode;
 
@@ -99,7 +100,13 @@ bool osJoyReady(int index) {
 }
 
 void osJoyVibrate(int index, float L, float R) {
-    // TODO
+    if (index >= sdl_numcontrollers)
+        return;
+    if (SDL_IsGameController(index)) {
+        SDL_GameControllerRumble(sdl_controllers[index], L*0xFFFF, R*0xFFFF, 500);
+    } else {
+        SDL_HapticRumblePlay(sdl_haptics[index], L+R, 500);
+    }
 }
 
 bool isKeyPressed (SDL_Scancode scancode) {
@@ -257,6 +264,8 @@ void joyAdd(int index) {
     }
     else {
         sdl_joysticks[index] = SDL_JoystickOpen(index);
+        sdl_haptics[index] = SDL_HapticOpenFromJoystick(sdl_joysticks[index]);
+        SDL_HapticRumbleInit(sdl_haptics[index]);
     }
     // Update number of joysticks
     sdl_numjoysticks = SDL_NumJoysticks();
@@ -282,6 +291,8 @@ void joyRemove(Sint32 instanceID) {
         i = joyGetIndex(instanceID);    
         if (i >= 0) {
             SDL_JoystickClose(sdl_joysticks[i]);
+            SDL_HapticClose(sdl_haptics[i]);
+            sdl_haptics[i] = NULL;
             sdl_numjoysticks--;
         }
     }
@@ -519,7 +530,7 @@ int main(int argc, char **argv) {
 
     int w, h;
     SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
-    SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_EVENTS|SDL_INIT_GAMECONTROLLER);
+    SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_EVENTS|SDL_INIT_GAMECONTROLLER|SDL_INIT_HAPTIC);
 
     SDL_GetCurrentDisplayMode(0, &sdl_displaymode);
 
@@ -527,8 +538,8 @@ int main(int argc, char **argv) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 #endif
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
