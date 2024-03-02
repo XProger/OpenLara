@@ -197,6 +197,7 @@ int inputDevices[MAX_INPUT_DEVICES];
 udev *udevObj;
 udev_monitor *udevMon;
 int udevMon_fd;
+int joy_centre;
 
 vec2 joyL, joyR;
 
@@ -347,6 +348,10 @@ bool inputInit() {
     }
     udev_enumerate_unref(e);
 
+    const char *temp = getenv("JOY_CENTRE");
+    if (temp && (joy_centre = atoi(temp)))
+        LOG("input: joy centred at %d\n", joy_centre);
+
     return true;
 }
 
@@ -359,11 +364,13 @@ void inputFree() {
 }
 
 #define JOY_DEAD_ZONE_STICK      8192
+#define JOY_CENTRE              32768
 
 float joyAxisValue(int value) {
+    value -= joy_centre ? joy_centre : JOY_CENTRE;
     if (value > -JOY_DEAD_ZONE_STICK && value < JOY_DEAD_ZONE_STICK)
         return 0.0f;
-    return value / 32767.0f;
+    return value / 32768.0f;
 }
 
 float joyTrigger(int value) {
