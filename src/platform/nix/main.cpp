@@ -323,7 +323,6 @@ void joyUpdate() {
 // filesystem
 #define MAX_FILES 4096
 char* gFiles[MAX_FILES];
-const char* gEmpty = "";
 int32 gFilesCount;
 
 void addDir(char* path)
@@ -387,7 +386,7 @@ const char* osFixFileName(const char* fileName)
             return gFiles[i];
         }
     }
-    return gEmpty;
+    return NULL;
 }
 
 // system
