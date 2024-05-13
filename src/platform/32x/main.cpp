@@ -204,7 +204,7 @@ int main()
 
     while (1)
     {
-        int32 frame = gFrameIndex;
+        int32 frame = *(volatile int32 *)&gFrameIndex;
 
         if (frame - fpsFrame >= vsyncRate)
         {
