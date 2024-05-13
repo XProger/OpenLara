@@ -776,7 +776,7 @@ sec_start:
         mov.l   _sec_adapter,r1
         mov     #0x00,r0
         mov.b   r0,@(1,r1)              /* set int enables (different from primary despite same address!) */
-        mov     #0x0F,r0
+        mov     #0x0D,r0
         shll2   r0
         shll2   r0
         ldc     r0,sr                   /* disallow ints */
