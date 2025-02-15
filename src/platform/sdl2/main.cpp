@@ -345,6 +345,9 @@ void inputUpdate() {
 
     while (SDL_PollEvent(&event) == 1) { // while there are still events to be processed
         switch (event.type) {
+            case SDL_QUIT:
+                Core::isQuit = true;
+
             case SDL_KEYDOWN: {
                 int scancode = event.key.keysym.scancode;
                 InputKey key = codeToInputKey(scancode);
@@ -417,6 +420,7 @@ void inputUpdate() {
             case SDL_CONTROLLERDEVICEREMOVED: {
                 joyRemove(event.cdevice.which);
                 break;
+            }
 
             // Joystick reading using the old SDL Joystick interface
             case SDL_JOYBUTTONDOWN:
@@ -475,7 +479,6 @@ void inputUpdate() {
                     }
                     break;
                 }
-            }
         }
     }
 }
