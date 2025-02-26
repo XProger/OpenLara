@@ -13,6 +13,7 @@
 #include <pulse/simple.h>
 
 #include "game.h"
+#include "cmdline.h"
 
 #define WND_TITLE       "OpenLara"
 
@@ -498,8 +499,12 @@ int main(int argc, char **argv) {
                       ButtonPressMask | ButtonReleaseMask |
                       ButtonMotionMask | PointerMotionMask;
 
+    unsigned int wnd_width = 1280;
+    unsigned int wnd_height = 720;
+    argWindowSize(argc, argv, &wnd_width, &wnd_height);
+
     Window wnd = XCreateWindow(dpy, RootWindow(dpy, vis->screen),
-                               0, 0, 1280, 720, 0,
+                               0, 0, wnd_width, wnd_height, 0,
                                vis->depth, InputOutput, vis->visual,
                                CWColormap | CWBorderPixel | CWEventMask, &attr);
     XStoreName(dpy, wnd, WND_TITLE);
@@ -511,6 +516,8 @@ int main(int argc, char **argv) {
     Atom WM_DELETE_WINDOW = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
     XSetWMProtocols(dpy, wnd, &WM_DELETE_WINDOW, 1);
 
+    if (argFullscreen(argc, argv)) toggle_fullscreen(dpy, wnd);
+
     timeval t;
     gettimeofday(&t, NULL);
     startTime = t.tv_sec;
@@ -521,7 +528,9 @@ int main(int argc, char **argv) {
 
     joyInit();
     sndInit();
-    Game::init(argc > 1 ? argv[1] : NULL);
+
+    int levelNameArg = argLevelName(argc, argv);
+    Game::init(levelNameArg > 0 ? argv[levelNameArg] : NULL);
 
     while (!Core::isQuit) {
         if (XPending(dpy)) {
