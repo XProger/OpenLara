@@ -70,6 +70,8 @@
     #endif
     #define INV_QUALITY
     #define INV_STEREO
+#elif __SDL3__
+    #define _GAPI_SW    1
 #elif __RPI__
     #define _OS_RPI    1
     #define _GAPI_GL   1
