@@ -1174,9 +1174,9 @@ void matrixSetBasis_c(Matrix &dst, const Matrix &src)
     dst.e11 = src.e11;
     dst.e12 = src.e12;
 
-    dst.e10 = src.e10;
-    dst.e11 = src.e11;
-    dst.e12 = src.e12;
+    dst.e20 = src.e20;
+    dst.e21 = src.e21;
+    dst.e22 = src.e22;
 }
 
 #define LERP_1_2(a, b)   a = (b + a) >> 1
