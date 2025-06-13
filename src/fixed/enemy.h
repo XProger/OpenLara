@@ -139,9 +139,6 @@ struct Enemy : ItemObj
         tinfo.canAttack = false;
         tinfo.rotHead = 0;
 
-        if (health <= 0)
-            return;
-
         // update navigation target
         const uint16* zones = getZones();
 
@@ -151,6 +148,9 @@ struct Enemy : ItemObj
         tinfo.zoneIndexTarget = zones[tinfo.boxIndexTarget];
 
         //@TODO blocking
+
+        if (health <= 0)
+            return;
 
         if (tinfo.target->health <= 0)
         {
