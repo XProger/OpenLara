@@ -108,6 +108,7 @@ vec3i Nav::getWaypoint(uint32 boxIndex, const vec3i &from)
     int32 minZ = bMinZ;
     int32 maxZ = bMaxZ;
 
+#if 0
     while ((boxIndex != NO_BOX) && !(level.boxes[boxIndex].overlap & mask))
     {
         box = level.boxes + boxIndex;
@@ -153,6 +154,162 @@ vec3i Nav::getWaypoint(uint32 boxIndex, const vec3i &from)
         boxIndex = cells[boxIndex].end;
     }
 
+#else
+    enum ClipFlag {
+        CLIP_MIN_X = (1 << 0),
+        CLIP_MAX_X = (1 << 1),
+        CLIP_MIN_Z = (1 << 2),
+        CLIP_MAX_Z = (1 << 3),
+        CLIP_DONE  = (1 << 4),
+        CLIP_ALL   = (CLIP_MIN_X | CLIP_MAX_X | CLIP_MIN_Z | CLIP_MAX_Z)
+    };
+
+    int32 clip = CLIP_ALL;
+
+    do {
+        box = level.boxes + boxIndex;
+        bMinX = (box->minX << 10);
+        bMaxX = (box->maxX << 10) - 1;
+        bMinZ = (box->minZ << 10);
+        bMaxZ = (box->maxZ << 10) - 1;
+
+        if (from.x >= bMinX && from.x <= bMaxX && from.z >= bMinZ && from.z <= bMaxZ)
+        {
+            minX = bMinX;
+            maxX = bMaxX;
+            minZ = bMinZ;
+            maxZ = bMaxZ;
+        } else {
+
+            if (from.x < bMinX)
+            {
+                if ((clip & CLIP_MIN_X) && from.z >= bMinZ && from.z <= bMaxZ)
+                {
+                    wp.x = X_MAX(wp.x, bMinX + 512);
+                
+                    if (clip & CLIP_DONE)
+                        return wp;
+                    minZ = X_MAX(minZ, bMinZ);
+                    maxZ = X_MIN(maxZ, bMaxZ);
+
+                    clip = CLIP_MIN_X;
+                } else {
+                    if (clip != CLIP_MIN_X)
+                    {
+                        wp.x = maxX - 512;
+                    
+                        if (clip != CLIP_ALL)
+                            return wp;
+
+                        clip = CLIP_DONE;
+                    }
+                }
+            }
+            
+            if (from.x > bMaxX)
+            {
+                if ((clip & CLIP_MAX_X) && from.z >= bMinZ && from.z <= bMaxZ)
+                {
+                    wp.x = X_MIN(wp.x, bMaxX - 512);
+                
+                    if (clip & CLIP_DONE)
+                        return wp;
+                    minZ = X_MAX(minZ, bMinZ);
+                    maxZ = X_MIN(maxZ, bMaxZ);
+
+                    clip = CLIP_MAX_X;
+                } else {
+                    if (clip != CLIP_MAX_X)
+                    {
+                        wp.x = minX + 512;
+                    
+                        if (clip != CLIP_ALL)
+                            return wp;
+
+                        clip = CLIP_DONE;
+                    }
+                }
+            }
+
+            if (from.z < bMinZ)
+            {
+                if ((clip & CLIP_MIN_Z) && from.x >= bMinX && from.x <= bMaxX)
+                {
+                    wp.z = X_MAX(wp.z, bMinZ + 512);
+                
+                    if (clip & CLIP_DONE)
+                        return wp;
+                    minX = X_MAX(minX, bMinX);
+                    maxX = X_MIN(maxX, bMaxX);
+
+                    clip = CLIP_MIN_Z;
+                } else {
+                    if (clip != CLIP_MIN_Z)
+                    {
+                        wp.z = maxZ - 512;
+                    
+                        if (clip != CLIP_ALL)
+                            return wp;
+
+                        clip = CLIP_DONE;
+                    }
+                }
+            }
+            
+            if (from.z > bMaxZ)
+            {
+                if ((clip & CLIP_MAX_Z) && from.x >= bMinX && from.x <= bMaxX)
+                {
+                    wp.z = X_MIN(wp.z, bMaxZ - 512);
+                
+                    if (clip & CLIP_DONE)
+                        return wp;
+                    minX = X_MAX(minX, bMinX);
+                    maxX = X_MIN(maxX, bMaxX);
+
+                    clip = CLIP_MAX_Z;
+                } else {
+                    if (clip != CLIP_MAX_Z)
+                    {
+                        wp.z = minZ + 512;
+                    
+                        if (clip != CLIP_ALL)
+                            return wp;
+
+                        clip = CLIP_DONE;
+                    }
+                }
+            }
+        }
+
+        if (boxIndex == endBox)
+        {
+            if (clip & (CLIP_MIN_X | CLIP_MAX_X)) {
+                wp.x = pos.x;
+            } else if (!(clip & CLIP_DONE)) {
+                wp.x = X_CLAMP(wp.x, bMinX + 512, bMaxX - 512);
+            }
+
+            if (clip & (CLIP_MIN_Z | CLIP_MAX_Z)) {
+                wp.z = pos.z;
+            } else if (!(clip & CLIP_DONE)) {
+                wp.z = X_CLAMP(wp.z, bMinZ + 512, bMaxZ - 512);
+            }
+
+            wp.y = pos.y;
+
+            return wp;
+        }
+
+        boxIndex = cells[boxIndex].end;
+    } while ((boxIndex != NO_BOX) && !(level.boxes[boxIndex].overlap & mask));
+
+    if (!(clip & CLIP_DONE))
+    {
+        wp.x = X_CLAMP(wp.x, bMinX + 512, bMaxX - 512);
+        wp.z = X_CLAMP(wp.z, bMinZ + 512, bMaxZ - 512);
+    }
+#endif
     wp.y = box->floor - ((zoneType == ZONE_FLY) ? 384 : 0); // TODO check for 320
 
     return wp;
