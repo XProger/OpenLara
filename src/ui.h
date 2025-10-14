@@ -4,7 +4,6 @@
 #include "core.h"
 #include "mesh.h"
 #include "controller.h"
-#define UI_SHOW_FPS
 
 #define PICKUP_SHOW_TIME 5.0f
 #define SUBTITLES_SPEED  0.1f
