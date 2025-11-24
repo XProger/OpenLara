@@ -407,7 +407,7 @@ struct Enemy : Character {
         if (targetBox == TR::NO_BOX)
             gotoBox(target->box);
 
-        if (path && this->box != path->boxes[path->index - 1] && this->box != path->boxes[path->index])
+        if (path && (path->index == 0 || this->box != path->boxes[path->index - 1]) && this->box != path->boxes[path->index])
             targetBoxOld = TR::NO_BOX;
 
         if (zoneOld != zone)
