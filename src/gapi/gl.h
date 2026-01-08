@@ -13,9 +13,9 @@ extern struct retro_hw_render_callback hw_render;
 #endif
 
 #ifdef _OS_WIN
-    #include <gl/GL.h>
-    #include <gl/glext.h>
-    #include <gl/wglext.h>
+    #include <GL/gl.h>
+    #include <GL/glext.h>
+    #include <GL/wglext.h>
 #elif __LIBRETRO_GLES__
     #include <EGL/egl.h>
     #include <GLES2/gl2.h>
@@ -463,19 +463,31 @@ extern struct retro_hw_render_callback hw_render;
         PFNGLBUFFERSUBDATAARBPROC           glBufferSubData;
     #endif
 
-#ifndef __LIBRETRO__
 // Vertex Arrays
-    PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
-    PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
-    PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
+    #ifndef glGenVertexArrays
+        PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
+    #endif
+
+    #ifndef glDeleteVertexArrays
+        PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays;
+    #endif
+
+    #ifndef glBindVertexArray
+        PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
+    #endif
+
 // Binary shaders
-    PFNGLGETPROGRAMBINARYPROC           glGetProgramBinary;
-    PFNGLPROGRAMBINARYPROC              glProgramBinary;
+    #ifndef glGetProgramBinary
+        PFNGLGETPROGRAMBINARYPROC glGetProgramBinary;
+    #endif
+
+    #ifndef glProgramBinary
+        PFNGLPROGRAMBINARYPROC glProgramBinary;
+    #endif
 
     #if defined(_GAPI_GLES)
         PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
     #endif
-#endif
 
 #endif
 
@@ -1278,7 +1290,7 @@ namespace GAPI {
             #endif
 #endif
 
-            #if defined(_OS_WIN) || defined(_OS_LINUX) && !(__LIBRETRO_GLES__) || (defined(__SDL2__) && (defined(_GAPI_GLES2) || defined(_SDL2_OPENGL)))
+            #if defined(_OS_WIN) || defined(_OS_LINUX) && !(__LIBRETRO__) || (defined(__SDL2__) && (defined(_GAPI_GLES2) || defined(_SDL2_OPENGL)))
                 GetProcOGL(glGenerateMipmap);
                 #ifdef _OS_WIN
                     GetProcOGL(glTexImage3D);

@@ -55,6 +55,7 @@ Sound::Frame *sndData;
 
 char levelpath[255] = {0};
 
+static retro_hw_get_proc_address_t hw_get_proc_address = NULL;
 static retro_video_refresh_t video_cb;
 static retro_audio_sample_batch_t audio_batch_cb;
 static retro_environment_t environ_cb;
@@ -86,7 +87,7 @@ void osMutexUnlock(void *obj) {
     LeaveCriticalSection((CRITICAL_SECTION*)obj);
 }
 
-int osGetTime() {
+int osGetTimeMS() {
     LARGE_INTEGER Freq, Count;
     QueryPerformanceFrequency(&Freq);
     QueryPerformanceCounter(&Count);
@@ -527,7 +528,14 @@ static void context_reset(void)
    rglgen_resolve_symbols(hw_render.get_proc_address);
 
    GAPI::updateFBO();
-   glBindFramebuffer(GL_FRAMEBUFFER, GAPI::defaultFBO);
+
+   // gl.h currently doesn't use glysm for win32
+#ifdef _WIN32
+   glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC)hw_get_proc_address("glBindFramebuffer");
+#endif
+
+   if (glBindFramebuffer)
+      glBindFramebuffer(GL_FRAMEBUFFER, GAPI::defaultFBO);
 
 #if defined(__linux__)
    timeval t;
@@ -562,6 +570,8 @@ static bool retro_init_hw_context(void)
    if (!environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render))
       return false;
 
+   hw_get_proc_address = hw_render.get_proc_address;
+
    return true;
 }
 #else
@@ -582,6 +592,8 @@ static bool retro_init_hw_context(void)
 
    if (!environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render))
       return false;
+
+   hw_get_proc_address = hw_render.get_proc_address;
 
    return true;
 }
@@ -739,3 +751,10 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code)
    (void)enabled;
    (void)code;
 }
+
+#if defined(_WIN32) || defined(ANDROID)
+void osToggleVR(bool enable)
+{
+   // Not supported
+}
+#endif

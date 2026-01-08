@@ -15,6 +15,10 @@ ifeq ($(platform),)
 	else ifneq ($(findstring win,$(shell uname -a)),)
 		platform = win
 	endif
+   # cross compilation to windows from unix
+   ifneq (,$(findstring mingw,$(CC)))
+      platform = win
+   endif
 endif
 
 # system platform
@@ -140,12 +144,13 @@ endif
 else ifeq ($(platform), emscripten)
 	TARGET := $(TARGET_NAME)_libretro_emscripten.bc
 else
+# windows
    CC ?= gcc
    TARGET := $(TARGET_NAME)_libretro.dll
    SHARED := -shared -static-libgcc -static-libstdc++ -Wl,--version-script=link.T -lwinmm -Wl,--no-undefined
    GL_LIB := -lopengl32
-   CXXFLAGS += -I..
-   CFLAGS += -I..
+   CXXFLAGS += -I.. -DWIN32
+   CFLAGS += -I.. -DWIN32
 endif
 
 # webOS
