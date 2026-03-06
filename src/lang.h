@@ -291,13 +291,14 @@ enum StringID {
 
 #define STR_SCALE "25", "50", "75", "100"
 
-const char *helpText = 
+static char helpText[1024];
+const char *helpTextFormat =
     "Start - add second player or restore Lara@"
     "H - Show or hide this help@"
     "ALT and ENTER - Fullscreen@"
     "5 - Save Game@"
     "9 - Load Game@"
-    "C - Look@"
+    "%s - Look@"
     "R - Slow motion@"
     "T - Fast motion@"
     "Roll - Up & Down@"
@@ -310,6 +311,20 @@ const char *helpText =
     "DOZY on - Look & Duck & Action & Jump@"
     "DOZY off - Walk@"
     "Free Camera - hold L & R stick";
+inline const char* getKeyName(InputKey key) {
+    static const char* keyNames[] = {
+        STR_KEYS  
+    };
+    if ((int)key >= 0 && (int)key < COUNT(keyNames))
+        return keyNames[(int)key];
+    return "UNKNOWN";
+}
+
+inline void updateHelpText() {
+    InputKey lookKey = (InputKey)Core::settings.controls[0].keys[cLook].key;
+    const char* keyName = getKeyName(lookKey);
+    sprintf(helpText, helpTextFormat, keyName);
+}
 
 #include "lang/en.h"
 #include "lang/fr.h"

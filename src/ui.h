@@ -541,6 +541,7 @@ namespace UI {
 
     void init(IGame *game) {
         ensureLanguage(Core::settings.audio.language);
+        updateHelpText();
         UI::game = game;
         showHelp = false;
         helpTipTime = 5.0f;
@@ -635,6 +636,7 @@ namespace UI {
         if (Input::down[ikH]) {
             Input::down[ikH] = false;
             showHelp = !showHelp;
+            updateHelpText();
             helpTipTime = 0.0f;
         }
         if (helpTipTime > 0.0f)
@@ -726,7 +728,7 @@ namespace UI {
 
     #if defined(_OS_WEB) || defined(_OS_WIN) || defined(_OS_LINUX) || defined(_OS_MAC) || defined(_OS_RPI)
         if (showHelp) {
-            textOut(vec2(32, 32), STR_HELP_TEXT, aLeft, width - 32, 255, UI::SHADE_GRAY);
+            textOut(vec2(32, 32), helpText, aLeft, width - 32, 255, UI::SHADE_GRAY);
         } else {
             if (helpTipTime > 0.0f) {
                 textOut(vec2(0, height - 16), STR_HELP_PRESS, aCenter, width, 255, UI::SHADE_ORANGE);
