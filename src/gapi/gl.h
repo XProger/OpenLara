@@ -737,12 +737,21 @@ namespace GAPI {
                 return false;
 
             Stream *stream = new Stream(path);
-            if (!stream)
+
+            if (!stream || stream->size <= 0) {
+                delete stream;
                 return false;
+            }
 
             GLenum size, format;
             stream->read(format);
             stream->read(size);
+
+            if (size == 0 || size > (GLenum)stream->size) {
+                delete stream;
+                return false;
+            }
+
             char *data = new char[size];
             stream->raw(data, size);
             glProgramBinary(ID, format, data, size);
