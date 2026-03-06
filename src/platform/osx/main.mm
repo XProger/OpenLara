@@ -38,7 +38,7 @@ void sndInit() {
     AudioStreamBasicDescription deviceFormat;
     deviceFormat.mSampleRate        = 44100;
     deviceFormat.mFormatID          = kAudioFormatLinearPCM;
-    deviceFormat.mFormatFlags       = kLinearPCMFormatFlagIsSignedInteger;
+    deviceFormat.mFormatFlags       = kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked;
     deviceFormat.mBytesPerPacket    = 4;
     deviceFormat.mFramesPerPacket   = 1;
     deviceFormat.mBytesPerFrame     = 4;
@@ -400,17 +400,10 @@ NSWindow *window;
 }
 
 - (void)reshape {
-    CGSize drawableSize = self.bounds.size;
-    
-    if (enableRetina)
-    {
-        NSScreen* screen = self.window.screen ?: [NSScreen mainScreen];
-        drawableSize.width *= screen.backingScaleFactor;
-        drawableSize.height *= screen.backingScaleFactor;
-    }
-    
-    Core::width  = drawableSize.width;
-    Core::height = drawableSize.height;
+    NSRect backingRect = [self convertRectToBacking:self.bounds];
+
+    Core::width  = backingRect.size.width;
+    Core::height = backingRect.size.height;
 }
 
 - (void)prepareOpenGL {
@@ -484,23 +477,42 @@ int main() {
         appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleExecutable"];
         supportPath = [[paths objectAtIndex:0] stringByAppendingPathComponent:appName];
         
-        if ( ![[NSFileManager defaultManager] fileExistsAtPath:supportPath] )
-            if ( ![[NSFileManager defaultManager] createDirectoryAtPath:supportPath attributes:nil] )
+        if ( ![[NSFileManager defaultManager] fileExistsAtPath:supportPath] ) {
+            NSError *error = nil;
+            if ( ![[NSFileManager defaultManager] createDirectoryAtPath:supportPath withIntermediateDirectories:YES attributes:nil error:&error] ) {
+                NSLog(@"Failed to create support directory: %@", error);
                 supportPath = nil;
+            }
+        }
     }
     
     cacheDir[0] = saveDir[0] = contentDir[0] = 0;
-    
+
     NSApplication *application = [NSApplication sharedApplication];
-    
+    [application setActivationPolicy:NSApplicationActivationPolicyRegular];
+
+    // init menu
+    NSMenu *menuBar = [NSMenu new];
+    NSMenuItem *appMenuItem = [NSMenuItem new];
+    [menuBar addItem:appMenuItem];
+    [NSApp setMainMenu:menuBar];
+
+    NSMenu *appMenu = [NSMenu new];
+    NSString *quitTitle = [@"Quit " stringByAppendingString:appName];
+    NSMenuItem *quitMenuItem = [[NSMenuItem alloc] initWithTitle:quitTitle action:@selector(terminate:) keyEquivalent:@"q"];
+    [appMenu addItem:quitMenuItem];
+    [appMenuItem setSubmenu:appMenu];
+
     // init window
     NSRect rect = NSMakeRect(0, 0, 1280, 720);
     window = [[NSWindow alloc] initWithContentRect:rect styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask backing:NSBackingStoreBuffered defer:YES];
     window.title = @"OpenLara";
     window.acceptsMouseMovedEvents = YES;
     window.delegate = [[OpenLaraWindowDelegate alloc] init];
-    
-    
+
+    Core::width = rect.size.width;
+    Core::height = rect.size.height;
+
     // init OpenGL context
     NSOpenGLPixelFormatAttribute attribs[] = {
         NSOpenGLPFANoRecovery,
@@ -523,9 +535,11 @@ int main() {
     [view setWantsBestResolutionOpenGLSurface:enableRetina];
     
     // get path to game content
-    NSBundle *bundle   = [NSBundle mainBundle];
-    NSURL *resourceURL = bundle.resourceURL;
-    [resourceURL getFileSystemRepresentation:contentDir maxLength:sizeof(contentDir)];
+    // Use the directory containing the .app bundle so that game data folders
+    // (level/, audio/, DATA/, etc.) placed next to the app are found correctly.
+    NSBundle *bundle    = [NSBundle mainBundle];
+    NSURL *parentURL    = bundle.bundleURL.URLByDeletingLastPathComponent;
+    [parentURL getFileSystemRepresentation:contentDir maxLength:sizeof(contentDir)];
     strcat(contentDir, "/");
     
     [supportPath getCString:saveDir maxLength:sizeof(saveDir) encoding:NSUTF8StringEncoding];
@@ -536,6 +550,8 @@ int main() {
     // show window
     [window center];
     [window makeKeyAndOrderFront:nil];
+    [window makeFirstResponder:view];
+    [application activateIgnoringOtherApps:YES];
 
     joyInit();
     sndInit();
