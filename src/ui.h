@@ -107,7 +107,7 @@ namespace UI {
         UI::advGlyphsStart = level.spriteTexturesCount;
 
     // init new sprites array with additional sprites
-        TR::TextureInfo *newSprites = new TR::TextureInfo[level.spriteTexturesCount + RU_GLYPH_COUNT + JA_GLYPH_COUNT + GR_GLYPH_COUNT + CN_GLYPH_COUNT];
+        TR::TextureInfo *newSprites = new TR::TextureInfo[level.spriteTexturesCount + RU_GLYPH_COUNT + JA_GLYPH_COUNT + GR_GLYPH_COUNT + CN_GLYPH_COUNT + KO_GLYPH_COUNT];
 
     // copy original sprites
         memcpy(newSprites, level.spriteTextures, sizeof(TR::TextureInfo) * level.spriteTexturesCount);
@@ -140,7 +140,12 @@ namespace UI {
             *glyphSprite++ = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16, 16, 0, (i % 16) * 16, ((i % 256) / 16) * 16, 16, 16);
         }
 
-        level.spriteTexturesCount += RU_GLYPH_COUNT + JA_GLYPH_COUNT + GR_GLYPH_COUNT + CN_GLYPH_COUNT;
+    // append korean glyphs
+        for (int i = 0; i < KO_GLYPH_COUNT; i++) {
+            *glyphSprite++ = TR::TextureInfo(TR::TEX_TYPE_SPRITE, 0, -16, 16, 0, (i % 16) * 16, ((i % 256) / 16) * 16, 16, 16);
+        }
+ 
+        level.spriteTexturesCount += RU_GLYPH_COUNT + JA_GLYPH_COUNT + GR_GLYPH_COUNT + CN_GLYPH_COUNT + KO_GLYPH_COUNT;
 
         delete[] level.spriteTextures;
         TR::gSpriteTextures      = level.spriteTextures = newSprites;
@@ -149,7 +154,7 @@ namespace UI {
 
     bool isWideCharStart(char c) {
         int lang = Core::settings.audio.language + STR_LANG_EN;
-        if (lang == STR_LANG_JA || lang == STR_LANG_GR || lang == STR_LANG_CN)
+        if (lang == STR_LANG_JA || lang == STR_LANG_GR || lang == STR_LANG_CN || lang == STR_LANG_KO)
             return c == '\x11';
         return false;
     }
@@ -178,6 +183,10 @@ namespace UI {
             ASSERT(glyph < CN_GLYPH_COUNT);
             return 16;
         }
+        if (lang == STR_LANG_KO) {
+            ASSERT(glyph < KO_GLYPH_COUNT);
+            return 16;
+        }
         return 1;
     }
 
@@ -187,6 +196,7 @@ namespace UI {
         if (lang == STR_LANG_JA) return glyph; glyph += JA_GLYPH_COUNT;
         if (lang == STR_LANG_GR) return glyph; glyph += GR_GLYPH_COUNT;
         if (lang == STR_LANG_CN) return glyph; glyph += CN_GLYPH_COUNT;
+        if (lang == STR_LANG_KO) return glyph; glyph += KO_GLYPH_COUNT;
         ASSERT(false);
         return glyph;
     }
