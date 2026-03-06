@@ -40,6 +40,7 @@ enum StringID {
     , STR_LANG_CN
     , STR_LANG_HU
     , STR_LANG_SV
+    , STR_LANG_KO	// for Korean support
     , STR_APPLY
     , STR_GAMEPAD_1
     , STR_GAMEPAD_2
@@ -275,9 +276,10 @@ enum StringID {
     , "{Cesky"        \
     , "\x11\x02\x8A\x02\x6C\x01\x54\x03\x02\xFF\xFF" \
     , "Magyar" \
-    , "Svenska"
+    , "Svenska" \
+    , "Korean"
 
-#define LANG_PREFIXES "_EN", "_FR", "_DE", "_ES", "_IT", "_PL", "_PT", "_RU", "_JA", "_GR", "_FI", "_CZ", "_CN", "_HU", "_SV"
+#define LANG_PREFIXES "_EN", "_FR", "_DE", "_ES", "_IT", "_PL", "_PT", "_RU", "_JA", "_GR", "_FI", "_CZ", "_CN", "_HU", "_SV", "_KO"
 
 #define STR_KEYS \
       "NONE", "LEFT", "RIGHT", "UP", "DOWN", "SPACE", "TAB", "ENTER", "ESCAPE", "SHIFT", "CTRL", "ALT" \
@@ -326,6 +328,7 @@ const char *helpText =
 #include "lang/cn.h"
 #include "lang/hu.h"
 #include "lang/sv.h"
+#include "lang/ko.h"
 
 char **STR = NULL;
 
@@ -345,6 +348,7 @@ void ensureLanguage(int lang) {
     ASSERT(COUNT(STR_CN) == STR_MAX);
     ASSERT(COUNT(STR_HU) == STR_MAX);
     ASSERT(COUNT(STR_SV) == STR_MAX);
+    ASSERT(COUNT(STR_KO) == STR_MAX);
 
     lang += STR_LANG_EN;
 
@@ -363,6 +367,7 @@ void ensureLanguage(int lang) {
         case STR_LANG_CN : STR = (char**)STR_CN; break;
         case STR_LANG_HU : STR = (char**)STR_HU; break;
         case STR_LANG_SV : STR = (char**)STR_SV; break;
+        case STR_LANG_KO : STR = (char**)STR_KO; break;
         default          : STR = (char**)STR_EN; break;
     }
 }

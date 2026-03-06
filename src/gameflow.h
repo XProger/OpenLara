@@ -1264,7 +1264,7 @@ namespace TR {
     bool checkWebDub(Version version, int track) {
         if (getSubs(version, track) != STR_EMPTY) {
             int lang = Core::settings.audio.language + STR_LANG_EN;
-            return lang == STR_LANG_EN || lang == STR_LANG_DE || lang == STR_LANG_FR || lang == STR_LANG_RU || lang == STR_LANG_JA;
+            return lang == STR_LANG_EN || lang == STR_LANG_DE || lang == STR_LANG_FR || lang == STR_LANG_RU || lang == STR_LANG_JA || lang == STR_LANG_KO;
         }
         return false;
     }
@@ -1745,7 +1745,7 @@ namespace TR {
             case LVL_TR1_5 :
                 params.skyDownColor    = vec4(0.15f, 0.05f, 0.0f, 1.0f);
                 params.skyUpColor      = vec4(0.3f, 0.2f, 0.1f, 1.0f);
-                params.sunDirSize      = vec4(vec3(-1.0f, 0.8f, -1.0f).normal(), 0.0015f);
+                params.sunDirSize      = vec4(vec3(1.0f, 0.95f, -1.0f).normal(), 0.0015f);  // changed sun direction..
                 params.sunColorGlare   = vec4(0.7f, 0.7f, 0.6f, 256.0f);
                 params.cloudDownColor  = vec4(0.2f, 0.1f, 0.0f, 1.0f);
                 params.cloudUpColor    = vec4(0.5f, 0.5f, 0.4f, 1.0f);

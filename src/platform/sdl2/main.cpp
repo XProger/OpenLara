@@ -80,8 +80,8 @@ void sndFree() {
 
 #define MAX_JOYS 4
 #define JOY_DEAD_ZONE_STICK      8192
-#define WIN_W 640
-#define WIN_H 480
+#define WIN_W 1280
+#define WIN_H 720
 
 struct sdl_input *sdl_inputs;
 int sdl_numjoysticks, sdl_numcontrollers;
