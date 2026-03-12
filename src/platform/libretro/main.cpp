@@ -668,7 +668,9 @@ bool retro_load_game(const struct retro_game_info *info)
    path_parent_dir(contentDir, strlen(contentDir));
    fill_pathname_parent_dir_name(basedir, contentDir, sizeof(basedir));
 
-   if (strcmp(basedir, "level") == 0 || strstr(contentDir, "/level") != NULL)
+   if (strcmp(basedir, "level") == 0
+    || strstr(contentDir, "/level") != NULL
+    || strstr(contentDir, "\\level") != NULL)
    {
       // level/X/
       path_parent_dir(contentDir, strlen(contentDir));
@@ -678,6 +680,12 @@ bool retro_load_game(const struct retro_game_info *info)
 
    // make levelpath contain a path relative to contentDir
    strcpy(levelpath, (info->path+strlen(contentDir)));
+
+#ifdef _WIN32
+   /* Normalize backslashes to forward slashes for OpenLara's path handling */
+   for (char *p = levelpath; *p; p++)
+      if (*p == '\\') *p = '/';
+#endif
 
    fprintf(stderr, "[openlara]: levelpath: %s\n", levelpath);
 
