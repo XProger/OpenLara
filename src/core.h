@@ -33,7 +33,7 @@
     #endif
 
     #undef OS_PTHREAD_MT
-#elif WIN32
+#elif defined(_WIN32)
     #define _OS_WIN      1
     #define _GAPI_GL     1
     //#define _GAPI_D3D9   1
@@ -53,7 +53,7 @@
 
     #define INV_VIBRATION
     #define INV_QUALITY
-#elif ANDROID
+#elif defined(ANDROID)
     #define _OS_ANDROID 1
     #define _GAPI_GL    1
     #define _GAPI_GLES  1
