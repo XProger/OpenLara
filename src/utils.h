@@ -108,11 +108,15 @@
 typedef signed char        int8;
 typedef signed short       int16;
 typedef signed int         int32;
+#ifndef __HAIKU__
 typedef signed long long   int64;
+#endif
 typedef unsigned char      uint8;
 typedef unsigned short     uint16;
 typedef unsigned int       uint32;
+#ifndef __HAIKU__
 typedef unsigned long long uint64;
+#endif
 
 #define FOURCC(str)        uint32( ((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) | (((uint8*)(str))[2] << 16) | (((uint8*)(str))[3] << 24) )
 #define TWOCC(str)         uint32( ((uint8*)(str))[0] | (((uint8*)(str))[1] << 8) )

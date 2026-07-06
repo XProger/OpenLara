@@ -132,7 +132,8 @@
         #include <SDL2/SDL_opengl.h>
         #include <SDL2/SDL_opengl_glext.h>
     #endif
-
+#elif __HAIKU__
+	#include <GL/gl.h>
 #elif defined(_OS_PSC)
     #include <GLES3/gl3.h>
     #include <GLES2/gl2ext.h>
@@ -398,17 +399,19 @@
         PFNGLBUFFERSUBDATAARBPROC           glBufferSubData;
     #endif
 
-// Vertex Arrays
-    PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
-    PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
-    PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
-// Binary shaders
-    PFNGLGETPROGRAMBINARYPROC           glGetProgramBinary;
-    PFNGLPROGRAMBINARYPROC              glProgramBinary;
+	#ifndef __HAIKU__
+	// Vertex Arrays
+	    PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
+	    PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
+	    PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
+	// Binary shaders
+	    PFNGLGETPROGRAMBINARYPROC           glGetProgramBinary;
+	    PFNGLPROGRAMBINARYPROC              glProgramBinary;
 
-    #if defined(_GAPI_GLES)
-        PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
-    #endif 
+	    #if defined(_GAPI_GLES)
+	        PFNGLDISCARDFRAMEBUFFEREXTPROC      glDiscardFramebufferEXT;
+	    #endif
+	#endif
 #endif
 
 #ifdef PROFILE
