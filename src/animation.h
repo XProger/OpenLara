@@ -22,9 +22,9 @@ struct Animation {
     quat            *overrides;   // left & right arms animation frames
     int             overrideMask;
 
-    Animation() : overrides(NULL) {}
+    Animation() : level(NULL), model(NULL), anims(NULL), frameA(NULL), frameB(NULL), overrides(NULL) {}
 
-    Animation(TR::Level *level, const TR::Model *model, bool smooth = true) : level(level), model(NULL), smooth(smooth), overrides(NULL), overrideMask(0) {
+    Animation(TR::Level *level, const TR::Model *model, bool smooth = true) : level(level), model(NULL), anims(NULL), frameA(NULL), frameB(NULL), smooth(smooth), overrides(NULL), overrideMask(0) {
         setModel(model);
     }
 
