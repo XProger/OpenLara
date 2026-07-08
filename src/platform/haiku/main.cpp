@@ -31,7 +31,7 @@ int osGetTimeMS() {
 
 void sndFill(void *cookie, void *buffer, size_t size, const media_raw_audio_format &format) {
     Sound::fill(sndData, SND_FRAMES);
-    memcpy(buffer, sndData, SND_FRAMES * SND_FRAME_SIZE);
+    memcpy(buffer, sndData, size);
 }
 
 void sndInit() {
@@ -43,7 +43,7 @@ void sndInit() {
 
     sndPlayer = new BSoundPlayer(&sndFormat, "sndPlayer", sndFill, NULL, NULL);
 
-    sndData = new Sound::Frame[SND_FRAMES * SND_FRAME_SIZE];
+    sndData = new Sound::Frame[SND_FRAMES];
 
     sndPlayer->Start();
     sndPlayer->SetHasData(true);
@@ -52,6 +52,7 @@ void sndInit() {
 void sndFree() {
     sndPlayer->Stop();
     delete sndPlayer;
+    delete[] sndData;
 }
 
 void osJoyVibrate(int index, float L, float R) {
@@ -68,12 +69,6 @@ InputKey codeToInputKey(const char* code) {
         case B_TAB                   : return ikTab;
         case B_RETURN                : return ikEnter;
         case B_ESCAPE                : return ikEscape;
-        //case B_LEFT_SHIFT_KEY        :
-        //case B_RIGHT_SHIFT_KEY       : return ikShift;
-        //case B_LEFT_CONTROL_KEY      :
-        //case B_RIGHT_CONTROL_KEY     : return ikCtrl;
-        //case B_LEFT_COMMAND_KEY      :
-        //case B_RIGHT_COMMAND_KEY     : return ikAlt;
         case '0'          : return ik0;
         case '1'          : return ik1;
         case '2'          : return ik2;
@@ -110,7 +105,6 @@ InputKey codeToInputKey(const char* code) {
         case 'x'          : return ikX;
         case 'y'          : return ikY;
         case 'z'          : return ikZ;
-        //case SDL_SCANCODE_AC_HOME    : return ikEscape;
     }
 
     return ikNone;
@@ -145,17 +139,17 @@ int main() {
 
     dev_t bootVolume = dev_for_path("/boot");
 
-    if (find_directory(B_USER_CACHE_DIRECTORY, bootVolume, false, cacheDir, 255) != B_OK) {
+    if (find_directory(B_USER_CACHE_DIRECTORY, bootVolume, false, cacheDir, 244) != B_OK) {
         fputs("Cannot get B_USER_CACHE_DIRECTORY\n", stderr);
         return 1;
     }
 
-    if (find_directory(B_USER_SETTINGS_DIRECTORY, bootVolume, false, saveDir, 255) != B_OK) {
+    if (find_directory(B_USER_SETTINGS_DIRECTORY, bootVolume, false, saveDir, 244) != B_OK) {
         fputs("Cannot get B_USER_SETTINGS_DIRECTORY\n", stderr);
         return 1;
     }
 
-    if (find_directory(B_USER_NONPACKAGED_DATA_DIRECTORY, bootVolume, false, contentDir, 255) != B_OK) {
+    if (find_directory(B_USER_NONPACKAGED_DATA_DIRECTORY, bootVolume, false, contentDir, 244) != B_OK) {
         fputs("Cannot get B_USER_NONPACKAGED_DATA_DIRECTORY\n", stderr);
         return 1;
     }

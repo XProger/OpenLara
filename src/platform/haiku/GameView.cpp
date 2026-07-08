@@ -117,6 +117,7 @@ GameView::_GameRenderLoop()
 		UnlockGL();
 	}
 
+	LockGL();
 	Game::deinit();
 	UnlockGL();
 }
