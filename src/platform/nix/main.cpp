@@ -330,6 +330,10 @@ void addDir(char* path)
 {
     char* fileName;
     struct dirent* e;
+    struct stat s;
+    char origPath[1024];
+
+    strcpy(origPath, path);
     DIR* dir = opendir(path);
 
     int32 pathLen = strlen(path);
@@ -337,7 +341,25 @@ void addDir(char* path)
 
     while ((e = readdir(dir)))
     {
+        bool isDir = false;
         if (e->d_type == DT_DIR)
+        {
+            isDir = true;
+        }
+        else if (e->d_type == DT_LNK)
+        {
+            char filepath[1024];
+            snprintf(filepath, 1024, "%s/%s", origPath, e->d_name);
+            if (stat(filepath, &s) == 0)
+            {
+                if (S_ISDIR(s.st_mode))
+                {
+                    isDir = true;
+                }
+            }
+        }
+
+        if (isDir)
         {
             if (e->d_name[0] != '.')
             {
