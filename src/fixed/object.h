@@ -263,7 +263,7 @@ struct Door : Object
 
     virtual void collide(Lara* lara, CollisionInfo* cinfo)
     {
-        // TODO door collision
+        collideDefault(lara, cinfo);
     }
 
     void action(bool close)
