@@ -159,6 +159,30 @@
         MARS_CMD_CLEAR,
         MARS_CMD_FLUSH
     };
+#elif defined(__SNES__)
+// Super NES with the Super FX (GSU) co-processor.
+//
+// Unlike every other target here, this one does not compile this engine.
+// The available 65816 compiler accepts C, not C++; the GSU uses hand written
+// assembly. The port in src/platform/snes therefore translates the game
+// logic to C, using the GBA port as its algorithmic reference.
+//
+// This block exists so the host side tooling -- the level packer above all --
+// can be built with the SNES geometry and data format selected. Defining
+// __SNES__ for the engine sources themselves will not produce a binary.
+    #define USE_DIV_TABLE
+    #define ROM_READ
+    #define ALIGNED_LIGHTMAP
+
+    #define MODE4               // 8bpp-style paletted frame buffer semantics
+    #define FRAME_WIDTH  256
+    #define FRAME_HEIGHT 160    // the GSU's 160-dot bitmap mode
+
+// The GSU plots 4bpp characters, so the frame buffer holds 16 colours, not
+// the 256 the other paletted targets get. The packer has to quantise to that.
+    #define SNES_COLORS  16
+
+    #define USE_FMT     (LVL_FMT_PKD)
 #else
     #error unsupported platform
 #endif
@@ -227,6 +251,20 @@
 // visibility distance
     #define VIEW_DIST (10 << 10)
 // skip collideSpheres for enemies
+    #define FAST_HITMASK
+#endif
+
+#ifdef __SNES__
+// The GSU runs at 21.4 MHz but loses the whole of V-Blank to the frame buffer
+// upload, and a 20 KB buffer needs four of them, so the budget per displayed
+// frame is tighter than the GBA's. Start from the GBA's cuts and go further.
+    #define HIDE_CORPSES (30*10) // 10 sec
+    #define LOD_TRAP_FLOOR
+    #define NO_STATIC_MESH_PLANTS
+    #define NAV_STEPS 1
+    #define MAX_ENEMIES 2
+    #define SND_CHANNELS 4
+    #define VIEW_DIST (8 << 10)
     #define FAST_HITMASK
 #endif
 

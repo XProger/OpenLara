@@ -1,0 +1,15 @@
+build/
+build_*/
+build_l2
+__pycache__/
+*.pyc
+
+# Generated output from local builds and validation runs.
+*.log
+/SHADING=*/
+.pytest_cache/
+node_modules/
+*.sfc
+*.smc
+*.srm
+*.sav

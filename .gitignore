@@ -1,0 +1,8 @@
+# Local game data is supplied separately and must not be committed.
+/tomb_raider_dos/
+
+# macOS metadata and local environment files.
+.DS_Store
+.env
+.env.*
+!.env.example
