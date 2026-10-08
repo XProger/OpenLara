@@ -5,14 +5,21 @@
 #include <string.h>
 #include <math.h>
 #include <algorithm>
-#include <windows.h>
+
+#if defined(_WIN32)
+    #include <windows.h>
+    #define DEBUG_BREAK() DebugBreak()
+#else
+    #include <stdlib.h>
+    #define DEBUG_BREAK() abort()
+#endif
 
 #include "libimagequant.h"
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "stb_image_resize.h"
 
-#define ASSERT(x) { if (!(x)) { DebugBreak(); } }
+#define ASSERT(x) { if (!(x)) { DEBUG_BREAK(); } }
 
 typedef signed char        int8;
 typedef signed short       int16;
@@ -566,6 +573,7 @@ struct vec3i
     int32 x, y, z;
 };
 
+#if defined(_WIN32)
 void launchApp(const char* cmdline)
 {
     STARTUPINFOA si;
@@ -593,6 +601,7 @@ void launchApp(const char* cmdline)
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 }
+#endif
 
 struct _BITMAPFILEHEADER {
     uint32  bfSize;
