@@ -6,8 +6,9 @@ handle gameplay, collision, input and the display pipeline.
 
 The primary target is **FX3**, with **Caves (`LEVEL1`) and City of Vilcabamba
 (`LEVEL2`)** on one 4 MiB cartridge. The goal is to match the GBA alpha's
-first two levels. The port is playable in the development emulator, but
-parity work and physical FX3 hardware qualification are still in progress.
+first two levels. The FX3 port runs in **SUPERZSNES (tested with v0.310b)**
+and the TypeSNES development emulator. Parity work and physical FX3 hardware
+qualification are still in progress.
 
 FX3 uses the [FX3 cartridge specification](https://github.com/LimitedRunGames-Tech/snes-fx3/blob/main/docs/FX3.pdf).
 It requires explicit cartridge or emulator support; the FX3 build is not a
@@ -16,15 +17,16 @@ included.
 
 ## Screenshots
 
-Captured directly from the two-level FX3 build in TypeSNES, with the FPS
-overlay disabled. Images retain the native 256 × 224 display output; the
-FX3 game viewport is 216 × 144.
+Captured directly from the two-level FX3 build. The title screen is from
+TypeSNES; the gameplay and inventory images are from **SUPERZSNES v0.310b**,
+with the in-game FPS overlay visible. Images retain the native 256 × 224
+display output; the FX3 game viewport is 216 × 144.
 
 | Title screen | Caves |
 | --- | --- |
-| ![Tomb Raider title screen with the passport menu](docs/screenshots/title.png) | ![Lara at the snowy entrance to Caves](docs/screenshots/caves.png) |
+| ![Tomb Raider title screen with the passport menu in TypeSNES](docs/screenshots/title.png) | ![Lara exploring a snowy passage in Caves in SUPERZSNES](docs/screenshots/superzsnes-caves.png) |
 | **Inventory** | **City of Vilcabamba** |
-| ![Inventory ring and compass over the paused game](docs/screenshots/inventory.png) | ![Gameplay in City of Vilcabamba](docs/screenshots/vilcabamba.png) |
+| ![Inventory ring and compass over the paused game in SUPERZSNES](docs/screenshots/superzsnes-inventory.png) | ![Lara in a stone corridor in City of Vilcabamba in SUPERZSNES](docs/screenshots/superzsnes-vilcabamba.png) |
 
 ## What is included
 
@@ -136,6 +138,13 @@ memory. FX3 host data is banked separately from the renderer's data. See
 [HOST_TABLES.md](HOST_TABLES.md) for that format and its memory layout.
 
 ## Validation
+
+Interactive smoke tests in **SUPERZSNES v0.310b** covered FX3 boot, loading
+both levels, movement, jumping, weapon controls, inventory, passport
+save/load and emulator save-state restoration. Wolf attacks and health loss
+were also observed in Vilcabamba, with visible slowdown during the encounter.
+These checks do not cover audio or complete level playthroughs. The automated
+whole-machine suite uses TypeSNES as described below.
 
 The Python tool tests run without original game data:
 
