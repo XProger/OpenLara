@@ -1,5 +1,7 @@
 # TODO — GBA parity and the SNES release
 
+Implementation references below point to the [development notes](docs/DEVELOPMENT.md).
+
 The GBA target is the specification (`src/fixed`, `src/platform/gba`). The
 current release scope is its first two levels, with the same rules,
 creatures, objects, sound, inventory and save behavior. The longer backlog
@@ -354,11 +356,11 @@ separately below; do not make its feature work wait for GSU-2 WRAM packing.
 
 | budget | where it stands | what says so |
 |---|---|---|
-| ROM | 2 MB is a GSU-2's whole address space; LEVEL1 alone is 1.13 MB at 8bpp | `mkbanks.py`, README "The 2 MB wall" |
-| host level blob | LEVEL1: 61,490 of 65,534 bytes; LEVEL2: 62,405. Including the room directory in the source ROM bank leaves **2,826 / 119 bytes**, the tighter limit. Exact navigation IDs add 2,300/2,109 bytes; further tables need compression or revised staging. A LEVEL1 per-sector byte costs 4,026, a per-link byte 587, a per-item byte 60 | `out_SNES.h` hostBytes/source-bank check, `mkbanks.py`, README "Entities on the host" |
+| ROM | 2 MB is a GSU-2's whole address space; LEVEL1 alone is 1.13 MB at 8bpp | `mkbanks.py`, development notes "The 2 MB wall" |
+| host level blob | LEVEL1: 61,490 of 65,534 bytes; LEVEL2: 62,405. Including the room directory in the source ROM bank leaves **2,826 / 119 bytes**, the tighter limit. Exact navigation IDs add 2,300/2,109 bytes; further tables need compression or revised staging. A LEVEL1 per-sector byte costs 4,026, a per-link byte 587, a per-item byte 60 | `out_SNES.h` hostBytes/source-bank check, `mkbanks.py`, development notes "Entities on the host" |
 | resident C/native | 96 KB in three banks plus 15.5 KB in two regions in `$7E`: **6,030 bytes free** in the final native GSU-2 build (2,165 / 320 / 2,282 / 1,199 / 64). General `.bss` has **252 bytes** free, host assembly **162**. The earlier 2026-09-24 camera build had only 618 resident bytes free; native creature/navigation/product paths recover room without moving code/data/stack boundaries. Cold `olLevelInit` and `gameInit` still execute from ROM before gameplay. | `make` prints `tools/budget.py` after every link, and fails it when a unit in either small region is placed outside it |
 | the tick | 63.6 K cycles running (1.07 fields) after the interaction slice, against 63.3 K before it; the object loop is skipped without Action held (it was 4.7 K a tick walking the usable list through far pointers, and the ten-second boot sample ended with one tick in flight at 28.9 measured Hz). The harness now judges the discrete count with that one endpoint tick allowed with bounded cumulative drift after startup and no dropped ticks. The budget is 1.5 fields, not 2: the host wants the rest, and the clock slipped at 81 K. The water tick itself is unprofiled: the profile scene is LEVEL1's | `OL_PROFILE=walk make check TESTS=profile` |
-| the frame | the unlit 256×160 4bpp frame is the default after the eleventh pass: 4.55 M modelled for the opening view (4.70 fps) after pistol mesh swaps, 2.76 M behind her at the start (7.76 fps), and 9.40 M for the six-room, eighteen-item room-14 view (2.28 fps). `MODE7=1` remains the unlit speed option at 3.24 M in the opening view. The other view timings predate pistol mesh swaps. These estimates exclude host waits and upload time. Recorded in `frame.4bpp.unlit.baseline` and held by `make check` | `make sim`, `make baseline`, README "Frame format and why it is 256×160" |
+| the frame | the unlit 256×160 4bpp frame is the default after the eleventh pass: 4.55 M modelled for the opening view (4.70 fps) after pistol mesh swaps, 2.76 M behind her at the start (7.76 fps), and 9.40 M for the six-room, eighteen-item room-14 view (2.28 fps). `MODE7=1` remains the unlit speed option at 3.24 M in the opening view. The other view timings predate pistol mesh swaps. These estimates exclude host waits and upload time. Recorded in `frame.4bpp.unlit.baseline` and held by `make check` | `make sim`, `make baseline`, development notes "Frame format and why it is 256×160" |
 
 ### FX3 memory policy
 
@@ -453,14 +455,14 @@ interpreter; the profile decides what to touch.
       drops faces wholly behind the near plane (402 of 1,116) and culls
       back-facing ones from the transformed vertices (312 of 714) before
       anything is copied: 13.1 M, 62% -> 77% of fetches from cache, the
-      same picture. README "The instruction cache", third pass.
+      same picture. development notes "The instruction cache", third pass.
 - [x] **Precompute the edges.** VertexLinks are 32 bytes and carry the
       edge out of each vertex; `EdgePrepBatch` fills them under a third
       window once per batch; `EA_Left`/`EA_Right` copy records. 13.1 M ->
       11.9 M. Then the strip clip in `EA_Strip` replaced `ScanClip` and
       found the truncation bug (faces crossing the top of the screen lost
       their lower part): 11.8 M with the corrected picture, baseline
-      re-recorded. README "The instruction cache".
+      re-recorded. development notes "The instruction cache".
 - [x] **The fourth pass** (2026-09-03): the span setup on a reciprocal
       table in RAM with the multiplies inlined and the results in the
       loop's registers; `SpanBounds`, `EdgeAdvanceX` and `SpanFillT` fused
@@ -470,12 +472,12 @@ interpreter; the profile decides what to touch.
       a window over the matrix rows; then MULT for the link in the edge
       pass with `MulRecipE` inlined, and the edge steps on the loads the
       span setup makes. 11.8 M -> 8.7 M -> 7.7 M -> 7.4 M, byte for byte
-      the same picture on nine views. README "The instruction cache".
+      the same picture on nine views. development notes "The instruction cache".
 - [x] A window over the clipper, `CN_Edge` on a walking pointer, the
       left clip inline, the loop entry as a stored jump: what the side
       view the camera pass produced exposed. 10.3 M -> 8.8 M there,
       7.4 M -> 7.05 M behind her, both pictures byte-identical.
-- [x] **The sixth pass** (2026-09-04, late; README "The sixth pass"):
+- [x] **The sixth pass** (2026-09-04, late; development notes "The sixth pass"):
       counted before cutting. 285 of the opening view's 392 rasterized
       faces drew no pixel; half of `DrawFace`'s faces lay wholly off the
       clip rectangle. Per-vertex clip flags in the transformed-vertex
@@ -489,7 +491,7 @@ interpreter; the profile decides what to touch.
       but one, where seven pixels of garbage from wholly-above strips
       went away. `tools/gsusim.py` grew `--count`, `--faces`, `--facebox`
       and `--meshes` to find all of it.
-- [x] **The seventh pass** (2026-09-04; README "The seventh pass"):
+- [x] **The seventh pass** (2026-09-04; development notes "The seventh pass"):
       `--meshes` now installs its symbols and hooks alongside `--profile`,
       which showed rooms and statics owning most of the opening view's
       transformed vertices. Their
@@ -502,7 +504,7 @@ interpreter; the profile decides what to touch.
       edge take and cold corrupt-edge exit put all of `RFT_Advance` inside the
       cache window. 4.08 M -> 3.83 M opening, 2.75 M -> 2.54 M behind her,
       9.16 M -> 8.61 M in room 14; all eight comparison views byte-identical.
-- [x] **The eighth pass** (2026-09-04; README "The eighth pass"):
+- [x] **The eighth pass** (2026-09-04; development notes "The eighth pass"):
       face records carry absolute transformed-vertex addresses and the room/
       model transform choice is hoisted to separate cached loop entries.
       `DM_Vertex` keeps both output cursors, reject mask and top Y in registers;
@@ -513,7 +515,7 @@ interpreter; the profile decides what to touch.
       3.83 M -> 3.54 M opening, 2.54 M -> 2.35 M behind her, 8.61 M -> 7.99 M
       in room 14; all eight views and all three recorded build CRCs identical,
       with 13 active whole-machine tests passing.
-- [x] **The ninth pass** (2026-09-04; README "The ninth pass"):
+- [x] **The ninth pass** (2026-09-04; development notes "The ninth pass"):
       each model node carries a conservative origin-centred mesh sphere. Once
       its joint matrix is built, `SphereOriginVisible` projects the matrix's
       translation column directly and skips `TransformMesh`/`DrawMesh` when
@@ -526,7 +528,7 @@ interpreter; the profile decides what to touch.
       the unlit 256×160 renderer; its per-character shading looked too coarse
       to ship by default. `MODE7=1` keeps the 128×64 fast build and `SHADING=1`
       remains opt-in. Format-specific baselines and pose masks cover both paths.
-- [x] **The tenth pass** (2026-09-04; README "The tenth pass"):
+- [x] **The tenth pass** (2026-09-04; development notes "The tenth pass"):
       `OTBuild` records its per-face near flag in the free `$DA00-$DC3F`
       range, so ordinary `DrawFace` loops no longer copy camera-space triples
       into clip buffers. Near faces take a cold loader, near vertices skip the
@@ -544,7 +546,7 @@ interpreter; the profile decides what to touch.
       in all four layouts. The view checker now fails on mismatches and checks
       shade maps too. Half-turn interaction overflow and reversed block
       gravity were fixed with failing-then-passing whole-machine regressions.
-- [x] **The FX3 pipeline, not the renderer** (2026-10-06, README "Frame
+- [x] **The FX3 pipeline, not the renderer** (2026-10-06, development notes "Frame
       pipeline"): measured, the frame was 3 fields of render and 6 of
       upload in series. The upload now runs in both letterboxes under forced
       blank (V-timer IRQ at line 185 + the NMI), 2-3 fields, and the idle
@@ -607,7 +609,7 @@ interpreter; the profile decides what to touch.
       shading build's frame is the plain build's, byte for byte, on all
       ten views. The old ROM is `build_sh_old/` if anyone wants the why.
 - [ ] Reject vertex transforms against the room clip rectangle before
-      transforming (README roadmap 9).
+      transforming (development notes roadmap 9).
 - [ ] 4bpp texture pages: halves the 704 KB of texel pages and the fetch per
       texel is the same `GETB`; the inner loop gains a nibble select. This is
       also the only route to a second level in ROM (§12).
@@ -615,7 +617,7 @@ interpreter; the profile decides what to touch.
       rather than packer truncation, before any other level is packed.
 - [ ] Depth sort across rooms: one ordering table, or a documented reason
       the per-room buckets in traversal order are enough.
-- [x] **The Mode 7 frame** (2026-09-04, formerly the default; README "The Mode 7
+- [x] **The Mode 7 frame** (2026-09-04, formerly the default; development notes "The Mode 7
       frame"): 128x64 at a byte a pixel, `STB` for `PLOT`, shown at 2x
       through the Mode 7 matrix, 8 KB in two V-Blanks, the flip a scroll,
       the letterbox eight sprites. 8.75 M -> 6.06 M unlit on the opening
@@ -631,7 +633,7 @@ interpreter; the profile decides what to touch.
       verify in bsnes. If an emulator-proof letterbox
       is wanted, an HDMA window (W12SEL over BG1, WH0/WH1 per line) is the
       alternative.
-- [x] **The lit pixel** (2026-09-04, optional with `SHADING=1`; README "The
+- [x] **The lit pixel** (2026-09-04, optional with `SHADING=1`; development notes "The
       lit pixel"): the span's shade ORed into every pixel's high nibble,
       the palette's eight rows, 6.06 M -> 6.54 M (+8%), checked against the
       4bpp lit frame at the same view (78% same row, 90% within one).
@@ -652,9 +654,9 @@ interpreter; the profile decides what to touch.
       per-span/per-tile approximations; full per-pixel Gouraud is still absent.
 - [x] General sprites (`rasterizeS`, `renderSprite`), FX3 (2026-10-04):
       pickups are colour-keyed billboard models; the effects (blood, bubbles,
-      ricochet, splash, smoke) one model whose frame picks the sprite (README
+      ricochet, splash, smoke) one model whose frame picks the sprite (development notes
       "Effects (FX3)"); the rooms' sprites camera-facing static instances
-      (README "Sprites"). Explosions remain (no level here has one); GSU-2:
+      (development notes "Sprites"). Explosions remain (no level here has one); GSU-2:
       pickups only.
 - [x] Glyphs and text (`renderGlyph`, `drawText`), FX3: TR's font through
       the GSU (`TextRender`, packer `buildFont`, `src/inventory_text.c`),
@@ -664,7 +666,7 @@ interpreter; the profile decides what to touch.
 - [ ] Background images (`renderBackground`): title, credits. The
       inventory's grey copy of the game frame is done (FX3, `BgCapture`).
 - [x] Shadow blob (`renderShadow`), hers and the creatures', FX3
-      (2026-09-26): README "Shadows". The swinging blade's and darts'
+      (2026-09-26): development notes "Shadows". The swinging blade's and darts'
       (upstream's objects with ITEM_FLAG_SHADOW) remain; GSU-2 none.
 - [ ] Animation interpolation (`matrixFrameLerp`): the pose between
       keyframes; at 1 fps invisible, at 15 fps the difference between TR and
@@ -756,7 +758,7 @@ first rooms, LEVEL2 needs both.
       SWITCH_DOWN/UP, USE_KEY, USE_PUZZLE, BLOCK_PUSH/PULL/READY, with
       `moveTo`, `animSkip`, `animIsEnd`, upstream's limit boxes and
       `checkLimit`, and her hands (`olLaraWeaponState`) freed by the
-      animation's EMPTY command or HANDSFREE effect. See README "Using
+      animation's EMPTY command or HANDSFREE effect. See development notes "Using
       things". Not here: USE_MIDAS/DEATH_MIDAS, the inventory screen a hole
       opens (the matching key is offered instead). The camera angles each
       handler sets are in since 2026-09-26.
@@ -843,7 +845,7 @@ first rooms, LEVEL2 needs both.
 - [ ] Cutscene actors (CUT_1..4, LARA_SPEC), Natla's and Adam's pieces.
 - [x] Effects (FX3, 2026-10-04): blood (bites, hits, darts, the blade),
       ricochet (missed shots, darts at the wall), splash, bubbles, the dart
-      emitter's smoke -- upstream's spawns, SpriteEffect and Bubble; README
+      emitter's smoke -- upstream's spawns, SpriteEffect and Bubble; development notes
       "Effects (FX3)". Explosion and sparkles remain (no level here has them);
       GSU-2: none.
 
@@ -906,7 +908,7 @@ first rooms, LEVEL2 needs both.
 Wolf, bear and bat have their original state graphs.
 FX3's raptor graph/update and current-frame contact are implemented and
 oracle-tested. The real room-51 encounter passes; Lost Valley timing still fails.
-Upstream has a class per creature (README roadmap 5).
+Upstream has a class per creature (development notes roadmap 5).
 
 - [ ] The `Enemy` base in full: `updateMood` with aggression and timers,
       `getMoodNormal`/`getMoodEscape`, `updateLocation` (turn rate, speed,
@@ -1005,7 +1007,7 @@ Upstream has a class per creature (README roadmap 5).
 
 - [x] `getBestLocation` and clipping, on `Room_query`: trace, clip,
       checkWall, checkHeight, the four-direction fallback. Three cuts for
-      the tick, README "The camera follows her": no divide on a level axis;
+      the tick, development notes "The camera follows her": no divide on a level axis;
       the fallback cached by her sector, height band and facing, and at most
       once in eight ticks; the traced-and-clipped answer cached by her
       sector and the wanted view's. 5-6 K cycles a tick; the load tick ends
@@ -1031,7 +1033,7 @@ Upstream has a class per creature (README roadmap 5).
       line clears (it matched only on sector crossings before, a 60-unit
       sawtooth between, settling where she entered her last sector). One
       query proves most of the clip; the camera costs 125 K master clocks a
-      walking tick against 114 K for the approximation. README "The camera
+      walking tick against 114 K for the approximation. development notes "The camera
       follows her".
 - [x] **Height and pitch** (2026-09-23): the view is distH/distV from the
       target at upstream's ten degrees (plus her pitch), and the GSU shears
@@ -1063,7 +1065,7 @@ Upstream has a class per creature (README roadmap 5).
       clips at upstream's 64 (`ZNEAR`) and projects 64..511 out of line
       (`TM_Near`, `PC_Near`, `ShearNear`); vertices behind the camera carry
       side bits so faces beside and behind it are dropped before the
-      clipper. See the Done entry and README "The near plane (FX3)".
+      clipper. See the Done entry and development notes "The near plane (FX3)".
       GSU-2 keeps 512: its GSU program is unchanged.
 
 ## 9. Triggers (`src/fixed/room.h` checkTrigger)
@@ -1086,25 +1088,25 @@ Upstream has a class per creature (README roadmap 5).
 - [x] Inventory (FX3, 2026-09-26): upstream's state machine, the main and
       item pages, medipacks and pistols used from it, keys and pieces
       offered to a hole on the USE page, the ring drawn by the GSU with TR's
-      text and the grey background. README "Inventory".
+      text and the grey background. development notes "Inventory".
 - [x] The passport and the death page (FX3, 2026-09-26): Select while
       dead opens the death page; Load Game (this level) and Exit restart,
       Save Game shows the no-back-up-RAM warning; upstream's drawOptions
       box through the GSU's RectRender.
 - [x] Inventory, the rest (FX3): the guns (2026-10-05), the settings
       pages, the ring's sounds (swapped into APU RAM while it is open:
-      README "Sound") and the passport's page mask (upstream's
+      development notes "Sound") and the passport's page mask (upstream's
       itemVisMask, DrawModel's per-node test in WeaponNodeFx3), all
       2026-10-06. GSU-2: none.
 - [x] Gameflow as the GBA's alpha has it (FX3, 2026-10-04): a level's END
       trigger boots the cartridge's next level; past the last, upstream's
       end page (`INV_PAGE_END`), whose Action goes to the title -- this
       cartridge's first level. The passport lists the cartridge's levels.
-      README "Levels on one cartridge".
+      development notes "Levels on one cartridge".
 - [x] Title page (FX3, 2026-10-06): upstream's `INV_PAGE_TITLE` at power-on,
       over the first level held at its load, on TITLEH.PCX fitted to the
       frame (`TITLE.BIN`); its passport starts a level, Exit to Title and
-      the end page come back to it. README "The title page". Lara's Home
+      the end page come back to it. development notes "The title page". Lara's Home
       is left out (no model in LEVEL1/2, no gym on the cartridge).
 - [ ] The full level order (`LEVEL_INFO`), cutscenes between levels, the
       gym; the title's music (no music at all).
@@ -1112,13 +1114,13 @@ Upstream has a class per creature (README roadmap 5).
       the passport -- Save Game writes the battery RAM, Load Game offers
       Current Position -- in `src/save.c`; cartridge type $18 (FX3 with
       battery) keeps the game pak RAM, the save at `$70:1000`. See the Done
-      entry and README "Saved games". GSU-2: no passport to save from (no
+      entry and development notes "Saved games". GSU-2: no passport to save from (no
       inventory); its board would use `$78:0000` behind `BRAMR` ($3033,
       Book II 2-3).
 - [x] Settings (FX3, 2026-10-06): upstream's gSettings and its three pages
       -- gamma (palGamma over CG-RAM), Show FPS (drawFPS through the GSU's
       TextRender, on by default as upstream), SFX, Swap A B; Music, Rumble
-      and VSync kept, inert -- in the battery RAM. README "Settings".
+      and VSync kept, inert -- in the battery RAM. development notes "Settings".
 - [x] HUD: health and air bars -- upstream's drawHUD and renderBar, as
       sprites (2026-09-23; see the Done entry). Pickup names and the ammo
       counter remain, and want glyphs.
@@ -1141,7 +1143,7 @@ Upstream has a class per creature (README roadmap 5).
 - [ ] PAL: 50 Hz fields, a 25-tick clock or a 30-tick clock dropping every
       sixth field -- decide, then the `OL_SPEED`/`OL_ACCEL` sites.
 
-## 11. Audio (README "Sound")
+## 11. Audio (development notes "Sound")
 
 - [x] SPC700 driver: `src/spc.asm`, 483 bytes, a sample player on the
       S-DSP's eight voices with upstream's UNIQUE/REPLAY/NEW/STOP modes;
@@ -1549,7 +1551,7 @@ the pistols, magnums, uzis and shotgun from the start; this had the pistols.
   `olWeaponReload` (the uzis' 3). Magnums 2 damage, uzis flash 2 ticks at 180.
 - **The shotgun**: its three animations as WeaponArm 4-6 (one on both arms),
   `weaponDraw/Holster/UpdateShotgun` in C, six pellets with two draws each, a
-  box stand-in for the spheres (README "The four guns"), `updateLook`'s
+  box stand-in for the spheres (development notes "The four guns"), `updateLook`'s
   shotgun branch natively.
 - **Meshes**: the packer's `writeWeaponKit` (WEAPON.json `kit`: 22 meshes,
   the shotgun's animations and per-frame torso deltas), `GS_KIT` at
@@ -1617,7 +1619,7 @@ the pistols, magnums, uzis and shotgun from the start; this had the pistols.
   the host publishes them; the level table is 32 words an entry.
 - **The fade-in** (FX3) came with it: see §10.
 - **And the rooms' sprites** (FX3): 43 in LEVEL1, 81 in LEVEL2, as static
-  instances marked to face the camera (`InstTurn`); README "Sprites".
+  instances marked to face the camera (`InstTurn`); development notes "Sprites".
 - **Found on the way:** wla tracks REP/SEP textually, so a host routine placed
   after 8-bit-index code assembles `ldx #0` as two bytes: `FlashTimer` wrote
   255 into the left arm's flash until it said `.ACCU 16`/`.INDEX 16`.
@@ -2106,7 +2108,7 @@ the pistols, magnums, uzis and shotgun from the start; this had the pistols.
 
 ## Done: 2026-09-07, sound effects on the SPC700
 
-The one subsystem the README still called "nothing at all". README "Sound"
+The one subsystem the development notes still called "nothing at all". development notes "Sound"
 has the design; the numbers:
 
 - `packer/sound_SNES.h`: LEVEL1 fires 52 of its 71 sound ids (the SOUND
@@ -3751,7 +3753,7 @@ if its post-link budget/checksum checks fail.
 - §2, §3, §5, §9 the interaction slice: the activation flags read, the
   trigger types and two actions, and upstream's `collide` methods for
   the switch, the pickup, the holes and the block, with the Lara states
-  they enter (README "Using things", "The types", "Active from the
+  they enter (development notes "Using things", "The types", "Active from the
   start"). `use.c` and `block.c` are new units; `item.c` grew `animSkip`,
   `animIsEnd`, `moveTo` and the trapdoor floor. Two semantic fixes on
   the way, both upstream's rules the port had approximated: the KILL
@@ -3843,7 +3845,7 @@ if its post-link budget/checksum checks fail.
 ## Done: 2026-09-03
 
 - §8 the camera read against upstream: four fixes, above, and the opening
-  view moved -- see README "The camera follows her" for why the old one
+  view moved -- see development notes "The camera follows her" for why the old one
   was an artefact of the unclipped snap. `frame.baseline` re-recorded for
   the new view; `make check` has a camera test now. The new view then
   drove one more renderer pass (§1 above): the clipper under a window,
@@ -3968,7 +3970,7 @@ designed:
   frame *slower* in gsusim: 29.2 M -> 31.7 M cycles, cache hits 43% -> 34%.
   The window it anchors also holds `OTBuild` and `OTDraw`, whose per-face
   loops are hotter than the SpanFillT refault. The `cache` stays, with the
-  measurement in the comment and in the README.
+  measurement in the comment and in the development notes.
 - **1.6 needed the runner too.** Publishing `ol_ticks` last is in, but the
   sector test's one-tick wait then sampled a tick that had *started* before
   the pin was written. `sample()` now waits for the second completion.
@@ -4101,7 +4103,7 @@ designed:
 ### 4. Lying comments (fix or they cause the next bug)
 
 - [x] `main.asm:720` — "The blob is 22 KB": it is 65,225 of 65,534 bytes
-      (309 bytes headroom; README already corrected).
+      (309 bytes headroom; development notes already corrected).
 - [x] `main.asm:700-716` — entity list "copied once, whole": read in place.
 - [x] `gsu/gsu.inc:80` — R3 "$0000 or $5000": actually $1000/$6000.
 - [x] `gsu/raster.gsu:326` — "RasterF has no caller": DrawFace's flat path
@@ -4122,6 +4124,6 @@ designed:
    publish fix (1.6), the moveset test with the roll count (2.1).
 5. Optional: `make SHADING=1 check` for the full shaded comparison.
 
-Bigger items already on the README roadmap, restated by this review:
+Bigger items already on the development notes roadmap, restated by this review:
 tick-rate telemetry (`ticksDropped` beside `fps`), and the blob's 309-byte
 headroom blocking roadmap item 1 without restructuring.
