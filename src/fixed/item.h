@@ -799,8 +799,8 @@ int32 ItemObj::getDrawBridgeFloor(int32 x, int32 z) const
 
     if (((dx == 0) && ((dz == -1) || (dz == -2)) && (angle.y ==  ANGLE_0))   ||
         ((dx == 0) && ((dz ==  1) || (dz ==  2)) && (angle.y ==  ANGLE_180)) ||
-        ((dz == 0) && ((dx == -1) || (dz == -2)) && (angle.y ==  ANGLE_90))  ||
-        ((dz == 0) && ((dx ==  1) || (dz ==  2)) && (angle.y == -ANGLE_90)))
+        ((dz == 0) && ((dx == -1) || (dx == -2)) && (angle.y ==  ANGLE_90))  ||
+        ((dz == 0) && ((dx ==  1) || (dx ==  2)) && (angle.y == -ANGLE_90)))
     {
         return pos.y;
     }
