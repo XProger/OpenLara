@@ -23,7 +23,7 @@ void Nav::init(uint32 boxIndex)
     headBox = NO_BOX;
     tailBox = NO_BOX;
 
-    mask = 0x400;
+    mask = 0x4000; // Box::overlap: 14 index bits, then blocked and blockable
 
     for (int32 i = 0; i < level.boxesCount; i++)
     {
@@ -379,6 +379,9 @@ void Nav::search(uint16 zone, const uint16* zones)
 
     headBox = curr.next;
     curr.next = NO_BOX;
+    if (headBox == NO_BOX) {
+        tailBox = NO_BOX; // the old tail must be eligible for retargeting
+    }
 }
 
 #endif
