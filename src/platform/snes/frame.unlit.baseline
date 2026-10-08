@@ -1,0 +1,9 @@
+# The opening frame, as tools/gsusim.py models it. Written by
+# `make baseline`, compared by `make check`; a change here is
+# a renderer change that cost or saved something, and belongs
+# in the same commit as the code that made it.
+cycles=3283293
+instructions=1092414
+plots=9243
+cache_hit=91.1
+crc32=caedfc21

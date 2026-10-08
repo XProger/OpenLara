@@ -1,0 +1,1608 @@
+; OpenLara - SNES / Super FX target
+; GSU span rasterizers.
+;
+; Ported from the shape of rasterizeF / rasterizeFT in
+; src/platform/gba/rasterizer.h: walk a doubly linked vertex list down both
+; sides of the polygon at once and fill the span between the two edges on
+; every scanline.
+;
+; Three things differ from the ARM original, all forced by the chip:
+;
+; 1. The GSU is 16-bit, so the ARM code's 16.16 accumulators do not fit a
+;    register. Screen X and both texture coordinates are 0-255, so 8.8 fits
+;    exactly, and eight fractional bits over a 160-line polygon stays well
+;    inside half a pixel.
+;
+; 2. There is no divide. OpenLara already avoids one with a reciprocal table
+;    (divTable[i] = 65536 / i); here that table is copied into game pak RAM
+;    once a frame (RECIP_TAB, frame.gsu) and read with LDW, then multiplied
+;    with LMULT. It used to be read out of ROM through the R14 buffer, which
+;    meant switching ROMB away from the texture page and back on every span.
+;
+; 3. Sixteen registers is nowhere near enough for two edges carrying three
+;    interpolants each, so the locals live in game pak RAM $70:0000-$01FF and
+;    are reached with LMS/SMS, the one-byte-operand short address form.
+;    Reserving that window is why the frame buffers start at $70:1000.
+;
+; Register discipline throughout: a prefix (FROM/TO/WITH/ALT) survives only
+; until the next non-prefix, non-branch instruction, so operand setup goes
+; *before* the FROM/TO pair, never between it and the operating instruction.
+
+; ---------------------------------------------------------------------------
+; Locals. Byte addresses in game pak RAM; wla halves them for the LMS/SMS
+; one-byte operand, so they have to be even.
+;
+; The two edges are two blocks of the same shape, because one routine takes
+; an edge for either: EA_Take copies the edge record out of the vertex link
+; -- the next cell, h, dx, dxf, du, dv, dg and the shade the edge starts
+; from, in that order -- into the block's first eight words with a loop,
+; then the X, U and V the edge starts from. The shade accumulator sits with
+; the record's words rather than with X, U and V so that the copy loop
+; carries it: it was fifteen bytes of its own in the window, and the window
+; had none to give. V_R* is V_L* plus V_BLOCK.
+; ---------------------------------------------------------------------------
+
+.DEFINE V_BLOCK     $18     ; bytes between the left block and the right
+
+; NOPs before Raster_Common so that it lands on a multiple of sixteen: see
+; the section header. Recompute when the cold half changes size -- `make
+; profile` prints the anchor's address, and RFT_Advance's fetch column reads
+; in the hundreds when the window's tail is in.
+.IFDEF FX3
+.IFDEF SHADING
+.DEFINE RASTER_PAD  9
+.ELSE
+.DEFINE RASTER_PAD  16
+.ENDIF
+.ELSE
+.IFDEF MODE7
+.IFDEF SHADING
+.DEFINE RASTER_PAD  2       ; keep Raster_Common on a 16-byte cache boundary
+.ELSE
+.DEFINE RASTER_PAD  6
+.ENDIF
+.ELSE
+.IFDEF SHADING
+.DEFINE RASTER_PAD  14
+.ELSE
+.DEFINE RASTER_PAD  3
+.ENDIF
+.ENDIF
+.ENDIF
+
+.DEFINE V_LPTR      $00     ; the current cell, byte address in game pak RAM
+.DEFINE V_LH        $02     ; scanlines left on the edge out of it
+.DEFINE V_LDX       $04     ; left edge X step, integer part
+.DEFINE V_LDXF      $06     ; and its fraction
+.DEFINE V_LDU       $08     ; U step, 8.8
+.DEFINE V_LDV       $0A     ; V step, 8.8
+.DEFINE V_LDG       $0C     ; shade step, 8.8 (or 6.10 in the Mode 7 frame)
+.DEFINE V_LG        $0E     ; left edge shade, the same scale, from the record
+.DEFINE V_LX        $10     ; left edge X, integer part
+.DEFINE V_LXF       $12     ; and its fraction
+.DEFINE V_LU        $14     ; left edge U, 8.8
+.DEFINE V_LV        $16     ; left edge V, 8.8
+
+.DEFINE V_RPTR      $18
+.DEFINE V_RH        $1A
+.DEFINE V_RDX       $1C
+.DEFINE V_RDXF      $1E
+.DEFINE V_RDU       $20
+.DEFINE V_RDV       $22
+.DEFINE V_RDG       $24
+.DEFINE V_RG        $26
+.DEFINE V_RX        $28
+.DEFINE V_RXF       $2A
+.DEFINE V_RU        $2C
+.DEFINE V_RV        $2E
+
+.DEFINE V_LINK      $30     ; caller's return address
+.DEFINE V_TMP3      $32     ; EdgeSkip's link
+.DEFINE V_LOOP      $34     ; the scanline loop's entry: RFT_Line, or RF_Line for RasterF's faces
+.DEFINE V_PIXEL     $38     ; opaque or colour-keyed span writer, selected once per face
+.IFDEF MODE7
+.DEFINE V_COLR      $36     ; the flat face's colour: STB has no COLR to read
+.ENDIF
+.IFDEF FX3
+.DEFINE V_COLR      $36
+.ENDIF
+; $3A-$5F free: V_TEXBANK (ROMB is set once per face now), V_RECIP, V_GDU,
+; V_GDV, V_ES_*, V_SPANU, V_SPANV, V_X1, V_X2, V_WIDTH, V_GUARD and V_TMP
+; were the span setup's way of passing values to itself through RAM; they
+; are registers.
+
+; X is carried as 16.16, not 8.8 like U and V.
+;
+; U and V are texture coordinates and never leave 0-255, so a byte of integer
+; is enough for them. Screen X does leave it: once faces are no longer dropped
+; for being off screen, a vertex just past the near plane projects to
+; thousands, and an 8.8 accumulator does not merely clip -- it wraps, and the
+; edge slope comes out wrong for the visible part of the span too.
+;
+; 16.16 also happens to be exactly what LMULT produces: multiplying the delta
+; by 65536/h leaves the integer step in the high word and the fraction in R4,
+; so the wider accumulator is cheaper than the narrower one it replaces.
+
+; The texture gradients are per polygon, not per scanline.
+;
+; The mapping is affine, so du/dx and dv/dx are the same on every line of the
+; face. Recomputing them per scanline -- a reciprocal lookup and two LMULT
+; sequences -- was the single largest cost in the renderer.
+;
+; ...except that they are measured per span here, deliberately, and that is
+; worth explaining because it looks like the obvious thing to hoist.
+;
+; The mapping being affine is an approximation. The true mapping is projective,
+; and over a floor polygon running away to the horizon a single affine fit is
+; badly wrong at one end or the other -- it shows up as coarse banding across
+; the floor. Re-fitting per scanline makes the approximation piecewise, which
+; is what keeps a large surface looking like a surface.
+;
+; Hoisting it to the polygon was measured at about 9% of the frame. It was
+; reverted anyway: the picture is the product. What the fourth pass did
+; instead was make the per-span fit cheap: the reciprocal from a table in
+; RAM, the two multiplies inlined, the results left in the registers the
+; pixel loop reads -- the same arithmetic, half the instructions and no ROM
+; round trip.
+
+; ---------------------------------------------------------------------------
+; The shade term, in the second window this file owns ($F0-$10F). The edge
+; accumulators for it live in the blocks above with everything else; what is
+; here is the span's.
+;
+; g interpolates exactly like U and V -- 8.8, down both edges and across the
+; span -- and is quantised only at the end, once per character, because the
+; frame buffer has no bits to carry it. The interpolation being 32 levels and
+; the output 8 is deliberate: eight levels of accumulator would band visibly
+; along a long floor, where 32 quantised down to 8 lands the boundary in a
+; different place on each scanline and reads as a gradient.
+; ---------------------------------------------------------------------------
+
+.DEFINE V_GDG       $FC     ; dg/dx across the span
+.DEFINE V_SPANG     $FE     ; g at the clamped start of the span
+.DEFINE V_X1C       $100    ; the clamped span, kept for the shade pass, which
+.DEFINE V_WIDTHC    $102    ; runs after the plot loop has moved R1
+.DEFINE V_SLINK     $104    ; SpanShade's link
+
+
+; Saturation bounds for the edge accumulators, 8.8.
+;
+; The reciprocal table's error is one LSB of the *returned* value, which is
+; nothing when h is small and everything when it is not: a 30000-line edge --
+; ordinary for a face with a vertex just past the near plane -- gets a
+; reciprocal of 2 where the true value is 2.18, and its slope is 8% out. That
+; is invisible in a texture coordinate and fatal in a shade, because the mask
+; the per-character loop uses instead of a clamp turns 32 into row 0: the
+; brightest character in the frame, in the middle of a dark wall.
+;
+; Bounding the accumulators at the span costs a dozen instructions per span
+; and keeps the per-character loop at one AND. The range is [1, 30] rather
+; than [0, 31] so that truncation within the span -- up to a unit over 256
+; pixels -- still cannot leave 0..31, and both end rows stay reachable, since
+; 1 >> 2 is row 0 and 30 >> 2 is row 7.
+.DEFINE SHADE_LO    $0100
+.DEFINE SHADE_HI    $1E00
+
+; ---------------------------------------------------------------------------
+; VertexLink, 32 bytes: a vertex of a face in the batch, and the edge that
+; leaves it. A power of two so indexing is shifts.
+;
+;   +0  int16   x       screen X, 0-255 after clipping
+;   +2  int16   y       screen Y
+;   +4  int16   g       shade index, 0 bright to 31 dark
+;   +6  int8    prev    signed link count, not bytes
+;   +7  int8    next
+;   +8  uint8   u       texture column
+;   +9  uint8   v       texture row
+;   +10 ...             the batch slot's header, in the first link only
+;   +16 uint16  next    the edge out of this vertex along its chain: the
+;   +18 int16   h       cell it ends at, its lines, and the per-line steps
+;   +20 int16   dx      that EdgeStep used to work out when the walk reached
+;   +22 uint16  dxf     the vertex. Negative h: the walk is over. The batch's
+;   +24 int16   du      edge pass fills these in under its own window, so
+;   +26 int16   dv      the rasterizer's edge take is a copy of the seven
+;   +28 int16   dg      words into an edge block; see EdgePrepBatch in
+;                       mesh.gsu, and EA_Take here for why next comes first.
+;
+; The two chains down a polygon leave the top vertex in two directions, and
+; one cell holds one edge, so the batch gives each face a cell past its
+; last vertex: the top vertex again, with the right chain's first edge.
+; ---------------------------------------------------------------------------
+
+.DEFINE VL_SIZE     32
+.DEFINE VL_X        0
+.DEFINE VL_Y        2
+.DEFINE VL_G        4
+.DEFINE VL_PREV     6
+.DEFINE VL_NEXT     7
+.DEFINE VL_UV       8       ; u in the low byte, v in the high byte
+.DEFINE E_NEXT      16
+.DEFINE E_H         18
+.DEFINE E_DX        20
+.DEFINE E_DXF       22
+.DEFINE E_DU        24
+.DEFINE E_DV        26
+.DEFINE E_DG        28
+.DEFINE E_G0        30      ; the shade at the edge's start, in the accumulator's scale
+
+.BANK 0 SLOT 0
+; ALIGN 16: the window below is anchored by a CACHE, and CBR is the address
+; after it rounded down to sixteen, so where the window's last line falls
+; depends on where the linker puts this file. Aligning the section makes
+; that depend on this file alone, and the pad before Raster_Common then puts
+; the window's first byte on the CACHE itself. Check with `make profile`:
+; RFT_Advance's fetch column reads in the hundreds when the tail is in.
+.SECTION "raster" ALIGN 16 FREE
+
+; ---------------------------------------------------------------------------
+; Everything above the cache anchor: run once per face, once per strip that
+; starts above the screen, once per span that starts off the left of it, or
+; not at all. Kept out of the window on purpose -- see "The instruction
+; cache" in the README. Order inside this half does not matter.
+; ---------------------------------------------------------------------------
+
+; ===========================================================================
+; RasterF -- fill a flat shaded polygon.
+; RasterFT -- fill an affine textured polygon.
+; RasterFTA -- the same, preserving the background at source-index-zero texels.
+;
+; In:  R9   byte address of the topmost vertex link, in game pak RAM
+;      R8   the face's edge cell, where the right chain starts
+;      R2   its Y, i.e. the first scanline
+;      COLR already loaded with the colour             (RasterF)
+;      R6   ROM bank of the 256x256 texture page, $40-$5F   (RasterFT)
+; Out: nothing. Clobbers everything, R3 included -- it is the strip's line
+;      count inside the loop. Nothing reads R3 after ClearFrame.
+;
+; The caller owns clipping and the y-sort, as on every other OpenLara target.
+;
+; Both share the edge walk at RFT_Next. Overlapping cache windows cover that
+; walk plus either RF_Line (flat) or RFT_Line (textured); the face selects
+; its window once, and V_LOOP selects the scanline loop once per strip.
+; The texture page is one
+; 8-bit-per-texel image occupying a full 64 KB GSU ROM bank, which makes
+; the texel address simply (v << 8) | u -- and that is exactly what MERGE
+; computes from the high bytes of two 8.8 accumulators. That single
+; instruction is what makes the inner loop affordable. Nothing in the
+; per-scanline path reads ROM but the texel fetch, so ROMB is set here, once
+; a face, and stays.
+;
+; The left chain starts at the top vertex, the right at the face's edge
+; cell, and neither has lines left on it: an exhausted edge makes the loop
+; take the next one, and EA_Take copies every accumulator and step from its
+; record before the first scanline reads any of them.
+; ===========================================================================
+
+RasterF:
+    sms (V_LINK), r11
+.IFDEF MODE7
+    sms (V_COLR), r6            ; DrawFace's colour, which COLOR also took
+.ENDIF
+.IFDEF FX3
+    sms (V_COLR), r6
+.ENDIF
+    iwt r0, #RF_Line
+    sms (V_LOOP), r0
+    iwt r13, #RasterFlat_Common
+    bra RasterInit
+    nop
+
+RasterFT:
+    sms (V_LINK), r11
+    iwt r0, #SFT_Span
+    bra RasterT_Init
+    nop
+RasterFTA:
+    sms (V_LINK), r11
+    iwt r0, #SFTA_Span
+RasterT_Init:
+    sms (V_PIXEL), r0
+    from r6
+    romb                        ; texel reads come from the texture page
+    iwt r0, #RFT_Line
+    sms (V_LOOP), r0
+    iwt r13, #Raster_Common
+
+RasterInit:
+    ; A clipped portal may have no vertical extent. With an edge starting
+    ; above it, EdgeSkip can land exactly on bottom; RFT_Visible would then
+    ; enter a zero-line strip and DEC R3 would wrap to 65535. Reject empty
+    ; or reversed windows before either flat or textured edge walk starts.
+    ; This cold guard is 16 bytes, preserving the hot cache-window alignment.
+    lms r0, (V_CLIPY0)
+    lms r5, (V_CLIPY1)
+    cmp r5
+    GBLT +
+    nop
+    GFJMP RFT_Done
++
+    sms (V_LPTR), r9
+    sms (V_RPTR), r8
+    ibt r0, #0
+    sms (V_LH), r0
+    sms (V_RH), r0
+    jmp r13
+    nop
+
+; ===========================================================================
+; EDGE_ADVANCE_FLAT -- step the flat face's X and optional shade. Texture
+; coordinates are never consumed by RF_Line, so leave those accumulators
+; alone. The next edge take replaces them before another strip uses them.
+; Load each step BEFORE its accumulator: SBK writes R0 to the last RAM
+; transfer address. No intervening RAM access is allowed before the store.
+; It preserves carry for the fractional/integer ADD/ADC pair and saves two
+; instruction bytes per update versus SMS (Book II, Super FX 9.79).
+; ===========================================================================
+
+.MACRO EDGE_ADVANCE_FLAT
+    lms r5, (V_LDXF)
+    lms r0, (V_LXF)
+    add r5                      ; fraction first, CY carries into the integer
+    sbk
+    lms r5, (V_LDX)
+    lms r0, (V_LX)
+    adc r5
+    sbk
+
+    lms r5, (V_RDXF)
+    lms r0, (V_RXF)
+    add r5
+    sbk
+    lms r5, (V_RDX)
+    lms r0, (V_RX)
+    adc r5
+    sbk
+
+.IFDEF SHADING
+    lms r5, (V_LDG)
+    lms r0, (V_LG)
+    add r5
+    sbk
+    lms r5, (V_RDG)
+    lms r0, (V_RG)
+    add r5
+    sbk
+.ENDIF
+.ENDM
+
+; ===========================================================================
+; RF_Line -- the flat face's scanline loop: the span from the
+; two X accumulators, clamped to the screen, PLOTted in the colour COLR
+; holds. Defined here and emitted immediately before the shared edge walk
+; so both fit under RasterFlat_Common's window. R3 counts the strip's
+; lines; the strip's end goes back to RFT_Next without changing CBR.
+; ===========================================================================
+
+.MACRO RASTER_FLAT
+RasterFlat_Common:
+    cache
+    GFJMP RFT_Next
+
+RF_Line:
+    lms r1, (V_LX)
+    lms r6, (V_RX)
+    from r6
+    to r5
+    sub r1                      ; the geometric width; S and Z
+    bmi RF_Advance
+    nop
+    beq RF_Advance
+    nop
+    inc r6                      ; one past the right edge, as RFT_Line
+
+    lms r0, (V_CLIPX0)
+    from r1
+    to r5
+    sub r0
+    bpl +                       ; x1 >= clip left
+    nop
+    lms r1, (V_CLIPX0)
++   lms r0, (V_CLIPX1)
+    from r6
+    to r5
+    sub r0
+    bmi +                       ; x2 < clip right
+    nop
+    move r6, r0
++   lms r0, (V_CLIPX0)
+    from r6
+    to r5
+    sub r0
+    bpl +                       ; x2 >= clip left
+    nop
+    move r6, r0
++   from r6
+    to r5
+    sub r1                      ; visible width
+    bmi RF_Advance
+    nop
+    beq RF_Advance
+    nop
+
+.IFDEF SHADE_MAP
+    ; Flat means flat: the left edge's shade covers the whole span. This path
+    ; draws untextured polygons, which have no gradient to preserve.
+    sms (V_X1C), r1
+    sms (V_WIDTHC), r5
+    GFCALL ShadeClamp           ; clobbers R5, which the loop wants as the count
+    lms r0, (V_LG)
+    sms (V_SPANG), r0
+    ibt r0, #0
+    sms (V_GDG), r0
+    lms r5, (V_WIDTHC)
+.ENDIF
+
+
+.IFDEF MODE7
+    ; The face's colour in R7, the column table walked by R4 and the line's
+    ; offset in R11, a byte a pixel -- the shape of RFT_Line's loop below.
+    from r1
+    to r4
+    add r1                      ; x * 2
+    iwt r0, #M7_COLTAB
+    with r4
+    add r0                      ; R4 = &COLTAB[x1]
+    ibt r0, #8
+    from r2
+    to r11
+    umult r0                    ; R11 = y * 8
+    lms r7, (V_COLR)
+    move r12, r5
+.IFDEF SHADE_PIXEL
+    ; Flat means flat: the left edge's shade, into the colour's high nibble.
+    lms r5, (V_LG)
+    with r5
+    hib
+    iwt r1, #$70                ; AND takes R1-R15; x1 in R1 is spent by now
+    with r5
+    and r1
+    with r7
+    or r5
+.ENDIF
+    iwt r13, #SF_Loop
+SF_Loop:
+    to r6
+    ldw (r4)                    ; the column's address on line 0
+    with r6
+    add r11                     ; and on this line
+    from r7
+    stb (r6)
+    inc r4
+    inc r4
+    loop
+    nop
+.ELSE
+    ; PLOT advances R1 itself, so a run costs one instruction per pixel plus
+    ; the loop. The two 8-pixel plot caches mean a run crossing a character
+    ; boundary writes the finished block out to game pak RAM in the
+    ; background while the next pixels are already being plotted.
+    move r12, r5
+.IFDEF FX3
+.IFDEF SHADE_PIXEL
+    lms r5, (V_LG)
+    with r5
+    hib
+    ibt r7, #$70
+    with r5
+    and r7
+    lms r7, (V_COLR)
+    from r7
+    or r5
+    color
+.ENDIF
+.ENDIF
+    iwt r13, #SF_Loop
+SF_Loop:
+    loop
+    plot                        ; one plot per pixel, including the last
+.ENDIF
+.IFDEF SHADE_MAP
+    GFCALL SpanShade
+.ENDIF
+
+RF_Advance:
+    EDGE_ADVANCE_FLAT
+    inc r2                      ; next scanline
+    dec r3                      ; lines left in the strip
+    beq +
+    nop
+    GFJMP RF_Line
++   GFJMP RFT_Next
+.ENDM
+
+; ===========================================================================
+; RFT_EmptyStep -- a textured span with nothing in it skips the gradient
+; setup, which is where U and V step now; step them here instead. Out of
+; line: the strip's first and last lines are where this happens.
+; ===========================================================================
+
+RFT_EmptyStep:
+    lms r5, (V_LDU)
+    lms r0, (V_LU)
+    add r5
+    sbk
+    lms r5, (V_RDU)
+    lms r0, (V_RU)
+    add r5
+    sbk
+    lms r5, (V_LDV)
+    lms r0, (V_LV)
+    add r5
+    sbk
+    lms r5, (V_RDV)
+    lms r0, (V_RV)
+    add r5
+    sbk
+    GFJMP RFT_Advance
+
+; ===========================================================================
+; RFT_Wide -- 65536 / R5 for a span 256 or more wide, which the table cannot
+; hold: shift the width down until it fits, look it up, shift the reciprocal
+; down the same amount. DivTable's arithmetic, so the result is the one the
+; picture has always had. Comes back to the loop at RFT_Recip with R6. A
+; thousand a frame when the view looks across the corridor; in the window
+; it would displace the strip clip's above-screen arm, which was measured
+; to cost the behind-her view more than this saves the side view.
+; ===========================================================================
+
+RFT_Wide:
+    ibt r7, #0                  ; number of normalising shifts
+-   with r5
+    lsr
+    inc r7
+    iwt r0, #256
+    from r5
+    cmp r0
+    bcs -
+    nop
+    iwt r6, #RECIP_TAB
+    with r5
+    add r5                      ; index * 2
+    with r6
+    add r5
+    to r6
+    ldw (r6)                    ; R6 = 65536 / (w >> shifts)
+-   with r6
+    lsr
+    dec r7
+    bne -
+    nop
+    GFJMP RFT_Recip
+
+; ===========================================================================
+; EdgeSkip -- move both edges and the scanline down R5 lines in one step.
+;
+; For a strip that starts above the clip top: the accumulators take the
+; steps times the lines skipped, which is what advancing them one line at a
+; time would have summed to, at one LMULT each. Preserves R3 and R5.
+; ===========================================================================
+
+EdgeSkip:
+    sms (V_TMP3), r11
+    move r6, r5                 ; the LMULT multiplier, kept across all six
+
+    ; X carries 32 bits, so its skip needs both halves of the step: the
+    ; fraction times n contributes its own integer carry.
+    lms r0, (V_LDXF)
+    to r9
+    lmult                       ; R9:R4 = stepFrac * n
+    lms r0, (V_LXF)
+    with r0
+    add r4
+    sbk
+    lms r0, (V_LX)
+    with r0
+    adc r9
+    sbk
+    lms r0, (V_LDX)
+    to r8
+    lmult                       ; R4 = stepInt * n, low word
+    lms r0, (V_LX)
+    with r0
+    add r4
+    sbk
+
+    lms r0, (V_RDXF)
+    to r9
+    lmult
+    lms r0, (V_RXF)
+    with r0
+    add r4
+    sbk
+    lms r0, (V_RX)
+    with r0
+    adc r9
+    sbk
+    lms r0, (V_RDX)
+    to r8
+    lmult
+    lms r0, (V_RX)
+    with r0
+    add r4
+    sbk
+
+    lms r0, (V_LDU)
+    to r9
+    lmult
+    lms r0, (V_LU)
+    with r0
+    add r4
+    sbk
+
+    lms r0, (V_RDU)
+    to r9
+    lmult
+    lms r0, (V_RU)
+    with r0
+    add r4
+    sbk
+
+    lms r0, (V_LDV)
+    to r9
+    lmult
+    lms r0, (V_LV)
+    with r0
+    add r4
+    sbk
+
+    lms r0, (V_RDV)
+    to r9
+    lmult
+    lms r0, (V_RV)
+    with r0
+    add r4
+    sbk
+
+.IFDEF SHADING
+    lms r0, (V_LDG)
+    to r9
+    lmult
+    lms r0, (V_LG)
+    with r0
+    add r4
+    sbk
+
+    lms r0, (V_RDG)
+    to r9
+    lmult
+    lms r0, (V_RG)
+    with r0
+    add r4
+    sbk
+.ENDIF
+
+    with r2
+    add r5                      ; and the scanline itself
+
+    lms r11, (V_TMP3)
+    GRET
+
+.IFDEF SHADE_MAP
+
+; ===========================================================================
+; ShadeClamp -- saturate both edge shade accumulators into [SHADE_LO, SHADE_HI].
+;
+; Once per span, so that the per-character loop can mask instead of clamp.
+; See the SHADE_LO comment for why an edge accumulator gets out of range at
+; all: it is the reciprocal table, not the geometry.
+;
+; Leaf. Clobbers R0, R5, R6.
+; ===========================================================================
+
+ShadeClamp:
+    ; Out of range is the exception, not the rule, and asking costs a third of
+    ; answering: OR the two accumulators and look at the bits that only a
+    ; negative or a past-31 value can set. AND sets Z, so no compare either.
+    lms r5, (V_LG)
+    lms r6, (V_RG)
+    with r5
+    or r6
+    iwt r6, #$E000
+    with r5
+    and r6
+    bne SC_Slow
+    nop
+    GRET
+
+SC_Slow:
+    lms r5, (V_LG)
+    iwt r0, #SHADE_LO
+    from r5
+    to r6
+    sub r0
+    bpl +
+    nop
+    iwt r5, #SHADE_LO
++   iwt r0, #SHADE_HI
+    from r5
+    to r6
+    sub r0
+    bmi +
+    nop
+    iwt r5, #SHADE_HI
++   sms (V_LG), r5
+
+    lms r5, (V_RG)
+    iwt r0, #SHADE_LO
+    from r5
+    to r6
+    sub r0
+    bpl +
+    nop
+    iwt r5, #SHADE_LO
++   iwt r0, #SHADE_HI
+    from r5
+    to r6
+    sub r0
+    bmi +
+    nop
+    iwt r5, #SHADE_HI
++   sms (V_RG), r5
+    GRET
+
+; ===========================================================================
+; SpanShade -- give every character this span crosses the span's shade.
+;
+; In:  V_X1C, V_WIDTHC   the clamped span
+;      V_SPANG, V_GDG    shade at its start, and per pixel
+;      R2                scanline
+;
+; The frame buffer is four bits deep and every one of them is texel, so the
+; shade cannot go in it. It goes in the tile map instead: bits 10-12 of an
+; entry select one of eight background palettes, and CG-RAM holds eight
+; darkened copies of the sixteen colours. That makes shade a per-character
+; quantity, which is coarse -- but it is a real gradient across a floor, and
+; it costs nothing per pixel, where this renderer has no budget left.
+;
+; Bits 0-1 of the byte are character number bits 8-9, which the host seeded at
+; boot and this must not disturb, hence the read-modify-write.
+;
+; Runs on every scanline rather than once per character row. Overdraw makes
+; the last writer win, which is the painter's order the ordering table already
+; establishes; sampling one scanline in eight would leave characters that a
+; face crossed only briefly holding the previous frame's shade.
+;
+; Preserves R2 and R3. Clobbers R0, R5-R10, R12, R13.
+; ===========================================================================
+
+SpanShade:
+    sms (V_SLINK), r11
+
+    ; first character column
+    lms r5, (V_X1C)
+    with r5
+    lsr
+    with r5
+    lsr
+    with r5
+    lsr
+
+    ; row base: FR_SHADE + (y >> 3) * 32, which is (y & ~7) * 4
+    iwt r6, #$00F8
+    from r2
+    to r10
+    and r6
+    with r10
+    add r10
+    with r10
+    add r10
+    lms r0, (FR_SHADE)
+    with r10
+    add r0
+    with r10
+    add r5                      ; R10 = &shade[(y >> 3) * 32 + (x1 >> 3)]
+
+    ; last character column, from the last pixel actually covered
+    lms r0, (V_X1C)
+    lms r6, (V_WIDTHC)
+    to r6
+    add r6
+    dec r6
+    with r6
+    lsr
+    with r6
+    lsr
+    with r6
+    lsr
+    from r6
+    to r12
+    sub r5
+    inc r12                     ; characters to write
+
+    ; shade accumulator, and its step over eight pixels
+    lms r8, (V_SPANG)
+    lms r9, (V_GDG)
+    with r9
+    add r9
+    with r9
+    add r9
+    with r9
+    add r9
+
+    iwt r6, #SHADE_PAL_MASK
+    iwt r7, #SHADE_CN_MASK
+    ; No CACHE. SpanShade runs per span from outside the cached window, so
+    ; anchoring CBR here would flush the whole per-scanline path once a span
+    ; -- far more than this loop could ever win back. It is one more reason
+    ; SHADING=1 costs what it does.
+    iwt r13, #SS_Loop
+SS_Loop:
+    from r8
+    to r5
+    hib                         ; shade, integer part
+
+    ; Saturate. The step is a whole character wide and the span may not be:
+    ; a three pixel span with a two pixel gradient basis steps sixteen shade
+    ; levels to reach its second character, and the mask below would turn 32
+    ; into row 0 -- the brightest character on screen, in the middle of a dark
+    ; wall. Underflow wraps to $FF and overshoot lands just above 31, so one
+    ; unsigned compare separates the two directions.
+    ibt r0, #32
+    from r5
+    cmp r0
+    bcc SS_Have
+    nop
+    iwt r0, #$80                ; IWT, not IBT: IBT sign-extends to $FF80
+                                ; and sends the underflow arm dark as well
+    from r5
+    cmp r0
+    bcc SS_Dark
+    nop
+    ibt r5, #0
+    bra SS_Have
+    nop
+SS_Dark:
+    ibt r5, #31
+
+SS_Have:
+    with r5
+    and r6                      ; g >> 2 is already in place: mask, no shift
+    to r0
+    ldb (r10)
+    with r0
+    and r7                      ; keep character number bits 8-9
+    with r0
+    or r5
+    from r0
+    stb (r10)
+    inc r10
+    with r8
+    add r9
+    loop
+    nop
+
+    lms r11, (V_SLINK)
+    GRET
+
+.ENDIF  ; SHADE_MAP
+
+; ---------------------------------------------------------------------------
+; The two overlapping windows start here. Flat faces cache their scanline
+; loop plus the shared edge walk; textured faces cache the shared walk plus
+; their scanline loop. Each face sets CBR once, with no per-strip refills.
+; The optional 4bpp shade helpers still run outside these windows.
+; ---------------------------------------------------------------------------
+
+; ===========================================================================
+; Raster_Common -- the loop both rasterizers run.
+;
+; Per strip: take the next edge on whichever side has run out (EA_Take), cut
+; the strip to the clip rectangle, and walk it: per scanline, the span from
+; the two X accumulators, its gradients, its clip, its pixels, and the step
+; down both edges. R3 counts the strip's lines. The path is straight-line
+; from RFT_Line to RFT_Advance with nothing called on the way, so R11 is
+; free and every value is in the register that needs it next.
+;
+; Instruction fetch is an external access -- five cycles a byte -- unless
+; the PC is inside the 512 bytes starting at CBR, where it is one. Four
+; fifths of a frame here was fetch, so where those 512 bytes point is the
+; single biggest decision in the renderer. CACHE moves CBR to the block
+; holding the next instruction and clears every cache flag, but *only when
+; CBR is not already there*, so issuing it once a face costs one cached byte
+; after the first.
+; ===========================================================================
+
+    ; The flat window covers its scanline loop and the shared edge walker.
+    ; Textured faces anchor their own window below, at Raster_Common.
+    RASTER_FLAT
+
+; Kept immediately before the cache window so the corrupt-edge guard can
+; branch here without spending five of the hot 512 bytes on a long jump.
+RFT_DoneJ:
+    GFJMP RFT_Done
+
+    ; The alignment pad: see the section header. Raster_Common must be a
+    ; multiple of sixteen, so that the CACHE is the window's first byte.
+    ; NOPs, never executed: MulRecip and SpanShade return above.
+    .DSB RASTER_PAD, $01
+
+Raster_Common:
+    cache
+
+RFT_Next:
+    ; A polygon whose vertices all share a Y never produces a negative edge
+    ; height, so the walk below would spin forever -- and a GSU that never
+    ; STOPs hangs the console, with no watchdog to recover it. FaceVisible
+    ; culls zero-area faces, and this bounds the walk regardless, because
+    ; geometry arriving from a packer is not something to take on trust.
+    ; R3 is the bound here and the strip's line count after RFT_Strip.
+    ibt r3, #8
+
+RFT_Take:
+    dec r3
+    beq RFT_DoneJ
+    nop
++   lms r0, (V_LH)
+    inc r0
+    dec r0                      ; LMS sets no flags; this does
+    bne RFT_TakeR
+    nop
+    iwt r10, #V_LPTR
+    GCALL EA_Take
+    bra RFT_Take
+    nop
+
+RFT_TakeR:
+    lms r0, (V_RH)
+    inc r0
+    dec r0
+    bne RFT_Strip
+    nop
+    iwt r10, #V_RPTR
+    GCALL EA_Take
+    bra RFT_Take
+    nop
+
+; ---------------------------------------------------------------------------
+; EA_Take -- the edge out of the cell an edge block points at, into the
+; block. In: R10 = the block (V_LPTR or V_RPTR). Its first seven words are
+; the record's, in the record's order -- the cell first, which is why the
+; record starts with it: the block's own first word says where to copy
+; from -- so the copy is a loop; then the vertex the edge leaves: 16.16 X,
+; 8.8 u, v and g. A negative h is the chain's end and the face's. Clobbers
+; R0, R5, R7-R10, R12, R13.
+; ---------------------------------------------------------------------------
+
+EA_Take:
+    to r9
+    ldw (r10)                   ; R9 = the cell: the edge out of it
+    ibt r0, #E_H
+    from r9
+    to r8
+    add r0                      ; R8 = &cell.h, the record's second word
+    to r5
+    ldw (r8)                    ; lines on the edge
+    dec r8
+    dec r8
+    inc r5
+    dec r5                      ; LDW sets no flags; this does
+    bmi RFT_DoneJ               ; a negative h: the walk is over
+    nop
+.IFDEF SHADING
+    ibt r12, #8                 ; through dg and the shade at the start
+.ELSE
+    ibt r12, #6                 ; dg and the shade are nobody's without it
+.ENDIF
+    iwt r13, #@copy
+@copy:
+    ldw (r8)
+    stw (r10)                   ; Sreg is R0 unless a prefix says otherwise
+    inc r8
+    inc r8
+    inc r10
+    loop
+    inc r10                     ; safe one-byte delay slot, including final copy
+    ; R10 = the block's X: where the edge starts is the vertex itself
+.IFNDEF SHADING
+    inc r10
+    inc r10
+    inc r10
+    inc r10                     ; past the dg and the shade the copy left out
+.ENDIF
+    ldw (r9)                    ; VL_X
+    stw (r10)
+    inc r10
+    inc r10
+    ibt r0, #0
+    stw (r10)                   ; XF
+    inc r10
+    inc r10
+    ibt r0, #VL_UV
+    from r9
+    to r5
+    add r0
+    to r5
+    ldw (r5)                    ; u low, v high
+    from r5
+    to r7
+    lob
+    with r7
+    swap                        ; R7 = u << 8
+    from r7
+    stw (r10)                   ; U
+    inc r10
+    inc r10
+    from r5
+    to r7
+    hib
+    with r7
+    swap                        ; R7 = v << 8
+    from r7
+    stw (r10)                   ; V
+    GRET
+    .DSB 2, $01                 ; preserve the strip/scanline window addresses
+
+; ---------------------------------------------------------------------------
+; The strip: as many lines as the shorter edge has, clipped to the rectangle
+; here, once. This was ScanClip, asked on every scanline from inside the
+; window and answering from ten bytes past its end. Signed throughout: a
+; scanline can start far above the screen.
+; ---------------------------------------------------------------------------
+
+RFT_Strip:
+    lms r3, (V_LH)
+    lms r6, (V_RH)
+    from r3
+    cmp r6
+    bcc +                       ; Lh < Rh unsigned, keep Lh
+    nop
+    move r3, r6
++   lms r0, (V_LH)
+    sub r3
+    sms (V_LH), r0
+    lms r0, (V_RH)
+    sub r3
+    sbk
+
+    lms r0, (V_CLIPY1)
+    from r2
+    sub r0
+    bmi +                       ; above the clip bottom: something may show
+    nop
+    GFJMP RFT_Done              ; below it, and Y only grows: finished
++   lms r0, (V_CLIPY0)
+    from r2
+    to r6
+    sub r0
+    bpl RFT_Visible             ; at or below the clip top
+    nop
+
+    ; The strip starts above the screen. Step past what is above -- up to
+    ; the clip top, or the whole strip -- in one go, which is EdgeSkip; a
+    ; strip skipped whole goes round again for the next one. (Out of line
+    ; this cost the behind-her view more than a cached wide-span path
+    ; saved the side view; measured, and left here.)
+    ibt r0, #0
+    to r5
+    sub r6                      ; R5 = lines above the clip top
+    from r3
+    sub r5
+    bpl +                       ; the strip reaches the screen
+    nop
+    move r5, r3                 ; it does not: skip all of it
++   GFCALL EdgeSkip             ; R2 and the accumulators move R5 lines
+    with r3
+    sub r5                      ; what is left
+    bne RFT_Visible
+    nop
+    GFJMP RFT_Next
+
+RFT_Visible:
+    ; and no further than the clip bottom; the lines past it stay on the
+    ; edges' heights, and the next strip will start below the screen
+    lms r0, (V_CLIPY1)
+    to r6
+    sub r2                      ; R6 = lines to the clip bottom
+    from r3
+    sub r6
+    bmi +                       ; the strip ends first
+    nop
+    move r3, r6
++   lms r13, (V_LOOP)
+    jmp r13                     ; RFT_Line, or the flat face's loop out of line
+    nop
+
+; ---------------------------------------------------------------------------
+; The scanline.
+; ---------------------------------------------------------------------------
+
+RFT_Line:
+.IFDEF SHADE_MAP
+    GFCALL ShadeClamp           ; both edge shades into range, once per span
+.ENDIF
+    ; The edges step here, not after the span: each accumulator is loaded
+    ; for this line and stored stepped for the next in the same breath,
+    ; which is one RAM access fewer per accumulator than loading it twice.
+    ; X first, both halves, CY carrying from the fraction into the integer
+    ; -- LMS and SMS leave the flags alone. R1 = x1, which PLOT advances
+    ; from; R5 = the geometric width, which the gradients divide by across
+    ; the whole span, not the visible part of it: the mapping is affine, so
+    ; clamping the ends must not change the slope.
+    lms r5, (V_LDXF)
+    lms r0, (V_LXF)
+    add r5
+    sbk
+    lms r0, (V_LDX)
+    lms r1, (V_LX)
+    from r1
+    adc r0
+    sbk
+    lms r5, (V_RDXF)
+    lms r0, (V_RXF)
+    add r5
+    sbk
+    lms r0, (V_RDX)
+    lms r6, (V_RX)
+    from r6
+    adc r0
+    sbk
+    from r6
+    to r5
+    sub r1
+    bmi @empty
+    nop
+    bne +
+    inc r6                      ; right coverage edge, on a positive width
+@empty:
+    GFJMP RFT_EmptyStep         ; U and V still step; out of line
+    nop                         ; keep the following window's byte phase
+    ; Coverage conservatively includes one pixel beyond the calculated right
+    ; edge. Adjacent TR room faces do not always split a long shared edge at
+    ; the same vertices, so independently truncated 16.16 slopes can
+    ; otherwise disagree by one column and expose the cleared frame between
+    ; tiles. The width stays geometric for the gradients; only the coverage
+    ; bound is expanded, and the clamp below still caps it at the clip. It
+    ; rides in R11: nothing is called between here and the pixel loop.
+    ; (No guard against x2 = $7FFF: a projected X is within 8.3 K of the
+    ; centre, the near plane and the focal length see to that.)
++   move r11, r6
+
+    ; 65536 / width, from the table in RAM. A span 256 or more wide -- most
+    ; of it off screen -- takes the normalising path out of line; HIB
+    ; leaves Z clear exactly when the width has a high byte.
+    from r5
+    hib
+    beq +
+    nop
+    GFJMP RFT_Wide
++   iwt r6, #RECIP_TAB
+    with r5
+    add r5                      ; index * 2
+    with r6
+    add r5
+    to r6
+    ldw (r6)                    ; R6 = 65536 / width
+
+RFT_Recip:
+    ; du/dx = (uR - uL) * recip >> 8, the delta between the two edges'
+    ; integer texel columns. LMULT leaves the 32-bit product across R9 and
+    ; R4; MERGE takes the high bytes of R7 and R8, which is exactly the pair
+    ; wanted once the product's high word has been moved up a byte. MERGE's
+    ; operands are fixed, which is why this line's uL and vL wait in R12
+    ; and R13 -- LOOP's registers, idle until the pixel loop -- and move
+    ; into R8 and R7 only after both gradients are made. Each accumulator
+    ; is stepped for the next line as it is loaded, as X was above.
+    lms r0, (V_LDU)
+    lms r12, (V_LU)
+    from r12
+    add r0
+    sbk
+    lms r0, (V_RDU)
+    lms r8, (V_RU)
+    from r8
+    add r0
+    sbk
+    with r8
+    hib
+    from r12
+    hib
+    from r8
+    to r9
+    sub r0                      ; R9 = uR - uL, texels
+    with r9
+    lmult                       ; R9:R4 = delta * recip
+    from r9
+    to r7
+    lob
+    with r7
+    swap                        ; R7 = (high & $FF) << 8
+    move r8, r4
+    MERGE_PRODUCT 10
+
+    lms r0, (V_LDV)
+    lms r13, (V_LV)
+    from r13
+    add r0
+    sbk
+    lms r0, (V_RDV)
+    lms r8, (V_RV)
+    from r8
+    add r0
+    sbk
+    with r8
+    hib
+    from r13
+    hib
+    from r8
+    to r9
+    sub r0
+    with r9
+    lmult
+    from r9
+    to r7
+    lob
+    with r7
+    swap
+    move r8, r4
+    MERGE_PRODUCT 9
+
+.IFDEF SHADE_MAP
+    ; The shade is quantised to 32 levels and a span here averages nine
+    ; pixels, so the two edges very often land on the same one. SUB sets Z;
+    ; taking that branch skips a reciprocal multiply.
+    lms r7, (V_RG)
+    from r7
+    to r8
+    hib
+    lms r7, (V_LG)
+    from r7
+    hib
+    with r8
+    sub r0
+    beq @flatg
+    nop
+    with r8
+    lmult
+    from r8
+    to r7
+    lob
+    with r7
+    swap
+    move r8, r4
+    MERGE_PRODUCT 0
+    bra @haveg
+    nop
+@flatg:
+    ibt r0, #0
+@haveg:
+    sms (V_GDG), r0
+    lms r0, (V_LG)
+    sms (V_SPANG), r0
+.ENDIF
+
+    move r8, r12                ; U accumulator
+    move r7, r13                ; V accumulator
+
+    ; --- left edge off screen -------------------------------------------
+    ; Move the start to the clip edge and the texture accumulators with
+    ; it: the LMULT by columns skipped that the loop would otherwise have
+    ; done one pixel at a time. This was out of line until the opening
+    ; view looked across the corridor and every other span started off
+    ; the left of the screen.
+    lms r0, (V_CLIPX0)
+    from r1
+    to r6
+    sub r0                      ; R6 = x1 - clip left
+    bpl RFT_NoLeft
+    nop
+    with r6
+    not
+    inc r6                      ; R6 = -R6: columns skipped, the LMULT multiplier
+    from r10
+    to r5
+    lmult                       ; R5:R4 = dU * n
+    with r8
+    add r4                      ; U += the low word: an 8.8 accumulator wraps
+    from r9
+    to r5
+    lmult
+    with r7
+    add r4
+.IFDEF SHADE_MAP
+    lms r0, (V_GDG)
+    to r5
+    lmult
+    lms r0, (V_SPANG)
+    add r4
+    sbk
+.ENDIF
+    lms r1, (V_CLIPX0)
+
+RFT_NoLeft:
+    ; --- right edge past the clip ---------------------------------------
+    ; Only the right clip: x1 is at or past the left one by now, so an x2
+    ; short of it makes the width below negative, and the skip is the same.
+    move r6, r11
+    lms r0, (V_CLIPX1)
+    from r6
+    to r5
+    sub r0
+    bmi +                       ; x2 < clip right
+    nop
+    move r6, r0
++   from r6
+    to r5
+    sub r1                      ; visible width; SUB sets S and Z
+    bmi RFT_Advance
+    nop
+    beq RFT_Advance
+    nop
+
+.IFDEF SHADE_MAP
+    ; The shade pass needs the span after clamping, and PLOT will have walked
+    ; R1 off the end of it by the time that pass runs.
+    sms (V_X1C), r1
+    sms (V_WIDTHC), r5
+.ENDIF
+
+
+    ; The opaque path stays in the hot window. Keyed faces use the same
+    ; edge/gradient/clipping setup, but a writer that skips source texel zero.
+    lms r13, (V_PIXEL)
+    jmp r13
+    nop
+SFT_Span:
+.IFDEF MODE7
+    ; The Mode 7 frame is chunky character data, so a pixel is one STB. Its
+    ; tiles run down the columns -- tile (x >> 3) * 8 + (y >> 3) -- which
+    ; makes the address fb + (x >> 3) * 512 + y * 8 + (x & 7): a line's
+    ; offset is y * 8 and everything else depends on x alone, so M7_COLTAB
+    ; holds fb + (x >> 3) * 512 + (x & 7) per column, filled once a frame.
+    ; Read that table once at the span's start, then walk within each tile;
+    ; crossing its eighth pixel adds the 504 bytes between the address just
+    ; past one tile row and the start of the next. R4 is that eight-pixel
+    ; countdown. This replaces a buffered RAM read and address add per pixel
+    ; with a cached DEC/BNE, while MERGE and the accumulator adds still cover
+    ; the texture ROM read.
+    from r1
+    to r4
+    add r1                      ; x * 2
+    iwt r0, #M7_COLTAB
+    with r4
+    add r0                      ; R4 = &COLTAB[x1]
+    to r6
+    ldw (r4)                    ; destination on line 0
+    move r4, r1
+    ibt r11, #7
+    with r4
+    and r11                     ; pixels already used in this tile row
+    inc r11                     ; mask 7 becomes the multiplier 8
+    with r4
+    sub r11                     ; -(pixels left before the next tile)
+    from r2
+    to r11
+    umult r11                   ; R11 = y * 8
+    with r6
+    add r11                     ; first destination on this line
+    move r12, r5                ; pixel count
+.IFDEF SHADE_PIXEL
+    ; The span's shade: the left edge's, this line, whose accumulator holds
+    ; g << 10 so that the high byte's bits 4-6 are the palette row --
+    ; eight bits a pixel, the texel below and the row above. Constant along
+    ; the span: at four pixels a span the gradient across it is a fraction
+    ; of a level, and it stepped down the edge to get here.
+    lms r5, (V_LG)
+    with r5
+    hib
+    iwt r1, #$70                ; AND takes R1-R15; x1 in R1 is spent by now
+    with r5
+    and r1
+.ENDIF
+    iwt r13, #SFT_Loop
+SFT_Loop:
+    MERGE_TEXEL
+    with r8
+    add r10                     ; U += dU
+    with r7
+    add r9                      ; V += dV
+    getb                        ; R0 = the texel
+.IFDEF SHADE_PIXEL
+    or r5                       ; lit
+.ENDIF
+    stb (r6)
+    inc r4
+    bne @sameTile
+    inc r6                      ; branch delay: every next pixel advances once
+    iwt r0, #504                ; from one tile row to the next
+    with r6
+    add r0
+    ibt r4, #-8
+@sameTile:
+    loop
+    nop
+.ELSE
+    ; Per pixel: MERGE forms the texel address straight out of the high
+    ; bytes of the two 8.8 accumulators, writing R14 starts the ROM fetch,
+    ; GETC drops the texel into COLR and PLOT puts it on screen. The two adds
+    ; in between are not filler -- they cover the ROM read latency, five
+    ; cycles at 21.4 MHz. The two accumulator updates happen after MERGE, so
+    ; they affect the next pixel. The WITH for V cannot be carried through
+    ; LOOP: LOOP is an instruction with a delay slot, not a prefix-preserving
+    ; conditional branch.
+    move r12, r5                ; pixel count
+.IFDEF FX3
+    iwt r6, #$FF00              ; MERGE_TEXEL's V-byte mask, invariant per span
+.ENDIF
+.IFDEF SHADE_PIXEL
+    lms r5, (V_LG)
+    with r5
+    hib
+    ibt r11, #$70
+    with r5
+    and r11
+.ENDIF
+    iwt r13, #SFT_Loop
+SFT_Loop:
+    MERGE_TEXEL
+    with r8
+    add r10                     ; U += dU, covering the ROM read latency
+    with r7
+    add r9                      ; V += dV
+.IFDEF SHADE_PIXEL
+    getb
+    or r5
+    color
+.ELSE
+    getc                        ; COLR <- texel, after both accumulator updates
+.ENDIF
+    loop
+    plot                        ; delay slot: draw, and R1 advances by itself
+.ENDIF
+
+.IFDEF SHADE_MAP
+    GFCALL SpanShade
+.ENDIF
+
+RFT_Advance:
+    ; X, U and V stepped at the top of the line; the shade steps here --
+    ; the left edge's alone in the Mode 7 frame, whose span reads only that.
+.IFDEF SHADING
+    lms r5, (V_LDG)
+    lms r0, (V_LG)
+    add r5
+    sbk
+.IFDEF SHADE_MAP
+    lms r5, (V_RDG)
+    lms r0, (V_RG)
+    add r5
+    sbk
+.ENDIF
+.ENDIF
+    inc r2                      ; next scanline
+    dec r3                      ; lines left in the strip
+    beq +
+    nop
+    GFJMP RFT_Line
++   GFJMP RFT_Next
+
+RFT_Done:
+    lms r11, (V_LINK)
+    GRET
+
+; Colour-keyed spans. No CACHE here: the shared setup owns the window and
+; moving it for each span would evict the next scanline's edge/gradient work.
+; The packer marks source index zero with bit 7, independently of the colour
+; nibble. LOB sets S from bit 7, so opaque palette-zero texels still draw.
+SFTA_Span:
+.IFDEF MODE7
+    from r1
+    to r4
+    add r1
+    iwt r0, #M7_COLTAB
+    with r4
+    add r0
+    to r6
+    ldw (r4)
+    move r4, r1
+    ibt r11, #7
+    with r4
+    and r11
+    inc r11
+    with r4
+    sub r11
+    from r2
+    to r11
+    umult r11
+    with r6
+    add r11
+.ENDIF
+    move r12, r5
+.IFDEF FX3
+    iwt r6, #$FF00              ; same mask for opaque and colour-keyed writers
+.ENDIF
+.IFDEF SHADE_PIXEL
+    lms r5, (V_LG)
+    with r5
+    hib
+    ibt r11, #$70
+    with r5
+    and r11
+.ENDIF
+.IFDEF SHADE_MAP
+    ; 4bpp can shade only an entire character. Use the span's left shade,
+    ; and touch a character's palette only when an opaque texel lands in it.
+    ; Fully transparent characters retain their background pixels AND shade.
+    lms r5, (V_LG)
+    with r5
+    hib
+    ibt r11, #SHADE_PAL_MASK
+    with r5
+    and r11
+    iwt r11, #$00F8
+    from r2
+    to r6
+    and r11
+    with r6
+    add r6
+    with r6
+    add r6
+    lms r0, (FR_SHADE)
+    with r6
+    add r0
+    ibt r4, #SHADE_CN_MASK
+.ENDIF
+    iwt r13, #SFTA_Loop
+SFTA_Loop:
+    MERGE_TEXEL
+    with r8
+    add r10
+    with r7
+    add r9
+    getb
+    lob
+    bmi SFTA_Hole
+    nop
+.IFDEF SHADE_PIXEL
+    or r5
+.ENDIF
+.IFDEF MODE7
+    stb (r6)
+SFTA_Hole:
+    inc r4
+    bne @sameTile
+    inc r6
+    iwt r0, #504
+    with r6
+    add r0
+    ibt r4, #-8
+@sameTile:
+    loop
+    nop
+    GFJMP RFT_Advance
+.ELSE
+    color
+.IFDEF SHADE_MAP
+    from r1
+    to r11
+    lsr
+    with r11
+    lsr
+    with r11
+    lsr
+    with r11
+    add r6
+    to r0
+    ldb (r11)
+    and r4
+    or r5
+    stb (r11)
+.ENDIF
+    loop
+    plot
+    GFJMP RFT_Advance
+SFTA_Hole:
+    loop
+    inc r1                     ; PLOT normally advances X, even a skipped pixel
+    GFJMP RFT_Advance
+.ENDIF
+
+; ===========================================================================
+; divTable[i] = 65536 / i for i in 0..255, little endian.
+; Entries 0 and 1 are $FFFF, matching src/fixed/common.cpp. Copied into RAM
+; at RECIP_TAB once a frame by frame.gsu, which is the only reader now.
+; ===========================================================================
+
+DivTableData:
+    .INCBIN "divtable.bin"
+
+.ENDS

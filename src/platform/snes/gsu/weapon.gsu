@@ -1,0 +1,428 @@
+; Lara's separate pistol poses and mesh swaps. The host publishes the
+; original animation/frame, smoothed aim angles and useBasis per arm.
+; Other models continue to use their own body animation and node stream.
+
+WeaponModelBegin:
+    ibt r0, #0
+    sm (WA_LARA), r0
+.IF PISTOL_AVAILABLE
+    lms r5, (IT_NODES)
+    with r5
+    from r5
+    bne WMB_Done
+    nop
+    lms r5, (MD_I)
+    ibt r6, #15
+    from r5
+    cmp r6
+    bne WMB_Done
+    nop
+    ibt r0, #1
+    sm (WA_LARA), r0
+    iwt r1, #M_00
+    iwt r2, #WA_MATRIX
+    ibt r12, #3
+    iwt r13, #WMB_Row
+WMB_Row:
+    to r0
+    ldw (r1)
+    stw (r2)
+    inc r1
+    inc r1
+    inc r2
+    inc r2
+    to r0
+    ldw (r1)
+    stw (r2)
+    inc r1
+    inc r1
+    inc r2
+    inc r2
+    to r0
+    ldw (r1)
+    stw (r2)
+    ibt r0, #4                  ; skip the body's translation column
+    with r1
+    add r0
+    inc r2
+    loop
+    inc r2
+.ENDIF
+WMB_Done:
+    GRET
+
+WeaponModelNode:
+    lm r0, (WA_LARA)
+    with r0
+    from r0
+    bne +
+    nop
+    GRET
++   sm (WA_LINK), r11
+    ibt r0, #15
+    lms r5, (MD_I)
+    to r5
+    sub r5                     ; node index, body frame already advanced
+    sm (WA_NODE), r5
+
+    ; The two thigh and two hand meshes swap independently. The four-byte
+    ; records are address, bank relative to LEVEL_BANK_BASE, sphere radius.
+    ibt r6, #1
+    from r5
+    cmp r6
+    bne +
+    nop
+    ibt r8, #0
+    iwt r10, #(GS_WEAPON + 14)
+    bra WMN_Mesh
+    nop
++   ibt r6, #4
+    from r5
+    cmp r6
+    bne +
+    nop
+    ibt r8, #8
+    iwt r10, #(GS_WEAPON + 2)
+    bra WMN_Mesh
+    nop
++   ibt r6, #10
+    from r5
+    cmp r6
+    bne +
+    nop
+    ibt r8, #16
+    iwt r10, #(GS_WEAPON + 2)
+    bra WMN_Mesh
+    nop
++   ibt r6, #13
+    from r5
+    cmp r6
+    bne WMN_Pose
+    nop
+    ibt r8, #24
+    iwt r10, #(GS_WEAPON + 14)
+WMN_Mesh:
+    ibt r0, #10
+    with r10
+    add r0
+    to r0
+    ldw (r10)                  ; drawn, 0 or 1
+    ibt r6, #8
+    from r5
+    cmp r6
+    bcs +
+    nop
+    with r0
+    xor #1                     ; holstered guns are on the thighs
++   with r0
+    add r0
+    with r0
+    add r0
+    with r8
+    add r0
+    iwt r0, #PistolMeshes
+    from r8
+    to r14
+    add r0
+    ibt r6, #GSU_BANK
+    from r6
+    romb
+    move r14, r14               ; ROMB alone does not refill the ROM buffer
+    GFCALL RomWordAt
+    sms (MD_ADDR), r0
+    GFCALL RomByteAt
+    sms (MD_BANK), r0
+    GFCALL RomByteAt
+    with r0
+    swap
+    move r5, r0
+    lms r0, (MD_FLAGS)
+    iwt r6, #$00FF
+    with r0
+    and r6
+    with r0
+    or r5
+    sms (MD_FLAGS), r0
+
+WMN_Pose:
+    lm r5, (WA_NODE)
+    ibt r6, #8
+    from r5
+    cmp r6
+    bcs +
+    nop
+    lm r11, (WA_LINK)
+    GRET
++
+    ibt r6, #14
+    from r5
+    cmp r6
+    bcc +
+    nop
+    lm r11, (WA_LINK)
+    GRET
++
+    lm r0, (GS_WEAPON)
+    ibt r6, #2
+    from r0
+    cmp r6
+    bcs +
+    nop
+    lm r11, (WA_LINK)
+    GRET                       ; FREE/BUSY: the body's animation
++
+    iwt r10, #(GS_WEAPON + 2)
+    ibt r6, #11
+    from r5
+    cmp r6
+    bcc +
+    nop
+    ibt r0, #12
+    with r10
+    add r0
++   sm (WA_ARM), r10
+    to r0
+    ldw (r10)                  ; animation, NONE or invalid => body pose
+    ibt r6, #4
+    from r0
+    cmp r6
+    bcc +
+    nop
+    lm r11, (WA_LINK)
+    GRET
++
+    with r0
+    add r0
+    with r0
+    add r0
+    iwt r6, #PistolFrames
+    to r14
+    add r6
+    ibt r6, #GSU_BANK
+    from r6
+    romb
+    move r14, r14               ; ROMB alone does not refill the ROM buffer
+    GFCALL RomWordAt
+    move r8, r0
+    GFCALL RomByteAt
+    move r9, r0                ; frame ROM bank, absolute
+    GFCALL RomByteAt
+    move r6, r0                ; final frame index
+    lm r10, (WA_ARM)
+    inc r10
+    inc r10
+    to r5
+    ldw (r10)
+    from r6
+    cmp r5
+    bcs +
+    nop
+    ibt r5, #0                 ; clamp a corrupt frame before reading ROM
++   ibt r6, #51                ; root XYZ and fifteen byte-angle triples
+    with r5
+    umult r6
+    with r8
+    add r5
+    lm r5, (WA_NODE)
+    ibt r6, #3
+    with r5
+    umult r6
+    ibt r0, #6
+    with r5
+    add r0
+    from r8
+    to r14
+    add r5
+    from r9
+    romb
+    move r14, r14               ; ROMB alone does not refill the ROM buffer
+    GFCALL RomByteAt
+    sms (MD_AX), r0
+    GFCALL RomByteAt
+    sms (MD_AY), r0
+    GFCALL RomByteAt
+    sms (MD_AZ), r0
+WMN_Done:
+    lm r11, (WA_LINK)
+    GRET
+
+WeaponModelBasis:
+    lm r0, (WA_LARA)
+    with r0
+    from r0
+    bne +
+    nop
+    GRET
++
+    lm r0, (GS_WEAPON)
+    ibt r6, #2
+    from r0
+    cmp r6
+    bcs +
+    nop
+    GRET
++
+    lm r5, (WA_NODE)
+    ibt r6, #8
+    from r5
+    cmp r6
+    beq +
+    nop
+    ibt r6, #11
+    from r5
+    cmp r6
+    beq +
+    nop
+    GRET
++
++   lm r10, (WA_ARM)
+    to r0
+    ldw (r10)
+    ibt r6, #4
+    from r0
+    cmp r6
+    bcc +
+    nop
+    GRET
++
+    ibt r0, #8
+    with r10
+    add r0
+    to r0
+    ldw (r10)                  ; useBasis
+    with r0
+    from r0
+    bne +
+    nop
+    GRET
++
+    sm (WA_LINK), r11
+    iwt r1, #WA_MATRIX
+    iwt r2, #M_00
+    ibt r12, #3
+    iwt r13, #WMBasis_Row
+WMBasis_Row:
+    to r0
+    ldw (r1)
+    stw (r2)
+    inc r1
+    inc r1
+    inc r2
+    inc r2
+    to r0
+    ldw (r1)
+    stw (r2)
+    inc r1
+    inc r1
+    inc r2
+    inc r2
+    to r0
+    ldw (r1)
+    stw (r2)
+    inc r1
+    inc r1
+    ibt r0, #4                  ; preserve the shoulder's translated origin
+    with r2
+    add r0
+    loop
+    nop
+    lm r10, (WA_ARM)
+    ibt r0, #6
+    with r10
+    add r0
+    to r0
+    ldw (r10)
+    with r0
+    hib
+    beq +
+    nop
+    GFCALL MatrixRotateY
++
+    lm r10, (WA_ARM)
+    ibt r0, #4
+    with r10
+    add r0
+    to r0
+    ldw (r10)
+    with r0
+    hib
+    beq +
+    nop
+    GFCALL MatrixRotateX
++
+    lm r11, (WA_LINK)
+WMBasis_Done:
+    GRET
+
+; updateLook's additional torso/head rotations come after matrixFrame's
+; rotations. The head inherits the torso; the aimed arm bases still use
+; the object rotation saved before either, at their translated shoulders.
+WeaponModelLook:
+    lm r0, (WA_LARA)
+    with r0
+    from r0
+    beq WML_Done
+    nop
+    lm r5, (WA_NODE)
+    iwt r10, #GS_LOOK
+    ibt r6, #7
+    from r5
+    cmp r6
+    beq WML_Rotate
+    nop
+    ibt r6, #14
+    from r5
+    cmp r6
+    bne WML_Done
+    nop
+    iwt r10, #(GS_LOOK + 4)
+WML_Rotate:
+    sm (WA_LINK), r11
+    sm (WA_ARM), r10           ; scratch; the next arm node replaces it
+    inc r10
+    inc r10
+    to r0
+    ldw (r10)
+    with r0
+    hib
+    beq +
+    nop
+    GFCALL MatrixRotateY
++   lm r10, (WA_ARM)
+    to r0
+    ldw (r10)
+    with r0
+    hib
+    beq +
+    nop
+    GFCALL MatrixRotateX
++   lm r11, (WA_LINK)
+WML_Done:
+    GRET
+
+PistolFrames:
+    .DW PISTOL_ANIM_0_ADDR
+    .DB PISTOL_ANIM_0_BANK, PISTOL_ANIM_0_LAST
+    .DW PISTOL_ANIM_1_ADDR
+    .DB PISTOL_ANIM_1_BANK, PISTOL_ANIM_1_LAST
+    .DW PISTOL_ANIM_2_ADDR
+    .DB PISTOL_ANIM_2_BANK, PISTOL_ANIM_2_LAST
+    .DW PISTOL_ANIM_3_ADDR
+    .DB PISTOL_ANIM_3_BANK, PISTOL_ANIM_3_LAST
+PistolMeshes:
+    .DW PISTOL_MESH_0_ADDR
+    .DB PISTOL_MESH_0_BANK, PISTOL_MESH_0_RADIUS
+    .DW PISTOL_MESH_1_ADDR
+    .DB PISTOL_MESH_1_BANK, PISTOL_MESH_1_RADIUS
+    .DW PISTOL_MESH_2_ADDR
+    .DB PISTOL_MESH_2_BANK, PISTOL_MESH_2_RADIUS
+    .DW PISTOL_MESH_3_ADDR
+    .DB PISTOL_MESH_3_BANK, PISTOL_MESH_3_RADIUS
+    .DW PISTOL_MESH_4_ADDR
+    .DB PISTOL_MESH_4_BANK, PISTOL_MESH_4_RADIUS
+    .DW PISTOL_MESH_5_ADDR
+    .DB PISTOL_MESH_5_BANK, PISTOL_MESH_5_RADIUS
+    .DW PISTOL_MESH_6_ADDR
+    .DB PISTOL_MESH_6_BANK, PISTOL_MESH_6_RADIUS
+    .DW PISTOL_MESH_7_ADDR
+    .DB PISTOL_MESH_7_BANK, PISTOL_MESH_7_RADIUS

@@ -1,0 +1,431 @@
+; OpenLara - SNES / Super FX target
+; GSU frame program.
+;
+; Entry is at $0000 of this blob, which the host reaches as PBR = $41,
+; R15 = $0000. One run produces one frame into the game pak RAM buffer whose
+; byte offset the host left in R3, then STOPs, which raises the IRQ the host
+; is waiting on.
+; FX3 instead enters at $0100, uses its fixed hardware pixel buffer, issues
+; the three firmware C2P commands, and STOPs for the host's R15 poll.
+
+.INCLUDE "gsu.inc"
+.INCLUDE "model_off.inc"
+.INCLUDE "texbank.inc"
+
+.BANK 0 SLOT 0
+.ORG 0
+.SECTION "frame" FORCE
+.IFDEF FX3
+    ; R15 high byte is an atomic idle probe: no executing code in page zero.
+    .DSB $100, $01
+.ENDIF
+
+; ===========================================================================
+; Frame entry
+;
+; The host hands over R3 (frame buffer offset), R7 (a pad-driven nudge) and
+; R8 (the rotation angle, which the C running on the 65816 advances).
+; ===========================================================================
+
+FrameStart:
+    ; Game pak RAM bank $70. RAMBR comes up undefined after reset.
+    ibt r0, #$00
+    ramb
+
+    ; Treat colour 0 as an ordinary opaque colour. The renderer clears the
+    ; buffer explicitly and wants every plot to land.
+    ibt r0, #POR_TRANSPARENT
+    cmode
+
+    sm (FR_CAMX), r7
+    sm (FR_ANGLE), r8
+    sm (FR_CAMZ), r9
+    sm (FR_CAMY), r10
+    sm (FR_ROOM), r6
+    sm (FR_TGTY), r11
+
+    ; Game pak RAM comes up undefined, and a matrix stack pointer that starts
+    ; anywhere but zero pushes the matrix somewhere it does not belong.
+    ibt r0, #0
+    sm (MX_SP), r0
+
+    ; The reciprocal table, 65536 / i for i in 0..255, out of ROM into RAM
+    ; at RECIP_TAB. The span setup and the edge pass read it with LDW where
+    ; they used to fetch it through the ROM buffer, which meant switching
+    ; ROMB away from the texture page and back on every span. 256 words,
+    ; once a frame, under a window of its own; three thousand cycles.
+    ibt r0, #GSU_BANK
+    romb
+    iwt r14, #DivTableData
+    iwt r10, #RECIP_TAB
+    iwt r12, #256
+    iwt r13, #RT_Loop
+    cache
+RT_Loop:
+    to r0
+    getb                        ; low byte
+    inc r14
+    with r0
+    getbh                       ; high byte over it
+    inc r14
+    from r0
+    stw (r10)
+    inc r10
+    inc r10
+    loop
+    nop
+
+.IFDEF MODE7
+    ; The projection's table: 32768 / i, which is RECIP_TAB halved. FMULT
+    ; by it gives x / (2 dz), the screen coordinate for a frame half the
+    ; size, and the vertex loop's code does not change by a byte.
+    iwt r10, #RECIP_TAB
+    iwt r9, #M7_PROJTAB
+    iwt r12, #256
+    iwt r13, #@proj
+@proj:
+    to r0
+    ldw (r10)
+    with r0
+    lsr
+    from r0
+    stw (r9)
+    inc r10
+    inc r10
+    inc r9
+    inc r9
+    loop
+    nop
+
+    ; The column table: each pixel column's address on line 0 of the buffer
+    ; R3 names, fb + (x >> 3) * 512 + (x & 7) -- the tiles run down the
+    ; columns, so a line is 8 bytes on from the one above it and nothing
+    ; else about the address depends on y. See raster.gsu.
+    iwt r10, #M7_COLTAB
+    move r5, r3
+    iwt r6, #504                ; from a tile's last column to the next tile's first
+    iwt r7, #16                 ; tile columns
+@cols:
+    ibt r12, #8
+    iwt r13, #@col
+@col:
+    from r5
+    stw (r10)
+    inc r10
+    inc r10
+    inc r5
+    loop
+    nop
+    with r5
+    add r6
+    dec r7
+    bne @cols
+    nop
+.ENDIF
+
+;
+; The pitch. Upstream points its view at the target, ten degrees down in
+; the follow camera; this view matrix is a yaw. Instead the projection's
+; centre line moves to wherever the target projects: the target's depth
+; along the view, zc = sin * dx + cos * dz from the probe (her x/z, which
+; is the camera target's), then dy through the same reciprocal and FMULT
+; every vertex takes. For the ten degrees that is 22 lines; for everything
+; else in the frame the shear differs from a rotation by 1 - cos, 1.5%.
+; ROMB is still GSU_BANK from the table copy. A target at or behind the near
+; plane leaves the centre where it was.
+;
+    iwt r0, #SCREEN_CY
+    sm (FR_CY), r0
+    lm r0, (FR_ANGLE)
+    iwt r6, #ModelData
+    to r14
+    add r0                      ; index * 2
+    with r14
+    add r6
+    GFCALL RomWordAt            ; sin(yaw), 1.15
+    move r6, r0
+    iwt r10, #GS_PROBE
+    to r7
+    ldw (r10)                   ; target x
+    lm r0, (FR_CAMX)
+    with r7
+    sub r0
+    from r7
+    to r5
+    fmult                       ; half of dx * sin
+    lm r0, (FR_ANGLE)
+    ibt r6, #64
+    with r0
+    add r6
+    iwt r6, #$00FF
+    with r0
+    and r6
+    iwt r6, #ModelData
+    to r14
+    add r0
+    with r14
+    add r6
+    GFCALL RomWordAt            ; cos(yaw)
+    move r6, r0
+    iwt r10, #(GS_PROBE + 4)
+    to r7
+    ldw (r10)                   ; target z
+    lm r0, (FR_CAMZ)
+    with r7
+    sub r0
+    from r7
+    to r8
+    fmult                       ; half of dz * cos
+    with r5
+    add r8
+    with r5
+    add r5                      ; R5 = zc
+    iwt r0, #512                ; ZMIN, mesh.gsu's near plane
+    from r5
+    sub r0
+.IFDEF FX3
+    bmi ShearNearJ              ; FX3 projects nearer than that (ShearNear)
+.ELSE
+    bmi @noShear
+.ENDIF
+    nop
+    from r5                     ; dz = zc >> 7, as the vertices take it
+    to r6
+    hib
+    with r6
+    add r6
+    with r6
+    add r6                      ; index * 2
+    iwt r0, #SHEAR_TAB
+    with r6
+    add r0
+    to r6
+    ldw (r6)                    ; 65536 / dz
+    lm r7, (FR_TGTY)
+    lm r0, (FR_CAMY)
+    with r7
+    sub r0                      ; dy: the target below the view is positive
+    from r7
+    to r5
+    fmult                       ; its screen offset from the centre line
+    iwt r0, #SCREEN_CY
+    with r0
+    sub r5
+    sm (FR_CY), r0
+@noShear:
+.IFDEF SHADE_MAP
+    ; The shade map belongs to the frame buffer, not to the frame: the host
+    ; uploads the pair together, so which one to write follows from R3.
+    iwt r0, #FB0_ADDR
+    from r3
+    cmp r0
+    beq +
+    nop
+    iwt r0, #SHADE1_ADDR
+    bra ++
+    nop
++   iwt r0, #SHADE0_ADDR
+++  sm (FR_SHADE), r0
+.ENDIF
+
+.IFNDEF FX3
+    GFCALL StageItemList        ; FX3 boot stages the host blob into WRAM
+.ENDIF
+.IFDEF FX3
+    ; FrameBody (end of mesh.gsu): the inventory's ring while it is open,
+    ; else the clear and the rooms. One call and eight NOPs, the size of the
+    ; two it stands for, so no routine after this moves and every tuned
+    ; cache window keeps its alignment. The eight are now the way out to
+    ; ShearNear (end of mesh.gsu) and back, for a target short of 512.
+ShearDone:
+    GFCALL FrameBody
+    bra ShearSkip
+    nop
+ShearNearJ:
+    iwt r15, #ShearNear
+    nop
+    .DB $01
+ShearSkip:
+.ELSE
+    GFCALL ClearFrame           ; GCALL's branch no longer reaches
+    GFCALL RoomsRender
+.ENDIF
+
+    ; Plotted pixels may still be sitting in the two 8-pixel caches; RPIX
+    ; pushes them out to game pak RAM. The Mode 7 frame is written with STB
+    ; and has no cache to flush.
+.IFNDEF MODE7
+    rpix
+.ENDIF
+.IFDEF FX3
+    FX3_COMMAND 0              ; C2P: the three 72x144 strips at $710000
+    FX3_COMMAND 1
+    FX3_COMMAND 2
+.ENDIF
+
+    stop
+    nop
+
+; ===========================================================================
+; RoomsRender -- everything the camera can see, back to front.
+;
+; The portal walk runs on this side of the cartridge bus because it has to:
+; the level is in ROM, and while the GSU holds that bus the 65816 reads dummy
+; data. The host names the room the camera is in and gets a picture back.
+;
+; Rooms are drawn in reverse of the order the walk found them, which puts the
+; camera's own room last. Each is depth-sorted within itself; between rooms,
+; the traversal order is the sort.
+; ===========================================================================
+
+RoomsRender:
+    sm (FR_LINK), r11
+
+    ; What is under the point the host asked about, and what is around it.
+    ; That is Lara rather than the camera: she is what stands on a floor, and
+    ; since the camera followed her rather than being her the two are not the
+    ; same place.
+    iwt r10, #GS_PROBE
+    to r0
+    ldw (r10)
+    sms (PB_X), r0
+    inc r10
+    inc r10
+    to r0
+    ldw (r10)
+    sms (PB_Y), r0
+    inc r10
+    inc r10
+    to r0
+    ldw (r10)
+    sms (PB_Z), r0
+    GFCALL StageProbes
+
+    ; The host's R6 is only the fallback now, for a camera that has left the
+    ; level entirely -- keep drawing the last room it was in rather than
+    ; nothing at all.
+    lm r0, (GS_ROOM)            ; $F300 is past the LMS window; LM takes 16 bits
+    iwt r5, #$FFFF
+    from r0
+    cmp r5
+    bne +
+    nop
+    lm r0, (FR_ROOM)
++   sm (FR_ROOM), r0
+    iwt r10, #GS_ROOM
+    from r0
+    stw (r10)
+
+    ; the probes left PB_* on the last neighbour; put it back on the camera
+    ; before anything renders through it
+    lm r0, (FR_CAMX)
+    sms (PB_X), r0
+    lm r0, (FR_CAMY)
+    sms (PB_Y), r0
+    lm r0, (FR_CAMZ)
+    sms (PB_Z), r0
+
+    lm r0, (ENT_READY)          ; the entity slot table, once a level
+    ibt r5, #1
+    from r0
+    cmp r5
+    beq +
+    nop
+    GFCALL EntBuild
++
+    lm r0, (FR_ROOM)
+    GFCALL RoomsCollect
+
+    lms r0, (RL_COUNT)
+    dec r0
+    sms (RL_J), r0
+
+RR_Room:
+    lms r0, (RL_J)
+    to r10
+    add r0
+    iwt r5, #RL_LIST
+    with r10
+    add r5
+    to r0
+    ldw (r10)
+    sm (R_INDEX), r0            ; DrawRoomItems draws what the host has here
+
+    GFCALL RoomLoad             ; where this room is, and the camera inside it
+.IFDEF FX3
+    GFCALL RoomClipFx3          ; and the rectangle, and TM_Near's NK_MASK
+.ELSE
+    GFCALL RoomClip             ; and the rectangle it was seen through
+.ENDIF
+    lm r0, (FR_ANGLE)           ; yaw, 0-255 for a full turn
+    GFCALL MatrixCamera
+    GFCALL TransformRoom          ; MatrixCamera is yaw-only; skip its zero terms
+    GFCALL DrawMesh
+    GFCALL DrawRoomMeshes       ; and the scenery standing in it
+    GFCALL DrawRoomItems        ; and the entities
+
+    lms r0, (RL_J)
+    ibt r5, #0
+    from r0
+    cmp r5
+    beq +
+    nop
+    dec r0
+    sms (RL_J), r0
+    GFJMP RR_Room
+
++   lm r11, (FR_LINK)
+    GRET
+
+; ===========================================================================
+; ClearFrame -- zero the whole buffer with direct RAM writes.
+;
+; PLOT would work but costs an instruction per pixel. One word store covers
+; four pixels at 4bpp (two in the Mode 7 frame), so this is the cheap path.
+; R3 holds the buffer offset.
+; ===========================================================================
+
+ClearFrame:
+.IFDEF FX3
+    FX3_COMMAND 3
+    FX3_COMMAND 4
+    FX3_COMMAND 5
+    GRET
+.ELSE
+    move r10, r3                ; write pointer
+    iwt r0, #$0000              ; Sreg, the value STW stores
+    iwt r12, #FRAME_WORDS
+    iwt r13, #ClearLoop
+    cache
+ClearLoop:
+    stw (r10)
+    inc r10
+    loop
+    inc r10                     ; every word advances in the LOOP delay slot
+    nop                         ; keep later renderer windows at their addresses
+    GRET
+.ENDIF
+
+; ===========================================================================
+; HLine -- plot R5 pixels of the current COLR starting at (R1, R2).
+;
+; PLOT advances R1 itself, which is exactly what a span filler wants: set the
+; coordinates once, then hammer the instruction.
+;
+; Clobbers R1, R12, R13.
+; ===========================================================================
+
+HLine:
+    move r12, r5
+    iwt r13, #HLineLoop
+    cache
+HLineLoop:
+    plot
+    loop
+    nop
+    GRET
+
+.ENDS
+
+.INCLUDE "raster.gsu"
+.INCLUDE "mesh.gsu"

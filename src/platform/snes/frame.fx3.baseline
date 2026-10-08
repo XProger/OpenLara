@@ -1,0 +1,10 @@
+# The opening frame, as tools/gsusim.py models it. Written by
+# `make baseline`, compared by `make check`; a change here is
+# a renderer change that cost or saved something, and belongs
+# in the same commit as the code that made it.
+target=fx3
+cycles=3887757
+instructions=1534141
+plots=34781
+cache_hit=93.5
+crc32=23c4b507
