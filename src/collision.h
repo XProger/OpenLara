@@ -15,9 +15,11 @@ struct Collision {
         float floor, ceiling;
     } info[4];
 
+    vec2 slantAxis; // when set, only the slant along this axis counts as steep (e.g. along the wall while hanging)
+
     Collision() : side(NONE) {}
 
-    Collision(Controller *controller, int roomIndex, vec3 &pos, const vec3 &offset, const vec3 &velocity, float radius, float angle, int minHeight, int maxHeight, int maxAscent, int maxDescent) {
+    Collision(Controller *controller, int roomIndex, vec3 &pos, const vec3 &offset, const vec3 &velocity, float radius, float angle, int minHeight, int maxHeight, int maxAscent, int maxDescent, const vec2 &slantAxis = vec2(0.0f)) : slantAxis(slantAxis) {
         if (velocity.x > 0.0f || velocity.z > 0.0f)
             angle = normalizeAngle(PI2 + vec2(velocity.z, velocity.x).angle());
         pos += velocity;
@@ -94,8 +96,10 @@ struct Collision {
         inf.ceiling   = info.ceiling;
         inf.climb     = info.climb;
 
+        bool steep = (slantAxis.x == 0.0f && slantAxis.y == 0.0f) ? (abs(info.slantX) > 2 || abs(info.slantZ) > 2) : (fabsf(info.slantX * slantAxis.x + info.slantZ * slantAxis.y) > 2.0f);
+
         if ((info.ceiling == info.floor) ||  (info.floor - info.ceiling < height) || (pos.y - info.floor > maxAscent) || (info.floor - pos.y > maxDescent) || (info.ceiling > pos.y) ||
-            (maxAscent == maxDescent && (maxAscent <= 256 + 128) && (abs(info.slantX) > 2 || abs(info.slantZ) > 2))) {
+            (maxAscent == maxDescent && (maxAscent <= 256 + 128) && steep)) {
             this->side = side;
             return true;
         }
