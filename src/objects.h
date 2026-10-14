@@ -1541,7 +1541,9 @@ struct MutantEgg : Controller {
                 animation.setState(STATE_EXPLOSION);
                 layers[0].mask = 0xffffffff & ~(1 << 24);
                 explode(0x00fffe00, 0.0f);
-                game->addEntity(enemy, getRoomIndex(), pos, angle.y);
+                // the egg hatches empty when the level has no model for its enemy (e.g. giant mutant eggs in The Hive)
+                if (level->getModelIndex(enemy))
+                    game->addEntity(enemy, getRoomIndex(), pos, angle.y);
             }
         }
         Controller::update();
