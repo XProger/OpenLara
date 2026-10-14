@@ -1658,9 +1658,11 @@ namespace TR {
 
         TextureInfo() {}
 
-        TextureInfo(TextureType type, int16 l, int16 t, int16 r, int16 b, uint8 tx, uint8 ty, uint8 tw, uint8 th) : type(type), dataType(type), attribute(1), l(l), t(t), r(r), b(b) {
+        TextureInfo(TextureType type, int16 l, int16 t, int16 r, int16 b, uint8 tx, uint8 ty, uint8 tw, uint8 th) : type(type), dataType(type), index(0), clut(0), tile(0), attribute(1), animated(0), l(l), t(t), r(r), b(b), i5(0) {
             texCoord[0] = texCoordAtlas[0] = short2( tx,          ty          );
             texCoord[1] = texCoordAtlas[1] = short2( tx + tw - 1, ty + th - 1 );
+            texCoord[2] = texCoordAtlas[2] = texCoord[3] = texCoordAtlas[3] = short2( 0, 0 );
+            sub[0] = sub[1] = sub[2] = sub[3] = 0;
         }
 
         short4 getMinMax() const {

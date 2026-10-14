@@ -2446,13 +2446,22 @@ struct Lara : Character {
 
             if (fabsf(floor - hands) < 64 && int(floor) != int(ceiling)) {
                 alignToWall(-LARA_RADIUS);
+
+            // the floor above was sampled deeper inside the ledge, re-sample it at the edge so hands match slanted ledges
+                {
+                    TR::Level::FloorInfo info;
+                    getLedgeInfo(pos + getDir() * (LARA_RADIUS + 2.0f), floor, info);
+                    if (fabsf(info.floor - floor) < 256.0f)
+                        floor = info.floor;
+                }
+
                 pos.y = float(floor + LARA_HANG_OFFSET);
                 stand = STAND_HANG;
 
                 if (state == STATE_REACH) {
                     velocity = vec3(0.0f);
                     TR::Level::FloorInfo info;
-                    getFloorInfo(getRoomIndex(), pos + getDir() * 256.0f, info);
+                    getLedgeInfo(pos + getDir() * 256.0f, floor, info);
                     int h = int(info.ceiling - floor);
                     return animation.setAnim((h > 0 && h < 400) ? ANIM_HANG_SWING : ANIM_HANG);
                 } else
@@ -2718,13 +2727,24 @@ struct Lara : Character {
         return state;
     }
 
+    // floor info at point p of the ledge (at height "ledge") Lara hangs on
+    // the ledge may belong to a room stacked above Lara's own room, while her own room can have an unrelated sector under the ledge block,
+    // so resolve the room at ledge height first (as Collision does)
+    void getLedgeInfo(const vec3 &p, float ledge, TR::Level::FloorInfo &info) {
+        int room = getRoomIndex();
+        Collision::getFloor(level, room, vec3(pos.x, ledge - 32.0f, pos.z));
+        getFloorInfo(room, p, info);
+        if (info.roomAbove != TR::NO_ROOM && info.floor >= ledge)
+            getFloorInfo(info.roomAbove, p, info);
+    }
+
     virtual int getStateHang() {
         if (input & LEFT)  return STATE_HANG_LEFT;
         if (input & RIGHT) return STATE_HANG_RIGHT;
         if (input & FORTH) {
             // possibility check
             TR::Level::FloorInfo info;
-            getFloorInfo(getRoomIndex(), pos + getDir() * (LARA_RADIUS + 2.0f), info);
+            getLedgeInfo(pos + getDir() * (LARA_RADIUS + 2.0f), pos.y - LARA_HANG_OFFSET, info);
             if (info.floor - info.ceiling >= LARA_HEIGHT)
                 return (input & WALK) ? STATE_HANDSTAND : STATE_HANG_UP;            
         }
@@ -3476,12 +3496,9 @@ struct Lara : Character {
                     velocity.y = 0.0f;
                 } else {
                     TR::Level::FloorInfo info;
-                    if (stand == STAND_HANG) {
-                        vec3 p = pos + getDir() * (LARA_RADIUS + 2.0f);
-                        getFloorInfo(getRoomIndex(), p, info);
-                        if (info.roomAbove != TR::NO_ROOM && info.floor >= pos.y - LARA_HANG_OFFSET)
-                            getFloorInfo(info.roomAbove, p, info);
-                    } else
+                    if (stand == STAND_HANG)
+                        getLedgeInfo(pos + getDir() * (LARA_RADIUS + 2.0f), pos.y - LARA_HANG_OFFSET, info);
+                    else
                         getFloorInfo(getRoomIndex(), pos, info);
 
                     vec3 v(sinf(angleExt), 0.0f, cosf(angleExt));
@@ -3666,7 +3683,9 @@ struct Lara : Character {
             offset.y += LARA_HEIGHT_WATER * 0.5f;
         }
 
-        collision = Collision(this, room, pos, offset, vel, radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent);
+    // while hanging only the slope along the wall matters (as in the original), a ledge may be steep towards/away from Lara
+        vec2 slantAxis = standHang ? vec2(cosf(angle.y), -sinf(angle.y)) : vec2(0.0f);
+        collision = Collision(this, room, pos, offset, vel, radius, angleExt, minHeight, maxHeight, maxAscent, maxDescent, slantAxis);
 
         if (!standHang && (collision.side == Collision::LEFT || collision.side == Collision::RIGHT)) {
             float rot = TURN_WALL_Y * Core::deltaTime;
@@ -3732,9 +3751,12 @@ struct Lara : Character {
                         } else {
                             animation.setAnim(isLeftFoot ? ANIM_SMASH_RUN_LEFT : ANIM_SMASH_RUN_RIGHT);
                         }
-                    } else if (stand == STAND_HANG)
+                    } else if (stand == STAND_HANG) {
+                    // Collision may keep the sideways step when the blocking sector is the one Lara hangs on (e.g. ledge too steep along the wall)
+                        pos.x = opos.x;
+                        pos.z = opos.z;
                         animation.setAnim(ANIM_HANG, -21);
-                    else if (state != STATE_ROLL_START && state != STATE_ROLL_END)
+                    } else if (state != STATE_ROLL_START && state != STATE_ROLL_END)
                         animation.setAnim((state == STATE_RUN || state == STATE_WALK) ? (isLeftFoot ? ANIM_STAND_LEFT : ANIM_STAND_RIGHT) : ANIM_STAND);
                     velocity.x = velocity.z = 0.0f;
                     break;
