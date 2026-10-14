@@ -2009,12 +2009,16 @@ struct Lara : Character {
         TR::Level::FloorInfo info;
         getFloorInfo(controller->getRoomIndex(), controller->pos, info);
 
-        if (getEntity().isLara() && info.lava && info.floor == pos.y) {
+        if (!heavy && getEntity().isLara() && info.lava && info.floor == pos.y) {
             hit(LARA_MAX_HEALTH + 1, NULL, TR::HIT_LAVA);
             return;
         }
 
         if (!info.trigCmdCount) return; // has no trigger
+
+        // heavy objects (boulders, blocks, enemies) trip heavy triggers only (as in the original),
+        // otherwise e.g. a rolling boulder would trip the pad triggers it passes while Lara stands on the same floor
+        if (heavy && info.trigger != TR::Level::Trigger::HEAVY) return;
 
         if (camera->mode != Camera::MODE_HEAVY) {
             refreshCamera(info);
