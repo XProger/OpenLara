@@ -123,7 +123,7 @@ typedef unsigned long long uint64;
 
 #define ALIGNADDR(x, a)    (((x) + ((a) - 1)) & ~((a) - 1))
 #define COUNT(arr)         int(sizeof(arr) / sizeof(arr[0]))
-#define OFFSETOF(T, E)     ((size_t)&(((T*)0)->E))
+#define OFFSETOF(T, E)     offsetof(T, E)
 #define TEST_BIT(arr, bit) ((arr[bit / 32] >> (bit % 32)) & 1)
 
 template <typename T>
