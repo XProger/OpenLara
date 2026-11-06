@@ -2085,7 +2085,7 @@ namespace TR {
         enum ActiveState { asNone, asActive, asInactive };
         enum Type        { NONE = 0, TR_TYPES(DECL_ENUM) TYPE_MAX = 0xFFFF };
 
-        Type    type;
+        Type    type = Entity::Type::NONE;
         int16   room;
         int32   x, y, z;
         angle   rotation;

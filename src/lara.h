@@ -296,7 +296,7 @@ struct Lara : Character {
         Controller      *target;         // target for shooting
         quat            rot, rotAbs;
 
-        Weapon::Anim::Type anim;
+        Weapon::Anim::Type anim = Weapon::Anim::Type::NONE;
         Animation          animation;
 
         Arm() : tracking(NULL), target(NULL) {}
@@ -506,6 +506,7 @@ struct Lara : Character {
         braid[0] = braid[1] = NULL;
 
         itemHolster  = TR::Entity::NONE;
+        usedItem = TR::Entity::NONE;
         hitTimer     = 0.0f;
         networkInput = -1;
 
