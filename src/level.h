@@ -795,11 +795,12 @@ struct Level : IGame {
     }
 
     virtual void addMuzzleFlash(Controller *owner, int joint, const vec3 &offset, int lightIndex) {
-        MuzzleFlash *mf = (MuzzleFlash*)addEntity(TR::Entity::MUZZLE_FLASH, owner->getRoomIndex(), offset, 0);
+        MuzzleFlash *mf = (MuzzleFlash*)addEntity(TR::Entity::MUZZLE_FLASH, owner->getRoomIndex(), owner->getJoint(joint).pos + offset, 0);
         if (mf) {
             mf->owner      = owner;
             mf->joint      = joint;
             mf->lightIndex = lightIndex;
+            mf->setPositionOffset(offset);
         }
     }
 

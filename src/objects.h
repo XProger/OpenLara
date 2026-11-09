@@ -230,11 +230,16 @@ struct MuzzleFlash : Controller {
     Controller *owner;
     int        joint;
     int        lightIndex;
+    vec3       positionOffset;
 
     MuzzleFlash(IGame *game, int entity) : Controller(game, entity), owner(NULL), joint(0), lightIndex(-1) {
-        pos.z += (level->version & (TR::VER_TR2 | TR::VER_TR3)) ? 180.0f : 150.0f;
         activate();
         timer = 0.0f;
+    }
+
+    void setPositionOffset(const vec3& offset) {
+    	positionOffset = offset;
+    	positionOffset.z += (level->version & (TR::VER_TR2 | TR::VER_TR3)) ? 180.0f : 150.0f;
     }
 
     virtual bool getSaveData(SaveEntity &data) {
@@ -285,7 +290,7 @@ struct MuzzleFlash : Controller {
         Basis b = owner->getJoint(joint);
         b.w = 1.0f;
         b.rotate(quat(vec3(1, 0, 0), -PI * 0.5f));
-        b.translate(pos);
+        b.translate(positionOffset);
         if (level->version & (TR::VER_TR2 | TR::VER_TR3))
             lum = alpha;
 
