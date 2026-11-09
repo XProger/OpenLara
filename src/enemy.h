@@ -215,17 +215,22 @@ struct Enemy : Character {
     }
 
     void setOverrides(bool active, int chest, int head) {
-        if (active && head  > -1) {
-            animation.overrides[head] = animation.getJointRot(head);
-            animation.overrideMask |=  (1 << head);
-        } else
-            animation.overrideMask &= ~(1 << head);
+        // head and chest values can be -1 which signifies that they should be ignored.
+        if (head > -1) {
+            if (active) {
+                animation.overrides[head] = animation.getJointRot(head);
+                animation.overrideMask |=  (1 << head);
+            } else
+                animation.overrideMask &= ~(1 << head);
+        }
 
-        if (active && chest  > -1) {
-            animation.overrides[chest] = animation.getJointRot(chest);
-            animation.overrideMask |=  (1 << chest);
-        } else
-            animation.overrideMask &= ~(1 << chest);
+        if (chest > -1) {
+            if (active) {
+                animation.overrides[chest] = animation.getJointRot(chest);
+                animation.overrideMask |=  (1 << chest);
+            } else
+                animation.overrideMask &= ~(1 << chest);
+        }
     }
 
     bool targetIsVisible(float maxDist) {
