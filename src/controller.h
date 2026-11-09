@@ -1236,7 +1236,14 @@ struct Controller {
                 }
 
                 if (p.y >= floor) {
-                    p.y = floor;
+                    // NO_FLOOR sectors use limit values for floor heights, 
+                    // causing integer overflows during distance calculations
+                    // and placing explosion sprites out of player view
+                    // when assigning that height position to the explosion sprite. 
+                    // Instead we retain the current y-position to prevent overflow.
+                    if (sector->floor != TR::NO_FLOOR) {
+                        p.y = floor;
+                    }
                     part.damage = 0.0f;
                     explode = true;
                 }
