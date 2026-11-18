@@ -1293,6 +1293,19 @@ namespace Sound {
 
     Sample* play(Stream *stream, const vec3 *pos = NULL, float volume = 1.0f, float pitch = 0.0f, int flags = 0, int id = - 1)
     {
+    #if !defined(NO_SOUND) && defined(_OS_PSP)
+        // Music: create the decoder before taking the mixer lock. Opening an OGG track takes hundreds
+        // of ms on the PSP; holding the lock meanwhile blocks the audio thread and every sound effect.
+        if (stream && (flags & MUSIC) && !(flags & (UNIQUE | REPLAY)) && volume > 0.001f) {
+            Sample *sample = new Sample(stream, pos, volume, pitch, flags, id);
+            OS_LOCK(lock);
+            if (channelsCount < SND_CHANNELS_MAX)
+                return channels[channelsCount++] = sample;
+            LOG("! no free channels\n");
+            delete sample;
+            return NULL;
+        }
+    #endif
     #ifndef NO_SOUND
         OS_LOCK(lock);
 

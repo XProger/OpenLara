@@ -31,6 +31,10 @@ extern Array<SaveSlot> saveSlots;
 extern SaveResult saveResult;
 extern int loadSlot;
 
+#ifdef _OS_PSP
+    #include <pspthreadman.h>
+#endif
+
 struct Level : IGame {
 
     TR::Level   level;
@@ -926,10 +930,52 @@ struct Level : IGame {
             flags |= Sound::LOOP;
 
         waitTrack = true;
+    #ifdef _OS_PSP
+        // Opening a music track (file read + OGG decoder setup) takes ~200 ms on the PSP, which froze
+        // the game whenever a trigger started music. Start it in a low priority thread instead;
+        // cutscenes keep the synchronous start, they sync their timing to the track.
+        if (!level.isCutsceneLevel()) {
+            trackThreadWait();
+            TrackJob *job = new TrackJob(this, track, flags);
+            trackThread = sceKernelCreateThread("music_open", trackThreadFunc, 0x30, 64 * 1024, PSP_THREAD_ATTR_USER, NULL);
+            if (trackThread >= 0) {
+                sceKernelStartThread(trackThread, sizeof(job), &job);
+                UI::showSubs(TR::getSubs(level.version, track));
+                return;
+            }
+            delete job;
+        }
+    #endif
         TR::getGameTrack(level.version, track, playAsync, new TrackRequest(this, flags));
 
         UI::showSubs(TR::getSubs(level.version, track));
     }
+
+#ifdef _OS_PSP
+    SceUID trackThread;
+
+    struct TrackJob {
+        Level *level;
+        int   track, flags;
+        TrackJob(Level *level, int track, int flags) : level(level), track(track), flags(flags) {}
+    };
+
+    static int trackThreadFunc(SceSize args, void *argp) {
+        TrackJob *job = *(TrackJob**)argp;
+        TR::getGameTrack(job->level->level.version, job->track, playAsync, new TrackRequest(job->level, job->flags));
+        delete job;
+        return 0;
+    }
+
+    // a running track start must finish before the next one or before the level is destroyed
+    void trackThreadWait() {
+        if (trackThread >= 0) {
+            sceKernelWaitThreadEnd(trackThread, NULL);
+            sceKernelDeleteThread(trackThread);
+            trackThread = -1;
+        }
+    }
+#endif
 
     virtual void stopTrack() {
         playTrack(0xFF);
@@ -937,6 +983,9 @@ struct Level : IGame {
 //==============================
 
     Level(Stream &stream) : level(stream), waitTrack(false), isEnded(false), cutsceneWaitTimer(0.0f), animTexTimer(0.0f), statsTimeDelta(0.0f) {
+    #ifdef _OS_PSP
+        trackThread = -1;
+    #endif
         paused = false;
 
         level.simpleItems = Core::settings.detail.simple == 1;
@@ -1051,6 +1100,9 @@ struct Level : IGame {
     }
 
     virtual ~Level() {
+    #ifdef _OS_PSP
+        trackThreadWait();
+    #endif
         UI::init(NULL);
 
         Network::stop();

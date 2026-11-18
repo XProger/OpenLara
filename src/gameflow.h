@@ -1275,17 +1275,27 @@ namespace TR {
             switch (version) {
                 case VER_TR1_SAT :
                 case VER_TR1_PC  :
-                case VER_TR1_PSX :
+                case VER_TR1_PSX : {
+                    // remember tracks that were not found: the search probes up to 18 file names,
+                    // which stalls the game for a few hundred ms on slow storage (PSP)
+                    static uint8 missing[256 / 8];
+                    int trackId = track & 0xFF;
+                    if (missing[trackId >> 3] & (1 << (trackId & 7))) {
+                        callback(NULL, userData);
+                        return;
+                    }
                     sprintf(title, "track_%02d", track);
                     if (!checkTrack("", title) && !checkTrack("audio/1/", title) && !checkTrack("audio/", title)) {
                         track = remapTrack(version, track);
                         sprintf(title, "%03d", track);
                         if (!checkTrack("", title) && !checkTrack("audio/1/", title) && !checkTrack("audio/", title)) {
+                            missing[trackId >> 3] |= 1 << (trackId & 7);
                             callback(NULL, userData);
                             return;
                         }
                     }
                     break;
+                }
                 case VER_TR2_PC  :
                 case VER_TR2_PSX :
                     //if (Stream::existsContent("audio/cdaudio.mp3")) {
