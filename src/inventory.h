@@ -958,6 +958,7 @@ struct Inventory {
     }
 
     float getAngle(int index, int count) {
+        if (count <= 0) return 0.0f; // empty page (the PSP FPU traps on division by zero)
         return PI * 2.0f / float(count) * index;
     }
 
