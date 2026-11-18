@@ -281,6 +281,13 @@ enum StringID {
 
 #define LANG_PREFIXES "_EN", "_FR", "_DE", "_ES", "_IT", "_PL", "_PT", "_RU", "_JA", "_GR", "_FI", "_CZ", "_CN", "_HU", "_SV", "_KO"
 
+// gamepad button names (JoyKey order)
+#ifdef _OS_PSP // mapping in platform/psp/main.cpp
+    #define STR_JOYS "NONE", "CROSS", "CIRCLE", "SQUARE", "TRIANGLE", "L", "R", "SELECT", "START", "ANALOG", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
+#else
+    #define STR_JOYS "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
+#endif
+
 #define STR_KEYS \
       "NONE", "LEFT", "RIGHT", "UP", "DOWN", "SPACE", "TAB", "ENTER", "ESCAPE", "SHIFT", "CTRL", "ALT" \
     , "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" \
@@ -289,7 +296,7 @@ enum StringID {
     , "PAD0", "PAD1", "PAD2", "PAD3", "PAD4", "PAD5", "PAD6", "PAD7", "PAD8", "PAD9", "PAD+", "PAD-", "PADx", "PAD/", "PAD." \
     , "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12" \
     , "-", "+", "<", ">", "/", "\\", ",", ".", "$", ":", "'", "PGUP", "PGDN", "HOME", "END", "DEL", "INS", "BKSP" \
-    , "NONE", "A", "B", "X", "Y", "L BUMPER", "R BUMPER", "SELECT", "START", "L STICK", "R STICK", "L TRIGGER", "R TRIGGER", "D-LEFT", "D-RIGHT", "D-UP", "D-DOWN"
+    , STR_JOYS
 
 #define STR_SCALE "25", "50", "75", "100"
 
