@@ -724,6 +724,30 @@ namespace UI {
             mesh->addDynFrame(pos - 2.0f, size + 4.0f, brColor1, brColor2);
         if (bgColor != 0)
             mesh->addDynBar(whiteSprite, pos - 1.0f, size + 2.0f, bgColor);
+    #ifdef _GAPI_GU
+        // The GU path has no texture atlas, so the generated bar textures (CommonTexData in level.h)
+        // do not exist and the bar sampled an arbitrary palette color. Draw their 5 rows as strips.
+        if (type == CTEX_FLASH || type == CTEX_HEALTH || type == CTEX_OXYGEN) {
+            static const uint32 rows[3][5] = { // same values as CommonTexData (ABGR)
+                { 0x00000000, 0xFFA20058, 0xFFFFFFFF, 0xFFA20058, 0x00000000 }, // flash
+                { 0xFF2C5D71, 0xFF5E81AE, 0xFF2C5D71, 0xFF1B4557, 0xFF16304F }, // health
+                { 0xFF647464, 0xFFA47848, 0xFF647464, 0xFF4C504C, 0xFF303030 }, // oxygen
+            };
+            if (fgColor != 0 && value > 0.0f) {
+                const uint32 *row = rows[type - CTEX_FLASH];
+                for (int r = 0; r < 5; r++) {
+                    int y0 = int(pos.y + size.y * r / 5.0f);
+                    int y1 = int(pos.y + size.y * (r + 1) / 5.0f);
+                    if (y1 <= y0) continue;
+                    uint32 c = 0;
+                    for (int k = 0; k < 32; k += 8)
+                        c |= ((((row[r] >> k) & 0xFF) * ((fgColor >> k) & 0xFF) / 255) & 0xFF) << k;
+                    mesh->addDynBar(whiteSprite, vec2(pos.x, float(y0)), vec2(size.x * value, float(y1 - y0)), c);
+                }
+            }
+            return;
+        }
+    #endif
         if ((fgColor != 0 || fgColor2 != 0) && value > 0.0f)
             mesh->addDynBar(CommonTex[type], pos, vec2(size.x * value, size.y), fgColor, fgColor2);
     }
