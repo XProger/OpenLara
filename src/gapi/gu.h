@@ -381,7 +381,8 @@ namespace GAPI {
     
     // from other gapi, could be improved??
     void setScissor(const short4 &s) {
-        sceGuScissor(s.x, Core::viewportDef.w - (s.y + s.w), s.x + s.z, Core::viewportDef.w - s.y);
+        // sceGuScissor takes x, y, width, height (stop = start + size - 1)
+        sceGuScissor(s.x, Core::viewportDef.w - (s.y + s.w), s.z, s.w);
     }
 
     void setDepthTest(bool enable) {
