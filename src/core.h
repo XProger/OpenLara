@@ -1069,6 +1069,7 @@ namespace Core {
 
     #ifdef _OS_PSP
         settings.audio.reverb = false;
+        settings.ctrlIndex    = 1; // no keyboard: show and remap the PSP buttons
     #endif
 
     #ifdef _OS_PSV
