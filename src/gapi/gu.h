@@ -5,6 +5,8 @@
 
 #include <pspgu.h>
 #include <pspgum.h>
+#include <pspkernel.h>
+#include <malloc.h>
 
 #define PROFILE_MARKER(title)
 #define PROFILE_LABEL(id, name, label)
@@ -194,6 +196,7 @@ namespace GAPI {
     int cullMode, blendMode;
 
     uint32 *cmdBuf = NULL;
+    enum { CMD_BUF_SIZE = 262144 * 4 };
     void   *curBackBuffer;
 
     static int EDRAM_OFFSET;
@@ -215,8 +218,13 @@ namespace GAPI {
     }
 
     void beginCmdBuf() {
-        if (!cmdBuf)
-            cmdBuf = new uint32[262144];
+        if (!cmdBuf) {
+            // libpspgu writes the display list through the uncached mirror (| 0x40000000). Dirty data
+            // cache lines left over from earlier heap use would later be written back over the commands
+            // and the GE executes garbage. Align the buffer to cache lines and drop any cached lines.
+            cmdBuf = (uint32*)memalign(64, CMD_BUF_SIZE);
+            sceKernelDcacheWritebackInvalidateRange(cmdBuf, CMD_BUF_SIZE);
+        }
         sceGuStart(GU_DIRECT, cmdBuf);
     }
 
@@ -296,7 +304,7 @@ namespace GAPI {
     }
 
     void deinit() {
-        delete[] cmdBuf;
+        free(cmdBuf);
     }
 
     inline mat4::ProjRange getProjRange() {
